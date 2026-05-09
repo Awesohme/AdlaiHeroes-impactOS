@@ -38,6 +38,17 @@ Before real beneficiary data:
 - Secret/server key absent from client bundle.
 - Backup and restore tested.
 
+## Google OAuth Redirects
+
+In Supabase Authentication -> URL Configuration, add:
+
+```text
+http://localhost:3000/auth/callback
+https://<vercel-production-domain>/auth/callback
+```
+
+Set `NEXT_PUBLIC_SITE_URL` in Vercel to the production app URL so OAuth redirects back to the correct callback route.
+
 ## Key Check
 
 If the app cannot read Supabase after env vars are set, re-copy the keys from Supabase Project Settings -> API. A valid key must belong to the same project ref as `NEXT_PUBLIC_SUPABASE_URL`.

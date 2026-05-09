@@ -1,5 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
 import { programmeRows } from "@/lib/sample-records";
+import { hasSupabaseBrowserEnv } from "@/lib/env";
+import { createClient } from "@/lib/supabase/server";
 
 export type ProgrammeRow = {
   programme_code: string;
@@ -21,10 +22,7 @@ export async function getProgrammes(): Promise<{
   source: "supabase" | "mock";
   error?: string;
 }> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseAnonKey) {
+  if (!hasSupabaseBrowserEnv()) {
     return {
       rows: mockProgrammes(),
       source: "mock",
@@ -32,11 +30,7 @@ export async function getProgrammes(): Promise<{
     };
   }
 
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      persistSession: false,
-    },
-  });
+  const supabase = await createClient();
 
   const { data, error } = await supabase
     .from("programmes")

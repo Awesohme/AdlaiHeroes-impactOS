@@ -39,9 +39,13 @@ Required environment variables:
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
+NEXT_PUBLIC_SITE_URL=
 ```
 
 Do not add `SUPABASE_SECRET_KEY` until a server-only route or scheduled job requires it.
+
+For local OAuth callbacks, set `NEXT_PUBLIC_SITE_URL=http://localhost:3000`.
+For Vercel production, set it to the deployed app URL.
 
 ## Launch Gates
 

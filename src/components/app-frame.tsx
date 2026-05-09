@@ -31,6 +31,7 @@ export function AppFrame({
         <div className="sidebar-note">
           <span>Phase 1</span>
           <p>Supabase records. Google Drive files. Sheets exports. Vercel frontend.</p>
+          <Link href="/auth/sign-out">Sign out</Link>
         </div>
       </aside>
       <section className="workspace">

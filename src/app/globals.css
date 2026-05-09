@@ -525,6 +525,15 @@ h3 {
   line-height: 1.55;
 }
 
+.sidebar-note a {
+  display: inline-flex;
+  margin-top: 12px;
+  color: var(--leaf-dark);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
 .workspace {
   width: min(100%, 1180px);
   padding: 34px;
@@ -732,4 +741,47 @@ tbody tr:last-child td {
   .content-grid {
     grid-template-columns: 1fr;
   }
+}
+
+.auth-page {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at top left, rgba(224, 168, 58, 0.22), transparent 26rem),
+    linear-gradient(135deg, #fff8e8 0%, #edf6ee 55%, #f9efe6 100%);
+}
+
+.auth-card {
+  width: min(100%, 560px);
+  padding: clamp(28px, 6vw, 54px);
+  border: 1px solid var(--line);
+  border-radius: 34px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: var(--shadow);
+}
+
+.auth-card h1 {
+  margin-bottom: 16px;
+  color: var(--ink);
+  font-size: clamp(2.7rem, 7vw, 5rem);
+}
+
+.auth-card p {
+  color: var(--muted);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  line-height: 1.7;
+}
+
+.auth-card .button {
+  margin-top: 22px;
+}
+
+.auth-card__back {
+  display: block;
+  margin-top: 18px;
+  color: var(--muted);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-weight: 800;
 }

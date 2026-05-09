@@ -2,9 +2,10 @@
 
 ## Now
 
-- Implement protected Supabase auth before real CRUD.
-- Replace temporary public programme read policy before real data.
 - Confirm Vercel is reading live Programme rows with the public demo policy.
+- Configure Google OAuth redirect URLs in Supabase.
+- Test login on Vercel with an approved Google account.
+- Replace temporary public programme read policy before real data.
 
 ## Next
 
