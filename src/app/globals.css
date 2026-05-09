@@ -606,6 +606,30 @@ h3 {
   padding: 24px;
 }
 
+.data-banner {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 13px 16px;
+  border: 1px solid rgba(191, 104, 71, 0.28);
+  border-radius: 18px;
+  background: #fff4dc;
+  color: #7d4c03;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+.data-banner--live {
+  border-color: rgba(31, 107, 77, 0.24);
+  background: #e8f5ee;
+  color: var(--leaf-dark);
+}
+
+.data-banner span {
+  color: inherit;
+  opacity: 0.82;
+}
+
 .workspace-card h2 {
   margin-bottom: 18px;
   font-size: 1.8rem;

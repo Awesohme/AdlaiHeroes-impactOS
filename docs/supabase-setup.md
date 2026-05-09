@@ -30,3 +30,7 @@ Before real beneficiary data:
 - Admin user created.
 - Service-role key absent from client bundle.
 - Backup and restore tested.
+
+## Key Check
+
+If the app cannot read Supabase after env vars are set, re-copy the keys from Supabase Project Settings -> API. A valid key must belong to the same project ref as `NEXT_PUBLIC_SUPABASE_URL`.
