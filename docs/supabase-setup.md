@@ -34,3 +34,9 @@ Before real beneficiary data:
 ## Key Check
 
 If the app cannot read Supabase after env vars are set, re-copy the keys from Supabase Project Settings -> API. A valid key must belong to the same project ref as `NEXT_PUBLIC_SUPABASE_URL`.
+
+## Development Seed
+
+To confirm the deployed app can read from Supabase, run `supabase/seed-dev.sql` in SQL Editor. It inserts non-sensitive demo programmes and adds a temporary public read policy for `programmes`.
+
+Remove or replace the `dev_read_programmes` policy before real data entry.
