@@ -9,7 +9,14 @@ NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 ```
 
-Keep `SUPABASE_SERVICE_ROLE_KEY` server-side only. Never commit `.env.local`.
+Supabase now shows two key sections:
+
+- Publishable key: safe for browser use when RLS is configured. Prefer this for `NEXT_PUBLIC_SUPABASE_ANON_KEY` if available.
+- Secret key: full-access server key. Use only as `SUPABASE_SECRET_KEY` in server-side jobs/functions. Never expose it in the browser.
+
+Legacy JWT anon keys can still work, but the current Supabase UI recommends publishable keys for client apps and secret keys for server apps.
+
+Never commit `.env.local`.
 
 ## Initial Schema
 
@@ -28,12 +35,18 @@ Before real beneficiary data:
 - Google OAuth configured.
 - RLS policies tested.
 - Admin user created.
-- Service-role key absent from client bundle.
+- Secret/server key absent from client bundle.
 - Backup and restore tested.
 
 ## Key Check
 
 If the app cannot read Supabase after env vars are set, re-copy the keys from Supabase Project Settings -> API. A valid key must belong to the same project ref as `NEXT_PUBLIC_SUPABASE_URL`.
+
+Known-good checks:
+
+- The current anon key can read demo programmes after `seed-dev.sql` is run.
+- The new `sb_secret_...` key works for privileged REST checks.
+- The legacy JWT `service_role` key may be disabled/invalid when the project has moved to Supabase's newer key system.
 
 ## Development Seed
 
