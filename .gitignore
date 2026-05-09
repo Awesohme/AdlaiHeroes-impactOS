@@ -7,4 +7,5 @@ supabase/.temp
 dist
 coverage
 *.log
+tsconfig.tsbuildinfo
 reference-images
