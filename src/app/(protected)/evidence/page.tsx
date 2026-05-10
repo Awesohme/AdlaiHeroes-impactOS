@@ -1,6 +1,9 @@
+import Link from "next/link";
 import { AppFrame } from "@/components/app-frame";
+import { Button } from "@/components/ui/button";
 import { EvidenceOverview } from "@/components/evidence/evidence-overview";
 import { getEvidenceRecords } from "@/lib/evidence";
+import { Upload } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -14,10 +17,16 @@ export default async function EvidencePage({
 
   return (
     <AppFrame
-      eyebrow="Evidence library"
+      eyebrow="Library"
       title="Evidence"
-      description="Google Drive stores the files; Supabase stores the metadata, verification state, and report links."
-      action={<a className="button button--primary" href="/evidence/new">Upload evidence</a>}
+      description="Drive stores files; Supabase stores metadata, verification, and report links."
+      action={
+        <Button size="sm" asChild>
+          <Link href="/evidence/new" prefetch={false}>
+            <Upload className="h-4 w-4" /> Upload
+          </Link>
+        </Button>
+      }
     >
       <EvidenceOverview
         created={params.created === "1"}

@@ -11,9 +11,9 @@ export default async function BeneficiariesPage() {
 
   return (
     <AppFrame
-      eyebrow="Beneficiary registry"
+      eyebrow="Registry"
       title="Beneficiaries"
-      description="Search, review, and manage beneficiary profiles with programme-aware filters, consent visibility, and safeguarding context."
+      description="Search, review, and follow up on beneficiary records with programme-aware filters."
     >
       <BeneficiariesOverview
         error={beneficiaries.error}

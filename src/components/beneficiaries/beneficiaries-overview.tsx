@@ -3,6 +3,33 @@
 import { useState } from "react";
 import type { BeneficiaryRow } from "@/lib/beneficiaries";
 import type { ProgrammeRow } from "@/lib/programmes";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Search, Info, Plus } from "lucide-react";
 
 export function BeneficiariesOverview({
   rows,
@@ -19,7 +46,7 @@ export function BeneficiariesOverview({
   const [programmeFilter, setProgrammeFilter] = useState("all");
   const [safeguardingFilter, setSafeguardingFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [selectedCode, setSelectedCode] = useState(rows[0]?.beneficiary_code ?? "");
+  const [selectedCode, setSelectedCode] = useState<string | null>(null);
 
   const filteredRows = rows.filter((row) => {
     const queryMatch =
@@ -30,12 +57,11 @@ export function BeneficiariesOverview({
     const programmeMatch = programmeFilter === "all" || row.programme_name === programmeFilter;
     const safeguardingMatch = safeguardingFilter === "all" || row.risk_flag === safeguardingFilter;
     const statusMatch = statusFilter === "all" || row.current_status === statusFilter;
-
     return queryMatch && programmeMatch && safeguardingMatch && statusMatch;
   });
 
-  const selected = filteredRows.find((row) => row.beneficiary_code === selectedCode) ?? filteredRows[0] ?? rows[0];
-  const programmeNames = [...new Set(programmes.map((programme) => programme.name))];
+  const selected = rows.find((row) => row.beneficiary_code === selectedCode) ?? null;
+  const programmeNames = [...new Set(programmes.map((p) => p.name))];
   const metrics = {
     total: rows.length,
     consentCaptured: rows.filter((row) => row.consent_status.includes("captured")).length,
@@ -43,181 +69,255 @@ export function BeneficiariesOverview({
     active: rows.filter((row) => row.current_status === "active").length,
   };
 
+  const counters = [
+    { label: "Total", value: metrics.total, hint: "All records" },
+    { label: "Consent captured", value: metrics.consentCaptured, hint: "Ready for use" },
+    { label: "Safeguarding watch", value: metrics.flagged, hint: "Needs review" },
+    { label: "Active", value: metrics.active, hint: "In programme" },
+  ];
+
   return (
-    <>
+    <div className="space-y-6">
       {source === "mock" ? (
-        <div className="data-banner">
-          <strong>Beneficiary fallback data active.</strong>
-          <span>{error ?? "Live beneficiary records are still sparse, so the registry is using the shaped fallback set."}</span>
+        <div className="flex gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <Info className="h-4 w-4 mt-0.5 shrink-0" />
+          <span>{error ?? "Showing fallback data."}</span>
         </div>
-      ) : (
-        <div className="data-banner data-banner--live">
-          <strong>Live beneficiary registry.</strong>
-          <span>The selected detail panel and filters are reading secure beneficiary records with real programme context.</span>
-        </div>
-      )}
+      ) : null}
 
-      <section className="dashboard-metrics">
-        <article className="dashboard-metric-card">
-          <span>Total Beneficiaries</span>
-          <strong>{metrics.total}</strong>
-          <p>People with structured beneficiary records linked to programme operations.</p>
-        </article>
-        <article className="dashboard-metric-card">
-          <span>Consent Captured</span>
-          <strong>{metrics.consentCaptured}</strong>
-          <p>Records currently ready for evidence and operational use.</p>
-        </article>
-        <article className="dashboard-metric-card">
-          <span>Safeguarding Watch</span>
-          <strong>{metrics.flagged}</strong>
-          <p>Profiles needing a closer human review before wider operational use.</p>
-        </article>
-        <article className="dashboard-metric-card">
-          <span>Active In Programme</span>
-          <strong>{metrics.active}</strong>
-          <p>Beneficiaries currently active across the linked programme stack.</p>
-        </article>
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {counters.map((stat) => (
+          <Card key={stat.label}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                {stat.label}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-semibold tracking-tight">{stat.value}</div>
+              <p className="mt-1 text-xs text-muted-foreground">{stat.hint}</p>
+            </CardContent>
+          </Card>
+        ))}
       </section>
 
-      <section className="registry-layout">
-        <article className="workspace-card registry-panel">
-          <div className="registry-toolbar">
-            <input
-              className="search-input"
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search by name, ID or phone..."
-              type="search"
-              value={query}
+      <Card>
+        <CardHeader className="border-b space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative w-full sm:max-w-xs">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search by name, ID, or phone…"
+                className="pl-9"
+              />
+            </div>
+            <Button size="sm" className="ml-auto" disabled>
+              <Plus className="h-4 w-4" /> Add beneficiary
+            </Button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <FilterSelect
+              label="Programme"
+              value={programmeFilter}
+              onChange={setProgrammeFilter}
+              options={programmeNames}
             />
-            <div className="registry-toolbar__actions">
-              <button className="button button--ghost button--compact" type="button">
-                Import Beneficiaries
-              </button>
-              <button className="button button--primary button--compact" type="button">
-                Add Beneficiary
-              </button>
-            </div>
+            <FilterSelect
+              label="Safeguarding"
+              value={safeguardingFilter}
+              onChange={setSafeguardingFilter}
+              options={["clear", "review"]}
+              formatter={formatStatus}
+            />
+            <FilterSelect
+              label="Status"
+              value={statusFilter}
+              onChange={setStatusFilter}
+              options={["active", "pending", "follow_up", "exited"]}
+              formatter={formatStatus}
+            />
+            <span className="ml-auto text-xs text-muted-foreground">
+              {filteredRows.length} of {rows.length}
+            </span>
           </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>ID</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Programme</TableHead>
+                <TableHead>Community</TableHead>
+                <TableHead>Last activity</TableHead>
+                <TableHead>Consent</TableHead>
+                <TableHead>Risk</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredRows.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-10 text-sm text-muted-foreground">
+                    No beneficiaries match the current filters.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredRows.map((row) => (
+                  <TableRow
+                    key={row.beneficiary_code}
+                    className="cursor-pointer"
+                    onClick={() => setSelectedCode(row.beneficiary_code)}
+                  >
+                    <TableCell className="text-xs text-muted-foreground font-mono">
+                      {row.beneficiary_code}
+                    </TableCell>
+                    <TableCell className="font-medium">{row.full_name}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {row.programme_name}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{row.community}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                      {row.last_activity}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={row.consent_status.includes("captured") ? "default" : "secondary"}
+                        className="font-normal"
+                      >
+                        {formatStatus(row.consent_status)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={row.risk_flag === "review" ? "destructive" : "secondary"}
+                        className="font-normal"
+                      >
+                        {row.risk_flag === "review" ? "Review" : "Clear"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={row.current_status === "active" ? "default" : "secondary"}
+                        className="font-normal"
+                      >
+                        {formatStatus(row.current_status)}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
-          <div className="portfolio-filters">
-            <FilterSelect label="Programme" onChange={setProgrammeFilter} options={["all", ...programmeNames]} value={programmeFilter} />
-            <FilterSelect label="Safeguarding" onChange={setSafeguardingFilter} options={["all", "clear", "review"]} value={safeguardingFilter} />
-            <FilterSelect label="Status" onChange={setStatusFilter} options={["all", "active", "pending", "follow_up", "exited"]} value={statusFilter} />
-          </div>
-
-          <div className="registry-table">
-            <div className="registry-table__head">
-              <span>Beneficiary ID</span>
-              <span>Name</span>
-              <span>Programme</span>
-              <span>Community</span>
-              <span>Last Activity</span>
-              <span>Consent</span>
-              <span>Risk Flag</span>
-              <span>Current Status</span>
-            </div>
-            {filteredRows.map((row) => (
-              <button
-                className={`registry-row${selected?.beneficiary_code === row.beneficiary_code ? " registry-row--active" : ""}`}
-                key={row.beneficiary_code}
-                onClick={() => setSelectedCode(row.beneficiary_code)}
-                type="button"
-              >
-                <span>{row.beneficiary_code}</span>
-                <strong>{row.full_name}</strong>
-                <span>{row.programme_name}</span>
-                <span>{row.community}</span>
-                <span>{row.last_activity}</span>
-                <span className={`status-pill status-pill--${row.consent_status.includes("captured") ? "active" : "planned"}`}>
-                  {formatStatus(row.consent_status)}
-                </span>
-                <span className={`status-pill status-pill--${row.risk_flag === "review" ? "monitoring" : "active"}`}>
-                  {row.risk_flag === "review" ? "Review" : "Clear"}
-                </span>
-                <span className={`status-pill status-pill--${row.current_status === "active" ? "active" : row.current_status === "follow_up" ? "monitoring" : "planned"}`}>
-                  {formatStatus(row.current_status)}
-                </span>
-              </button>
-            ))}
-          </div>
-        </article>
-
-        {selected ? (
-          <aside className="workspace-card registry-detail">
-            <div className="registry-detail__hero">
-              <div className="avatar-shell">{selected.full_name.slice(0, 2).toUpperCase()}</div>
-              <div>
-                <h2>{selected.full_name}</h2>
-                <p>{selected.beneficiary_code}</p>
-                <span>{selected.programme_name}</span>
-              </div>
-            </div>
-
-            <div className="registry-badges">
-              <span className="status-pill status-pill--active">{formatStatus(selected.consent_status)}</span>
-              <span className={`status-pill status-pill--${selected.risk_flag === "review" ? "monitoring" : "active"}`}>
-                {selected.risk_flag === "review" ? "Safeguarding Review" : "Risk Clear"}
-              </span>
-              <span className="status-pill status-pill--planned">{formatStatus(selected.current_status)}</span>
-            </div>
-
-            <div className="detail-section">
-              <h3>Personal & Contact Information</h3>
-              <dl>
-                <div>
-                  <dt>Guardian / Caregiver</dt>
-                  <dd>{selected.guardian_name}</dd>
-                </div>
-                <div>
-                  <dt>Phone</dt>
-                  <dd>{selected.guardian_phone}</dd>
-                </div>
-                <div>
-                  <dt>Community</dt>
-                  <dd>{selected.community}</dd>
-                </div>
-                <div>
-                  <dt>State</dt>
-                  <dd>{selected.state}</dd>
-                </div>
-                <div>
-                  <dt>School</dt>
-                  <dd>{selected.school_name}</dd>
-                </div>
-              </dl>
-            </div>
-
-            <div className="detail-section">
-              <h3>Programme Participation</h3>
-              <div className="detail-card">
-                <strong>{selected.programme_name}</strong>
-                <p>{selected.programme_code ?? "Programme code not linked yet"}</p>
-                <div className="detail-chip-list">
-                  {selected.programme_modules.length ? (
-                    selected.programme_modules.map((module) => <span className="field-chip" key={module}>{formatStatus(module)}</span>)
-                  ) : (
-                    <span className="field-chip">Modules pending</span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="detail-section">
-              <h3>Participation Signals</h3>
-              <div className="detail-list">
-                {selected.highlights.map((highlight) => (
-                  <div className="distribution-row" key={highlight}>
-                    <span>{formatStatus(highlight)}</span>
-                    <strong>Live</strong>
+      <Sheet open={!!selected} onOpenChange={(open) => !open && setSelectedCode(null)}>
+        <SheetContent className="sm:max-w-md overflow-y-auto">
+          {selected ? (
+            <>
+              <SheetHeader>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary">
+                    {selected.full_name.slice(0, 2).toUpperCase()}
                   </div>
-                ))}
+                  <div className="min-w-0">
+                    <SheetTitle className="text-base">{selected.full_name}</SheetTitle>
+                    <SheetDescription className="font-mono text-xs">
+                      {selected.beneficiary_code}
+                    </SheetDescription>
+                  </div>
+                </div>
+              </SheetHeader>
+
+              <div className="mt-6 flex flex-wrap gap-1.5">
+                <Badge variant="default" className="font-normal">
+                  {formatStatus(selected.consent_status)}
+                </Badge>
+                <Badge
+                  variant={selected.risk_flag === "review" ? "destructive" : "secondary"}
+                  className="font-normal"
+                >
+                  {selected.risk_flag === "review" ? "Safeguarding review" : "Risk clear"}
+                </Badge>
+                <Badge variant="secondary" className="font-normal">
+                  {formatStatus(selected.current_status)}
+                </Badge>
               </div>
-            </div>
-          </aside>
-        ) : null}
-      </section>
-    </>
+
+              <DetailSection title="Personal & contact">
+                <DetailItem label="Guardian" value={selected.guardian_name} />
+                <DetailItem label="Phone" value={selected.guardian_phone} />
+                <DetailItem label="Community" value={selected.community} />
+                <DetailItem label="State" value={selected.state} />
+                <DetailItem label="School" value={selected.school_name} />
+              </DetailSection>
+
+              <DetailSection title="Programme">
+                <DetailItem label="Name" value={selected.programme_name} />
+                <DetailItem
+                  label="Code"
+                  value={selected.programme_code ?? "Not linked"}
+                />
+                {selected.programme_modules.length ? (
+                  <div className="flex flex-wrap gap-1.5 pt-2">
+                    {selected.programme_modules.map((module) => (
+                      <Badge key={module} variant="outline" className="font-normal">
+                        {formatStatus(module)}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : null}
+              </DetailSection>
+
+              {selected.highlights.length ? (
+                <DetailSection title="Signals">
+                  <ul className="space-y-1.5">
+                    {selected.highlights.map((highlight) => (
+                      <li
+                        key={highlight}
+                        className="flex justify-between text-sm border-b last:border-b-0 pb-1.5 last:pb-0"
+                      >
+                        <span className="text-muted-foreground">{formatStatus(highlight)}</span>
+                        <span className="font-medium text-emerald-600">Live</span>
+                      </li>
+                    ))}
+                  </ul>
+                </DetailSection>
+              ) : null}
+            </>
+          ) : null}
+        </SheetContent>
+      </Sheet>
+    </div>
+  );
+}
+
+function DetailSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="mt-6">
+      <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-3">
+        {title}
+      </h3>
+      <div className="space-y-2">{children}</div>
+    </section>
+  );
+}
+
+function DetailItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-4 text-sm border-b pb-1.5">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium text-right">{value}</span>
+    </div>
   );
 }
 
@@ -226,23 +326,28 @@ function FilterSelect({
   value,
   options,
   onChange,
+  formatter,
 }: {
   label: string;
   value: string;
   options: string[];
   onChange: (value: string) => void;
+  formatter?: (value: string) => string;
 }) {
   return (
-    <label className="filter-select">
-      <span>{label}</span>
-      <select onChange={(event) => onChange(event.target.value)} value={value}>
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className="h-9 w-[160px]">
+        <SelectValue placeholder={label} />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">All {label.toLowerCase()}</SelectItem>
         {options.map((option) => (
-          <option key={option} value={option}>
-            {option === "all" ? `All ${label}` : formatStatus(option)}
-          </option>
+          <SelectItem key={option} value={option}>
+            {formatter ? formatter(option) : option}
+          </SelectItem>
         ))}
-      </select>
-    </label>
+      </SelectContent>
+    </Select>
   );
 }
 

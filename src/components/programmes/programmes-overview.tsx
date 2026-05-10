@@ -3,6 +3,25 @@
 import Link from "next/link";
 import { useState } from "react";
 import type { ProgrammeRow } from "@/lib/programmes";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { ArrowUpRight, CheckCircle2, Info } from "lucide-react";
 
 export function ProgrammesOverview({
   rows,
@@ -23,82 +42,115 @@ export function ProgrammesOverview({
 
   const filteredRows = rows.filter((row) => {
     const yearMatch =
-      yearFilter === "all" || row.start_date?.startsWith(yearFilter) || row.end_date?.startsWith(yearFilter);
+      yearFilter === "all" ||
+      row.start_date?.startsWith(yearFilter) ||
+      row.end_date?.startsWith(yearFilter);
     const locationMatch = locationFilter === "all" || row.location_areas.includes(locationFilter);
     const donorMatch = donorFilter === "all" || row.donor_funder === donorFilter;
     const typeMatch = typeFilter === "all" || row.programme_type === typeFilter;
     const statusMatch = statusFilter === "all" || row.status === statusFilter;
-
     return yearMatch && locationMatch && donorMatch && typeMatch && statusMatch;
   });
 
-  const totals = getProgrammeMetrics(rows);
-  const distribution = summarizeTypes(filteredRows);
-  const budget = filteredRows.reduce((sum, row) => sum + (row.budget_ngn ?? 0), 0);
-  const activeBudget = filteredRows
-    .filter((row) => row.status === "active" || row.status === "monitoring")
-    .reduce((sum, row) => sum + (row.budget_ngn ?? 0), 0);
+  const totals = {
+    active: rows.filter((row) => row.status === "active").length,
+    planned: rows.filter((row) => row.status === "planned" || row.status === "draft").length,
+    atRisk: rows.filter((row) => row.status === "at_risk").length,
+  };
+
   const years = uniqueValues(
-    rows.flatMap((row) => [row.start_date?.slice(0, 4), row.end_date?.slice(0, 4)]).filter(Boolean) as string[],
+    rows
+      .flatMap((row) => [row.start_date?.slice(0, 4), row.end_date?.slice(0, 4)])
+      .filter(Boolean) as string[],
   );
   const locations = uniqueValues(rows.flatMap((row) => row.location_areas));
   const donors = uniqueValues(rows.map((row) => row.donor_funder).filter(Boolean));
   const types = uniqueValues(rows.map((row) => row.programme_type));
 
+  const counters = [
+    { label: "Total", value: rows.length, hint: "Saved records" },
+    {
+      label: "Active",
+      value: totals.active,
+      hint: rows.length ? `${pct(totals.active, rows.length)}%` : "—",
+    },
+    {
+      label: "Planning",
+      value: totals.planned,
+      hint: rows.length ? `${pct(totals.planned, rows.length)}%` : "—",
+    },
+    { label: "At risk", value: totals.atRisk, hint: "Flagged" },
+  ];
+
   return (
-    <>
+    <div className="space-y-6">
       {notice ? (
-        <div className="data-banner data-banner--live">
-          <strong>{notice}</strong>
-          <span>Programme setup, field configuration, and module toggles are now saved on the live workspace.</span>
+        <div className="flex gap-2 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+          <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
+          <span>{notice}</span>
         </div>
       ) : null}
 
       {source === "mock" ? (
-        <div className="data-banner">
-          <strong>Fallback data active.</strong>
-          <span>{error ?? "Connect Supabase and add richer programme records to switch this workspace fully live."}</span>
+        <div className="flex gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <Info className="h-4 w-4 mt-0.5 shrink-0" />
+          <span>{error ?? "Showing fallback data — connect Supabase to go live."}</span>
         </div>
-      ) : (
-        <div className="data-banner data-banner--live">
-          <strong>Live programme data.</strong>
-          <span>The list, metrics, filters, and edit routes are reading directly from the signed-in Supabase session.</span>
-        </div>
-      )}
+      ) : null}
 
-      <section className="dashboard-metrics">
-        <article className="dashboard-metric-card">
-          <span>Total Programmes</span>
-          <strong>{rows.length}</strong>
-          <p>Saved records across planning, delivery, and monitoring.</p>
-        </article>
-        <article className="dashboard-metric-card">
-          <span>Active Programmes</span>
-          <strong>{totals.active}</strong>
-          <p>{rows.length ? `${Math.round((totals.active / rows.length) * 100)}% of total` : "No live records yet"}</p>
-        </article>
-        <article className="dashboard-metric-card">
-          <span>Planning</span>
-          <strong>{totals.planned}</strong>
-          <p>{rows.length ? `${Math.round((totals.planned / rows.length) * 100)}% of total` : "No records yet"}</p>
-        </article>
-        <article className="dashboard-metric-card dashboard-metric-card--risk">
-          <span>At Risk</span>
-          <strong>{totals.atRisk}</strong>
-          <p>{rows.length ? `${Math.round((totals.atRisk / rows.length) * 100)}% of total` : "No flagged records"}</p>
-        </article>
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {counters.map((stat) => (
+          <Card key={stat.label}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                {stat.label}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-semibold tracking-tight">{stat.value}</div>
+              <p className="mt-1 text-xs text-muted-foreground">{stat.hint}</p>
+            </CardContent>
+          </Card>
+        ))}
       </section>
 
-      <section className="portfolio-grid">
-        <article className="workspace-card portfolio-panel">
-          <div className="portfolio-filters">
-            <FilterSelect label="Year" onChange={setYearFilter} options={["all", ...years]} value={yearFilter} />
-            <FilterSelect label="State" onChange={setLocationFilter} options={["all", ...locations]} value={locationFilter} />
-            <FilterSelect label="Donor" onChange={setDonorFilter} options={["all", ...donors]} value={donorFilter} />
-            <FilterSelect label="Programme Type" onChange={setTypeFilter} options={["all", ...types]} value={typeFilter} />
-            <FilterSelect label="Status" onChange={setStatusFilter} options={["all", "draft", "planned", "active", "monitoring", "completed", "at_risk"]} value={statusFilter} />
-            <button
-              className="button button--ghost button--compact"
+      <Card>
+        <CardHeader className="border-b">
+          <div className="flex flex-wrap items-center gap-2">
+            <FilterSelect
+              label="Year"
+              value={yearFilter}
+              onChange={setYearFilter}
+              options={years}
+            />
+            <FilterSelect
+              label="State"
+              value={locationFilter}
+              onChange={setLocationFilter}
+              options={locations}
+            />
+            <FilterSelect
+              label="Donor"
+              value={donorFilter}
+              onChange={setDonorFilter}
+              options={donors}
+            />
+            <FilterSelect
+              label="Type"
+              value={typeFilter}
+              onChange={setTypeFilter}
+              options={types}
+            />
+            <FilterSelect
+              label="Status"
+              value={statusFilter}
+              onChange={setStatusFilter}
+              options={["draft", "planned", "active", "monitoring", "completed", "at_risk"]}
+              formatter={formatStatus}
+            />
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => {
                 setYearFilter("all");
                 setLocationFilter("all");
@@ -106,111 +158,77 @@ export function ProgrammesOverview({
                 setTypeFilter("all");
                 setStatusFilter("all");
               }}
-              type="button"
             >
               Clear
-            </button>
-          </div>
-
-          <div className="portfolio-table">
-            <div className="portfolio-table__head">
-              <span>Programme</span>
-              <span>Type</span>
-              <span>Location</span>
-              <span>Dates</span>
-              <span>Beneficiaries</span>
-              <span>Budget (NGN)</span>
-              <span>Progress</span>
-              <span>Status</span>
-              <span>Actions</span>
-            </div>
-            {filteredRows.map((row) => (
-              <article className="portfolio-row" key={row.programme_code}>
-                <div>
-                  <strong>{row.name}</strong>
-                  <p>{row.programme_code}</p>
-                </div>
-                <div>
-                  <span className="type-chip">{row.programme_type}</span>
-                </div>
-                <div>
-                  <p>{row.location_areas.join(", ") || "TBD"}</p>
-                </div>
-                <div>
-                  <p>{row.timeline_label}</p>
-                </div>
-                <div>
-                  <strong>{row.expected_beneficiaries?.toLocaleString() ?? "—"}</strong>
-                </div>
-                <div>
-                  <strong>{row.budget_ngn ? row.budget_ngn.toLocaleString("en-NG") : "—"}</strong>
-                </div>
-                <div>
-                  <div className="progress-stack">
-                    <div className="progress-bar">
-                      <span style={{ width: `${Math.max(row.progress, 8)}%` }} />
-                    </div>
-                    <strong>{row.progress}%</strong>
-                  </div>
-                </div>
-                <div>
-                  <span className={`status-pill status-pill--${statusTone(row.status)}`}>{formatStatus(row.status)}</span>
-                </div>
-                <div>
-                  <Link className="row-link" href={`/programmes/${row.programme_code}/edit`} prefetch={false}>
-                    Edit
-                  </Link>
-                </div>
-              </article>
-            ))}
-          </div>
-          <div className="table-footnote">
-            <span>
-              Showing {filteredRows.length} of {rows.length} programmes
+            </Button>
+            <span className="ml-auto text-xs text-muted-foreground">
+              {filteredRows.length} of {rows.length}
             </span>
-            <span>Drafts save setup state, while publish pushes new records into the planned pipeline.</span>
           </div>
-        </article>
-
-        <aside className="portfolio-side">
-          <article className="workspace-card insight-card insight-card--compact">
-            <div className="insight-card__header">
-              <h2>Portfolio snapshot</h2>
-            </div>
-            <div className="distribution-list">
-              <div className="distribution-row">
-                <span>Top type</span>
-                <strong>{distribution[0] ? `${distribution[0].label} (${distribution[0].count})` : "No data"}</strong>
-              </div>
-              <div className="distribution-row">
-                <span>Starting This Month</span>
-                <strong>{filteredRows.filter((row) => isUpcoming(row.start_date)).length}</strong>
-              </div>
-              <div className="distribution-row">
-                <span>Ending This Quarter</span>
-                <strong>{filteredRows.filter((row) => isEndingSoon(row.end_date)).length}</strong>
-              </div>
-              <div className="distribution-row">
-                <span>At Risk</span>
-                <strong>{filteredRows.filter((row) => row.status === "at_risk").length}</strong>
-              </div>
-              <div className="distribution-row">
-                <span>Total Budget</span>
-                <strong>{budget.toLocaleString("en-NG")}</strong>
-              </div>
-              <div className="distribution-row">
-                <span>Committed</span>
-                <strong>{activeBudget.toLocaleString("en-NG")}</strong>
-              </div>
-            </div>
-            <div className="budget-progress">
-              <span style={{ width: `${budget ? Math.max(Math.round((activeBudget / budget) * 100), 8) : 8}%` }} />
-            </div>
-            <p className="insight-note">The list is the primary workspace. This panel only keeps the few portfolio signals worth glancing at.</p>
-          </article>
-        </aside>
-      </section>
-    </>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Programme</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Location</TableHead>
+                <TableHead>Dates</TableHead>
+                <TableHead className="text-right">Reach</TableHead>
+                <TableHead className="text-right">Budget (NGN)</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="w-12" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredRows.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-10">
+                    No programmes match the current filters.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredRows.map((row) => (
+                  <TableRow key={row.programme_code}>
+                    <TableCell>
+                      <div className="font-medium">{row.name}</div>
+                      <div className="text-xs text-muted-foreground">{row.programme_code}</div>
+                    </TableCell>
+                    <TableCell className="text-sm">{row.programme_type}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {row.location_areas.join(", ") || "TBD"}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                      {row.timeline_label}
+                    </TableCell>
+                    <TableCell className="text-right text-sm">
+                      {row.expected_beneficiaries?.toLocaleString() ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-right text-sm">
+                      {row.budget_ngn ? row.budget_ngn.toLocaleString("en-NG") : "—"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={statusVariant(row.status)} className="font-normal">
+                        {formatStatus(row.status)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Link
+                        href={`/programmes/${row.programme_code}/edit`}
+                        prefetch={false}
+                        className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+                      >
+                        Edit <ArrowUpRight className="h-3 w-3" />
+                      </Link>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
@@ -219,88 +237,46 @@ function FilterSelect({
   value,
   options,
   onChange,
+  formatter,
 }: {
   label: string;
   value: string;
   options: string[];
   onChange: (value: string) => void;
+  formatter?: (value: string) => string;
 }) {
   return (
-    <label className="filter-select">
-      <span>{label}</span>
-      <select onChange={(event) => onChange(event.target.value)} value={value}>
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className="h-9 w-[160px]">
+        <SelectValue placeholder={label} />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">All {label.toLowerCase()}</SelectItem>
         {options.map((option) => (
-          <option key={option} value={option}>
-            {option === "all" ? `All ${label === "Year" ? "Years" : label === "State" ? "States" : `${label}s`}` : formatStatus(option)}
-          </option>
+          <SelectItem key={option} value={option}>
+            {formatter ? formatter(option) : option}
+          </SelectItem>
         ))}
-      </select>
-    </label>
+      </SelectContent>
+    </Select>
   );
-}
-
-function getProgrammeMetrics(rows: ProgrammeRow[]) {
-  return {
-    active: rows.filter((row) => row.status === "active").length,
-    planned: rows.filter((row) => row.status === "planned" || row.status === "draft").length,
-    atRisk: rows.filter((row) => row.status === "at_risk").length,
-  };
-}
-
-function summarizeTypes(rows: ProgrammeRow[]) {
-  const counts = new Map<string, number>();
-
-  rows.forEach((row) => {
-    counts.set(row.programme_type, (counts.get(row.programme_type) ?? 0) + 1);
-  });
-
-  return [...counts.entries()]
-    .map(([label, count]) => ({ label, count }))
-    .sort((left, right) => right.count - left.count);
 }
 
 function uniqueValues(values: string[]) {
   return [...new Set(values)].sort((left, right) => left.localeCompare(right));
 }
 
-function formatStatus(value: string) {
-  if (value === "all") {
-    return "All";
-  }
+function pct(part: number, total: number) {
+  return Math.round((part / total) * 100);
+}
 
+function formatStatus(value: string) {
+  if (value === "all") return "All";
   return value.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function statusTone(status: string) {
-  if (status === "active" || status === "completed") {
-    return "active";
-  }
-
-  if (status === "monitoring" || status === "at_risk") {
-    return "monitoring";
-  }
-
-  return "planned";
-}
-
-function isUpcoming(value: string | null) {
-  if (!value) {
-    return false;
-  }
-
-  const now = new Date();
-  const date = new Date(value);
-  return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
-}
-
-function isEndingSoon(value: string | null) {
-  if (!value) {
-    return false;
-  }
-
-  const now = new Date();
-  const date = new Date(value);
-  const currentQuarter = Math.floor(now.getMonth() / 3);
-  const dateQuarter = Math.floor(date.getMonth() / 3);
-  return date.getFullYear() === now.getFullYear() && currentQuarter === dateQuarter;
+function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
+  if (status === "active" || status === "completed") return "default";
+  if (status === "at_risk") return "destructive";
+  return "secondary";
 }
