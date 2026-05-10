@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AppFrame } from "@/components/app-frame";
+import { EvidenceCreateForm } from "@/components/evidence/evidence-create-form";
 import { getProgrammes } from "@/lib/programmes";
 
 export const dynamic = "force-dynamic";
@@ -29,54 +30,10 @@ export default async function NewEvidencePage() {
           <div className="programmes-toolbar">
             <div>
               <p className="eyebrow">Draft record</p>
-              <h2>First-pass upload flow</h2>
+              <h2>Create evidence metadata</h2>
             </div>
           </div>
-
-          <form className="programme-form">
-            <label>
-              <span>Evidence title</span>
-              <input placeholder="School nomination letters" type="text" />
-            </label>
-            <label>
-              <span>Evidence code</span>
-              <input placeholder="EVD-2026-0004" type="text" />
-              <small className="field-hint">Leave blank to auto-generate once evidence creation is wired live.</small>
-            </label>
-            <label>
-              <span>Evidence type</span>
-              <select defaultValue="Document">
-                <option>Document</option>
-                <option>Photo</option>
-                <option>Video</option>
-                <option>Attendance</option>
-              </select>
-            </label>
-            <label>
-              <span>Linked programme</span>
-              <select defaultValue={programmes.rows[0]?.programme_code ?? ""}>
-                {programmes.rows.map((programme) => (
-                  <option key={programme.programme_code} value={programme.programme_code}>
-                    {programme.name}
-                  </option>
-                ))}
-              </select>
-              <small className="field-hint">This tells the system which programme folder in Google Drive the evidence should belong to.</small>
-            </label>
-            <label>
-              <span>Verification status</span>
-              <select defaultValue="In review">
-                <option>In review</option>
-                <option>Verified</option>
-                <option>Consent check</option>
-              </select>
-            </label>
-            <label className="programme-form__full">
-              <span>Drive folder path</span>
-              <input placeholder="Programme evidence / Education / Nominations" type="text" />
-              <small className="field-hint">This will eventually be suggested automatically from the selected programme and evidence type.</small>
-            </label>
-          </form>
+          <EvidenceCreateForm programmes={programmes.rows} />
         </article>
 
         <aside className="workspace-card programmes-sidecard">
@@ -97,10 +54,9 @@ export default async function NewEvidencePage() {
           </div>
           <div className="workspace-card programmes-note">
             <p className="eyebrow">Important</p>
-            <h2>Metadata first</h2>
-            <p>
-              This upload screen is intentionally structural. The next slice should wire Drive IDs, linked programme/activity/beneficiary records, and verification updates.
-            </p>
+            <h2>Write policy required</h2>
+            <p>Run the evidence write policy SQL before first submission so the signed-in admin can save real metadata records.</p>
+            <p>SQL file: <code>supabase/evidence-write-policies.sql</code></p>
           </div>
         </aside>
       </section>
