@@ -1,5 +1,5 @@
 import { AppFrame } from "@/components/app-frame";
-import { DataTable } from "@/components/data-table";
+import { ProgrammesOverview } from "@/components/programmes/programmes-overview";
 import { getProgrammes } from "@/lib/programmes";
 
 export const dynamic = "force-dynamic";
@@ -12,31 +12,9 @@ export default async function ProgrammesPage() {
       eyebrow="Programme management"
       title="Programmes"
       description="Create, configure, publish, and monitor every Adlai programme from one structured place."
-      action={<button className="button button--primary">New programme</button>}
+      action={<a className="button button--primary" href="/programmes/new">New programme</a>}
     >
-      {programmes.source === "mock" ? (
-        <div className="data-banner">
-          <strong>Mock data active.</strong>
-          <span>{programmes.error ?? "Connect Supabase and add records to switch this table live."}</span>
-        </div>
-      ) : (
-        <div className="data-banner data-banner--live">
-          <strong>Live Supabase data.</strong>
-          <span>This table is reading from the `programmes` table with the signed-in session.</span>
-        </div>
-      )}
-      <section className="workspace-card">
-        <DataTable
-          columns={["Code", "Programme", "Type", "Status", "Reach"]}
-          rows={programmes.rows.map((row) => [
-            row.programme_code,
-            row.name,
-            row.programme_type,
-            row.status,
-            row.reach,
-          ])}
-        />
-      </section>
+      <ProgrammesOverview error={programmes.error} rows={programmes.rows} source={programmes.source} />
     </AppFrame>
   );
 }
