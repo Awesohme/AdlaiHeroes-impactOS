@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import type { BeneficiaryRow } from "@/lib/beneficiaries";
+import type { ProgrammeRow } from "@/lib/programmes";
 import {
   Sheet,
   SheetContent,
@@ -24,11 +25,13 @@ import {
 import { Loader2 } from "lucide-react";
 import { SCORECARD_WEIGHTS, scorecardSuggestion } from "@/lib/programme-pipeline";
 import {
+  enrolBeneficiaryAction,
   listProgrammeStagesAction,
   moveEnrolmentStageAction,
   setEnrolmentDecisionAction,
   upsertScorecardAction,
 } from "@/app/(protected)/beneficiaries/actions";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 type StageOption = { id: string; label: string; position: number };
@@ -37,11 +40,18 @@ export function BeneficiaryDetailSheet({
   beneficiary,
   open,
   onOpenChange,
+  programmes,
 }: {
   beneficiary: BeneficiaryRow | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  programmes: ProgrammeRow[];
 }) {
+  const router = useRouter();
+  const [enrolProgramme, setEnrolProgramme] = useState<string>("");
+  const [enrolStages, setEnrolStages] = useState<StageOption[]>([]);
+  const [enrolStage, setEnrolStage] = useState<string>("");
+  const [enrolFeedback, setEnrolFeedback] = useState<string | null>(null);
   const [stages, setStages] = useState<StageOption[]>([]);
   const [stageId, setStageId] = useState<string>("");
   const [decision, setDecision] = useState<string>("");
@@ -73,12 +83,28 @@ export function BeneficiaryDetailSheet({
       notes: beneficiary.scorecard?.notes ?? "",
     });
     setFeedback(null);
+    setEnrolProgramme("");
+    setEnrolStage("");
+    setEnrolStages([]);
+    setEnrolFeedback(null);
     if (beneficiary.programme_id) {
       listProgrammeStagesAction(beneficiary.programme_id).then(setStages);
     } else {
       setStages([]);
     }
   }, [open, beneficiary]);
+
+  useEffect(() => {
+    if (!enrolProgramme) {
+      setEnrolStages([]);
+      setEnrolStage("");
+      return;
+    }
+    listProgrammeStagesAction(enrolProgramme).then((rows) => {
+      setEnrolStages(rows);
+      setEnrolStage(rows[0]?.id ?? "");
+    });
+  }, [enrolProgramme]);
 
   if (!beneficiary) return null;
 
@@ -176,6 +202,80 @@ export function BeneficiaryDetailSheet({
           <DetailItem label="Name" value={beneficiary.programme_name} />
           <DetailItem label="Code" value={beneficiary.programme_code ?? "Not linked"} />
         </DetailSection>
+
+        {!isLive && beneficiary.id ? (
+          <DetailSection title="Enrol in a programme">
+            <div className="flex gap-2">
+              <Select value={enrolProgramme} onValueChange={setEnrolProgramme}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Choose a programme" />
+                </SelectTrigger>
+                <SelectContent>
+                  {programmes
+                    .filter((p) => !!p.id)
+                    .map((p) => (
+                      <SelectItem key={p.id} value={p.id!}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {enrolStages.length > 0 ? (
+              <Select value={enrolStage} onValueChange={setEnrolStage}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Starting stage" />
+                </SelectTrigger>
+                <SelectContent>
+                  {enrolStages.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : enrolProgramme ? (
+              <p className="text-xs text-muted-foreground">
+                This programme has no stages defined yet — you can enrol without a stage.
+              </p>
+            ) : null}
+            <Button
+              type="button"
+              size="sm"
+              disabled={pending || !enrolProgramme || !beneficiary.id}
+              onClick={() => {
+                if (!beneficiary?.id || !enrolProgramme) return;
+                setEnrolFeedback(null);
+                startTransition(async () => {
+                  const result = await enrolBeneficiaryAction(
+                    beneficiary.id!,
+                    enrolProgramme,
+                    enrolStage || null,
+                  );
+                  if (result.ok) {
+                    setEnrolFeedback("Enrolled — refreshing.");
+                    onOpenChange(false);
+                    router.refresh();
+                  } else {
+                    setEnrolFeedback(result.error);
+                  }
+                });
+              }}
+            >
+              Enrol beneficiary
+            </Button>
+            {enrolFeedback ? (
+              <p
+                className={cn(
+                  "text-xs",
+                  enrolFeedback.startsWith("Enrolled") ? "text-emerald-700" : "text-destructive",
+                )}
+              >
+                {enrolFeedback}
+              </p>
+            ) : null}
+          </DetailSection>
+        ) : null}
 
         {isLive ? (
           <DetailSection title="Pipeline stage">

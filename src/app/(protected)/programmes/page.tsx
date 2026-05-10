@@ -2,7 +2,7 @@ import Link from "next/link";
 import { AppFrame } from "@/components/app-frame";
 import { Button } from "@/components/ui/button";
 import { ProgrammesOverview } from "@/components/programmes/programmes-overview";
-import { getProgrammes } from "@/lib/programmes";
+import { getProgrammesWithFunding } from "@/lib/programmes";
 import { Plus } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +13,7 @@ export default async function ProgrammesPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  const programmes = await getProgrammes();
+  const programmes = await getProgrammesWithFunding();
   const created = params.created === "1";
   const updated = params.updated === "1";
 

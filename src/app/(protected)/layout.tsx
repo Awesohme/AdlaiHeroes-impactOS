@@ -1,8 +1,9 @@
 import Link from "next/link";
+import Image from "next/image";
 import { requireUser } from "@/lib/auth";
 import { SidebarNav } from "@/components/sidebar-nav";
 import { Button } from "@/components/ui/button";
-import { Heart, LogOut, Search } from "lucide-react";
+import { LogOut, Search } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -21,13 +22,18 @@ export default async function ProtectedLayout({
         <Link
           href="/dashboard"
           prefetch={false}
-          className="flex items-center gap-2.5 px-5 py-5 border-b"
+          className="flex items-center gap-2.5 px-5 py-4 border-b"
         >
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <Heart className="h-4 w-4" fill="currentColor" />
-          </div>
+          <Image
+            src="/adlai-logo.jpg"
+            alt="Adlai Heroes Foundation"
+            width={40}
+            height={40}
+            className="h-10 w-10 rounded-md object-contain"
+            priority
+          />
           <div className="flex flex-col leading-tight">
-            <span className="text-sm font-semibold tracking-tight">Adlai</span>
+            <span className="text-sm font-semibold tracking-tight">Adlai Heroes</span>
             <span className="text-xs text-muted-foreground">ImpactOps</span>
           </div>
         </Link>

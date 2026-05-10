@@ -173,11 +173,12 @@ export function ProgrammeDetailSheet({
               value={`NGN ${fundsTotal.toLocaleString("en-NG")}`}
             />
             {programme.budget_ngn && programme.budget_ngn > 0 ? (
-              <ProgressBar
-                value={Math.min(100, Math.round((fundsTotal / programme.budget_ngn) * 100))}
-                tone="emerald"
-                hint={`${Math.min(100, Math.round((fundsTotal / programme.budget_ngn) * 100))}% funded`}
-              />
+              (() => {
+                const rawPercent = Math.min(100, (fundsTotal / programme.budget_ngn) * 100);
+                const barWidth = fundsTotal > 0 ? Math.max(2, rawPercent) : 0;
+                const label = `NGN ${fundsTotal.toLocaleString("en-NG")} of NGN ${programme.budget_ngn.toLocaleString("en-NG")} (${formatPercentDrawer(rawPercent)})`;
+                return <ProgressBar value={barWidth} tone="emerald" hint={label} />;
+              })()
             ) : null}
             <ProgressBar
               value={milestoneProgress}
@@ -474,6 +475,11 @@ export function ProgrammeDetailSheet({
                   <Sparkles className="h-4 w-4" /> Use Education Sponsorship template
                 </Button>
               </div>
+            ) : enrolments.length === 0 ? (
+              <div className="rounded-md border border-dashed bg-muted/30 p-3 text-xs text-muted-foreground">
+                Stages move beneficiaries through milestones once they&apos;re enrolled here. Open a
+                beneficiary → &quot;Enrol in a programme&quot; to start.
+              </div>
             ) : null}
 
             <div className="flex gap-2">
@@ -670,6 +676,13 @@ function ProgressBar({
       <p className="text-xs text-muted-foreground">{hint}</p>
     </div>
   );
+}
+
+function formatPercentDrawer(value: number) {
+  if (value === 0) return "0%";
+  if (value < 0.1) return "<0.1%";
+  if (value < 1) return `${value.toFixed(1)}%`;
+  return `${Math.round(value)}%`;
 }
 
 function formatDate(value: string) {

@@ -27,12 +27,13 @@ import {
 } from "@/components/ui/table";
 import { Search, Info, Plus } from "lucide-react";
 import { BeneficiaryDetailSheet } from "@/components/beneficiaries/beneficiary-detail-sheet";
+import { BeneficiaryCreateSheet } from "@/components/beneficiaries/beneficiary-create-sheet";
+import { useRouter } from "next/navigation";
 
 export function BeneficiariesOverview({
   rows,
   programmes,
   source,
-  error,
 }: {
   rows: BeneficiaryRow[];
   programmes: ProgrammeRow[];
@@ -45,6 +46,8 @@ export function BeneficiariesOverview({
   const [statusFilter, setStatusFilter] = useState("all");
   const [stageFilter, setStageFilter] = useState("all");
   const [selected, setSelected] = useState<BeneficiaryRow | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const router = useRouter();
 
   const filteredRows = rows.filter((row) => {
     const queryMatch =
@@ -108,7 +111,10 @@ export function BeneficiariesOverview({
       {source === "mock" ? (
         <div className="flex gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
           <Info className="h-4 w-4 mt-0.5 shrink-0" />
-          <span>{error ?? "Showing fallback data."}</span>
+          <span>
+            You haven&apos;t added any beneficiaries yet — showing example records. Click
+            &quot;Add beneficiary&quot; to start.
+          </span>
         </div>
       ) : null}
 
@@ -130,7 +136,7 @@ export function BeneficiariesOverview({
                 className="pl-9"
               />
             </div>
-            <Button size="sm" className="ml-auto" disabled>
+            <Button size="sm" className="ml-auto" onClick={() => setCreateOpen(true)}>
               <Plus className="h-4 w-4" /> Add beneficiary
             </Button>
           </div>
@@ -251,6 +257,15 @@ export function BeneficiariesOverview({
         open={!!selected}
         onOpenChange={(open) => {
           if (!open) setSelected(null);
+        }}
+        programmes={programmes}
+      />
+
+      <BeneficiaryCreateSheet
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onCreated={() => {
+          router.refresh();
         }}
       />
     </div>

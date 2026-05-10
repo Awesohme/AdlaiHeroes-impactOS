@@ -1,7 +1,8 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Heart, AlertCircle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 
 const authErrors: Record<string, string> = {
   callback: "Google sign-in returned, but the session exchange failed.",
@@ -26,9 +27,14 @@ export default async function LoginPage({
     <main className="flex min-h-screen items-center justify-center bg-muted/30 px-4 py-12">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center space-y-3">
-          <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <Heart className="h-5 w-5" fill="currentColor" />
-          </div>
+          <Image
+            src="/adlai-logo.jpg"
+            alt="Adlai Heroes Foundation"
+            width={72}
+            height={72}
+            className="mx-auto h-18 w-18 rounded-md object-contain"
+            priority
+          />
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Adlai ImpactOps
           </p>

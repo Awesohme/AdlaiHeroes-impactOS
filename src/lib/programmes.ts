@@ -39,6 +39,7 @@ export type ProgrammeRow = {
   timeline_label: string;
   reach: string;
   flyer_drive_file_id: string | null;
+  funds_raised: number;
 };
 
 type ProgrammeRecord = {
@@ -235,7 +236,40 @@ function formatProgramme(programme: ProgrammeRecord): ProgrammeRow {
     timeline_label: formatTimeline(startDate, endDate),
     reach: expectedBeneficiaries ? `${expectedBeneficiaries.toLocaleString()} beneficiaries` : "Not set",
     flyer_drive_file_id: programme.flyer_drive_file_id ?? null,
+    funds_raised: 0,
   };
+}
+
+export async function getProgrammesWithFunding(): Promise<{
+  rows: ProgrammeRow[];
+  source: "supabase" | "mock";
+  error?: string;
+}> {
+  const result = await getProgrammes();
+  if (result.source !== "supabase" || result.rows.length === 0) return result;
+  try {
+    const supabase = await createClient();
+    const ids = result.rows.map((row) => row.id).filter((id): id is string => !!id);
+    if (ids.length === 0) return result;
+    const { data, error } = await supabase
+      .from("programme_funds")
+      .select("programme_id,amount_ngn")
+      .in("programme_id", ids);
+    if (error || !data) return result;
+    const totals = new Map<string, number>();
+    for (const row of data) {
+      if (!row.programme_id) continue;
+      totals.set(row.programme_id, (totals.get(row.programme_id) ?? 0) + Number(row.amount_ngn));
+    }
+    return {
+      ...result,
+      rows: result.rows.map((row) =>
+        row.id ? { ...row, funds_raised: totals.get(row.id) ?? 0 } : row,
+      ),
+    };
+  } catch {
+    return result;
+  }
 }
 
 function normaliseLocations(locationAreas: string[] | null, location: string | null) {
@@ -353,5 +387,6 @@ function mockProgrammes(): ProgrammeRow[] {
     timeline_label: "Jan 1, 2026 - Dec 31, 2026",
     reach: String(reach),
     flyer_drive_file_id: null,
+    funds_raised: 0,
   }));
 }

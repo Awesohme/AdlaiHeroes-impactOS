@@ -192,16 +192,15 @@ export function ProgrammesOverview({
                 <TableHead>Location</TableHead>
                 <TableHead>Dates</TableHead>
                 <TableHead className="text-right">Reach</TableHead>
-                <TableHead className="text-right">Budget (NGN)</TableHead>
+                <TableHead className="text-right">Budget</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="w-20 text-right">Flyer</TableHead>
                 <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredRows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-10">
+                  <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-10">
                     No programmes match the current filters.
                   </TableCell>
                 </TableRow>
@@ -221,33 +220,16 @@ export function ProgrammesOverview({
                       <LocationsCell areas={row.location_areas} />
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                      {row.timeline_label}
+                      {formatCompactTimeline(row.start_date, row.end_date)}
                     </TableCell>
                     <TableCell className="text-right text-sm">
                       {row.expected_beneficiaries?.toLocaleString() ?? "—"}
                     </TableCell>
-                    <TableCell className="text-right text-sm">
-                      {row.budget_ngn ? row.budget_ngn.toLocaleString("en-NG") : "—"}
+                    <TableCell className="text-right text-sm min-w-[160px]">
+                      <BudgetCell budget={row.budget_ngn} raised={row.funds_raised} />
                     </TableCell>
                     <TableCell>
                       <ProgrammeStatusBadge status={row.status} />
-                    </TableCell>
-                    <TableCell
-                      className="text-right"
-                      onClick={(event) => event.stopPropagation()}
-                    >
-                      {row.flyer_drive_file_id ? (
-                        <a
-                          href={`https://drive.google.com/file/d/${row.flyer_drive_file_id}/view`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
-                        >
-                          View
-                        </a>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
                     </TableCell>
                     <TableCell
                       className="text-right"
@@ -278,6 +260,67 @@ export function ProgrammesOverview({
       />
     </div>
   );
+}
+
+function BudgetCell({ budget, raised }: { budget: number | null; raised: number }) {
+  if (!budget) {
+    return <span>—</span>;
+  }
+  const percent = raised > 0 ? Math.min(100, (raised / budget) * 100) : 0;
+  const barWidth = raised > 0 ? Math.max(2, percent) : 0;
+  return (
+    <div className="space-y-1">
+      <div className="font-medium">{formatNgnCompact(budget)}</div>
+      <div className="h-1 rounded-full bg-muted overflow-hidden">
+        <div
+          className="h-full bg-emerald-500"
+          style={{ width: `${barWidth}%` }}
+          aria-label={`Raised ${raised} of ${budget}`}
+        />
+      </div>
+      <div className="text-xs text-muted-foreground">
+        {raised > 0
+          ? `${formatNgnCompact(raised)} of ${formatNgnCompact(budget)} (${formatPercent(percent)})`
+          : `0 raised`}
+      </div>
+    </div>
+  );
+}
+
+function formatNgnCompact(value: number) {
+  if (value >= 1_000_000_000) return `₦${(value / 1_000_000_000).toFixed(1)}B`;
+  if (value >= 1_000_000) return `₦${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `₦${(value / 1_000).toFixed(0)}K`;
+  return `₦${value.toLocaleString("en-NG")}`;
+}
+
+function formatPercent(value: number) {
+  if (value < 0.1) return "<0.1%";
+  if (value < 1) return `${value.toFixed(1)}%`;
+  return `${Math.round(value)}%`;
+}
+
+function formatCompactTimeline(start: string | null, end: string | null) {
+  if (!start && !end) return "Dates pending";
+  const parse = (value: string) => {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  };
+  const s = start ? parse(start) : null;
+  const e = end ? parse(end) : null;
+  const fmt = (date: Date, withYear: boolean) =>
+    new Intl.DateTimeFormat("en-NG", {
+      day: "numeric",
+      month: "short",
+      year: withYear ? "numeric" : undefined,
+    }).format(date);
+  if (s && e) {
+    const sameYear = s.getFullYear() === e.getFullYear();
+    return sameYear ? `${fmt(s, false)} – ${fmt(e, true)}` : `${fmt(s, true)} – ${fmt(e, true)}`;
+  }
+  if (s) return `From ${fmt(s, true)}`;
+  if (e) return `Until ${fmt(e, true)}`;
+  return "Dates pending";
 }
 
 function LocationsCell({ areas }: { areas: string[] }) {

@@ -67,6 +67,35 @@ export async function setEnrolmentDecisionAction(
   return { ok: true };
 }
 
+export async function enrolBeneficiaryAction(
+  beneficiaryId: string,
+  programmeId: string,
+  stageId: string | null,
+): Promise<ActionResult<{ enrolmentId: string }>> {
+  if (!beneficiaryId || !programmeId) {
+    return { ok: false, error: "Beneficiary and programme are required." };
+  }
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("enrolments")
+    .insert({
+      beneficiary_id: beneficiaryId,
+      programme_id: programmeId,
+      stage_id: stageId,
+      status: "active",
+    })
+    .select("id")
+    .single();
+  if (error || !data) {
+    if (error?.code === "23505") {
+      return { ok: false, error: "This beneficiary is already enrolled in that programme." };
+    }
+    return { ok: false, error: mapDbError(error?.message, "Could not enrol.") };
+  }
+  revalidatePath("/beneficiaries");
+  return { ok: true, data: { enrolmentId: data.id } };
+}
+
 export async function upsertScorecardAction(
   enrolmentId: string,
   scores: {
