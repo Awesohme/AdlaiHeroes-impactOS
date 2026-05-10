@@ -1,4 +1,6 @@
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { sanitizeNextPath } from "@/lib/env";
 import { hasSupabaseBrowserEnv } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 
@@ -31,7 +33,9 @@ export async function requireUser() {
   const user = await getCurrentUser();
 
   if (!user) {
-    redirect("/auth/login");
+    const headerStore = await headers();
+    const next = sanitizeNextPath(headerStore.get("x-auth-path"));
+    redirect(`/auth/login?next=${encodeURIComponent(next)}&error=session`);
   }
 
   return user;

@@ -1,21 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import type { CookieOptions } from "@supabase/ssr";
+import { updateSession } from "@/lib/supabase/middleware";
 
-const publicRoutes = ["/", "/auth/login", "/auth/callback", "/auth/sign-in"];
-type CookieToSet = { name: string; value: string; options: CookieOptions };
+const publicRoutes = ["/", "/auth/login", "/auth/callback", "/auth/sign-in", "/auth/post-login", "/auth/debug"];
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({
-    request,
-  });
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const pathname = request.nextUrl.pathname;
   const isPublic = publicRoutes.includes(pathname);
+  const session = await updateSession(request);
 
-  if (!supabaseUrl || !supabaseAnonKey) {
+  if (!session) {
     if (!isPublic) {
       const url = request.nextUrl.clone();
       url.pathname = "/auth/login";
@@ -24,36 +17,12 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    return response;
+    return NextResponse.next({
+      request,
+    });
   }
 
-  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
-      },
-      setAll(cookiesToSet: CookieToSet[], headers?: HeadersInit) {
-        cookiesToSet.forEach(({ name, value }) => {
-          request.cookies.set(name, value);
-        });
-        response = NextResponse.next({
-          request,
-        });
-        cookiesToSet.forEach(({ name, value, options }) => {
-          response.cookies.set(name, value, options);
-        });
-        if (headers) {
-          new Headers(headers).forEach((value, key) => {
-            response.headers.set(key, value);
-          });
-        }
-      },
-    },
-  });
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { response, user } = session;
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();

@@ -1,9 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createRouteClient } from "@/lib/supabase/route";
 
 export async function GET(request: NextRequest) {
-  const supabase = await createClient();
+  const { supabase, applyCookies } = createRouteClient(request);
   await supabase.auth.signOut();
 
-  return NextResponse.redirect(new URL("/auth/login", request.url));
+  return applyCookies(NextResponse.redirect(new URL("/auth/login", request.url)));
 }

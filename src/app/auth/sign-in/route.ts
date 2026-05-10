@@ -1,10 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSiteUrl } from "@/lib/env";
 import { sanitizeNextPath } from "@/lib/env";
-import { createClient } from "@/lib/supabase/server";
+import { createRouteClient } from "@/lib/supabase/route";
 
 export async function GET(request: NextRequest) {
-  const supabase = await createClient();
+  const { supabase, applyCookies } = createRouteClient(request);
   const next = sanitizeNextPath(request.nextUrl.searchParams.get("next"));
   const redirectTo = `${getSiteUrl()}/auth/callback?next=${encodeURIComponent(next)}`;
 
@@ -23,5 +23,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL(`/auth/login?error=oauth`, request.url));
   }
 
-  return NextResponse.redirect(data.url);
+  return applyCookies(NextResponse.redirect(data.url));
 }

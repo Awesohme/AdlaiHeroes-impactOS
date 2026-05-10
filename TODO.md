@@ -2,10 +2,10 @@
 
 ## Now
 
-- Run `supabase/admin-bootstrap.sql` now that `adlaioog@gmail.com` has signed in.
-- Verify `/programmes` works for the signed-in admin after the RLS handoff.
-- Verify public anon reads no longer work against `programmes`.
-- Refine the app shell and landing surfaces with Poppins + Adlai brand colors.
+- Verify Google sign-in persists across refresh, direct URLs, and sidebar navigation.
+- Use `/auth/debug` to compare middleware auth state, server user reads, and auth cookie names if the session still fails.
+- Keep `/programmes` on sample rows until the auth flow is stable.
+- Only after auth is stable: rerun `supabase/admin-bootstrap.sql` and restore live Programme reads.
 
 ## Next
 
