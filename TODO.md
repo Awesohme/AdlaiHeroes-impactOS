@@ -2,10 +2,10 @@
 
 ## Now
 
-- Verify Google sign-in persists across refresh, direct URLs, and sidebar navigation.
-- Use `/auth/debug` to compare middleware auth state, server user reads, and auth cookie names if the session still fails.
-- Keep `/programmes` on sample rows until the auth flow is stable.
-- Only after auth is stable: rerun `supabase/admin-bootstrap.sql` and restore live Programme reads.
+- Verify live Programme rows load for the signed-in admin after the RLS handoff.
+- Confirm the Programmes page stays on live Supabase data across refresh and direct URL access.
+- Remove temporary `/auth/debug` after one clean verification pass.
+- Start the polished Programmes screen and Create Programme flow.
 
 ## Next
 
