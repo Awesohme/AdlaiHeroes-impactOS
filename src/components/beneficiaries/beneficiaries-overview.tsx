@@ -2,6 +2,15 @@
 
 import { useState } from "react";
 import type { BeneficiaryRow } from "@/lib/beneficiaries";
+
+const TERMINAL_STAGES = new Set(["Completed", "Declined", "Exited"]);
+
+function isEnrolmentActive(row: BeneficiaryRow) {
+  if (!row.enrolment_id) return false;
+  if (row.current_status !== "active") return false;
+  if (row.stage_label && TERMINAL_STAGES.has(row.stage_label)) return false;
+  return true;
+}
 import type { ProgrammeRow } from "@/lib/programmes";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -70,9 +79,9 @@ export function BeneficiariesOverview({
   ];
   const metrics = {
     total: rows.length,
-    consentCaptured: rows.filter((row) => row.consent_status.includes("captured")).length,
-    flagged: rows.filter((row) => row.risk_flag === "review").length,
-    active: rows.filter((row) => row.current_status === "active").length,
+    consentCaptured: rows.filter((row) => row.consent_received).length,
+    flagged: rows.filter((row) => row.safeguarding_flag === "follow_up_needed").length,
+    active: rows.filter((row) => isEnrolmentActive(row)).length,
   };
 
   const counters: Array<{
@@ -100,7 +109,7 @@ export function BeneficiariesOverview({
     {
       label: "Active",
       value: metrics.active,
-      detail: "In programme",
+      detail: "Enrolled, not in a terminal stage",
       tone: "teal",
       icon: Activity,
     },

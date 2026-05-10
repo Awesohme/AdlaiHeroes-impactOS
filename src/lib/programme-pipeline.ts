@@ -33,6 +33,56 @@ export function scorecardTotal(score: {
   );
 }
 
+export const SCORECARD_RUBRICS: Record<
+  "financial_need" | "academic_record" | "attendance_score" | "cbt_readiness" | "commitment",
+  { helper: string; bands: string[] }
+> = {
+  financial_need: {
+    helper: "What financial barrier to exam access does the family face?",
+    bands: [
+      "0–5: no clear barrier evidenced",
+      "6–12: some constraint, exam still affordable",
+      "13–19: clear barrier, exam access at risk",
+      "20–25: severe barrier, exam access impossible without support",
+    ],
+  },
+  academic_record: {
+    helper: "Sustained performance via term results / continuous assessment.",
+    bands: [
+      "0–9: no documented performance",
+      "10–18: inconsistent passing performance",
+      "19–26: steady passing performance with school documentation",
+      "27–35: strong sustained performance + teacher / principal endorsement",
+    ],
+  },
+  attendance_score: {
+    helper: "Attendance, discipline, and engagement at school or learning centre.",
+    bands: [
+      "0–4: frequent absences, low engagement",
+      "5–9: irregular but improving",
+      "10–15: consistent attendance, school confirms discipline",
+    ],
+  },
+  cbt_readiness: {
+    helper: "Computer familiarity, exam anxiety, ability to navigate CBT basics.",
+    bands: [
+      "0–4: no computer familiarity, high anxiety",
+      "5–9: some exposure, manageable readiness risk",
+      "10–15: confident with CBT, low risk",
+    ],
+  },
+  commitment: {
+    helper: "Guardian + student responsibility to attend check-ins and sit the exam.",
+    bands: [
+      "0–3: limited engagement / consent uncertainty",
+      "4–6: engaged guardian, some doubts",
+      "7–10: strong commitment, consent + availability confirmed",
+    ],
+  },
+};
+
+export const TERMINAL_STAGE_LABELS = new Set(["Completed", "Declined", "Exited"]);
+
 export function scorecardSuggestion(total: number): {
   decision: "approved" | "deferred" | "declined";
   label: string;

@@ -190,6 +190,49 @@ export async function uploadEvidenceFileToDrive({
   };
 }
 
+type UploadConsentInput = {
+  file: File;
+  programme: ProgrammeFolderRecord;
+};
+
+export async function uploadConsentFileToDrive({
+  file,
+  programme,
+}: UploadConsentInput): Promise<{
+  fileId: string;
+  fileName: string;
+  programmeFolderId: string;
+  driveFolderId: string;
+}> {
+  const mimeType = file.type || "application/octet-stream";
+  const programmeFolderId =
+    programme.drive_folder_id ||
+    (
+      await findOrCreateFolder({
+        folderName: formatProgrammeFolderName(programme.programme_code, programme.name),
+        parentId: getRequiredRootFolderId(),
+      })
+    ).id;
+
+  const consentFolder = await findOrCreateFolder({
+    folderName: "Consent",
+    parentId: programmeFolderId,
+  });
+
+  const uploaded = await uploadFile({
+    file,
+    parentId: consentFolder.id,
+    mimeType,
+  });
+
+  return {
+    fileId: uploaded.id,
+    fileName: uploaded.name,
+    programmeFolderId,
+    driveFolderId: consentFolder.id,
+  };
+}
+
 type UploadFlyerInput = {
   file: File;
   programme: ProgrammeFolderRecord;

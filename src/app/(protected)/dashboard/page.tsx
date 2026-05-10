@@ -3,21 +3,26 @@ import { AppFrame } from "@/components/app-frame";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { getBeneficiaries } from "@/lib/beneficiaries";
+import { getBeneficiaries, isEnrolmentActive } from "@/lib/beneficiaries";
 import { getEvidenceRecords } from "@/lib/evidence";
 import { getProgrammes } from "@/lib/programmes";
+import { getDashboardSignals } from "@/lib/dashboard";
 import {
   AlertCircle,
   ArrowUpRight,
+  CalendarClock,
+  CheckCircle2,
   FileCheck2,
   FilePlus,
   FolderKanban,
   FolderPlus,
+  GitPullRequest,
   Users,
   UserPlus,
   type LucideIcon,
 } from "lucide-react";
 import { MetricTile, type MetricTone } from "@/components/metric-tile";
+import { InfoTooltip } from "@/components/info-tooltip";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +30,7 @@ export default async function DashboardPage() {
   const programmes = await getProgrammes();
   const evidence = await getEvidenceRecords();
   const beneficiaries = await getBeneficiaries(programmes.rows);
+  const signals = await getDashboardSignals();
 
   const counters: Array<{
     label: string;
@@ -43,7 +49,7 @@ export default async function DashboardPage() {
     {
       label: "Beneficiaries",
       value: beneficiaries.rows.length,
-      detail: `${beneficiaries.rows.filter((item) => item.current_status === "active").length} active`,
+      detail: `${beneficiaries.rows.filter(isEnrolmentActive).length} active`,
       tone: "teal",
       icon: Users,
     },
@@ -126,6 +132,75 @@ export default async function DashboardPage() {
         {counters.map((stat) => (
           <MetricTile key={stat.label} {...stat} />
         ))}
+      </section>
+
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Card className="relative overflow-hidden bg-blue-50/60">
+          <span className="absolute inset-y-0 left-0 w-1 bg-blue-500" aria-hidden="true" />
+          <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+            <CardTitle className="text-xs font-medium uppercase tracking-wider text-muted-foreground inline-flex items-center gap-1.5">
+              Approvals pending
+              <InfoTooltip content="Enrolments in Nominated or Validated stages awaiting Adlai readiness validation." />
+            </CardTitle>
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100 text-blue-700">
+              <GitPullRequest className="h-4 w-4" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-semibold tracking-tight">{signals.approvalsPending}</div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Awaiting decision after validation
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="relative overflow-hidden bg-amber-50/60">
+          <span className="absolute inset-y-0 left-0 w-1 bg-amber-500" aria-hidden="true" />
+          <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+            <CardTitle className="text-xs font-medium uppercase tracking-wider text-muted-foreground inline-flex items-center gap-1.5">
+              Milestones (7 days)
+              <InfoTooltip content="Open milestones across all programmes due within the next 7 days." />
+            </CardTitle>
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
+              <CalendarClock className="h-4 w-4" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-semibold tracking-tight">{signals.upcomingMilestones}</div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {signals.upcomingMilestoneProgrammes} programme(s) affected
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="relative overflow-hidden bg-purple-50/60">
+          <span className="absolute inset-y-0 left-0 w-1 bg-purple-500" aria-hidden="true" />
+          <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+            <CardTitle className="text-xs font-medium uppercase tracking-wider text-muted-foreground inline-flex items-center gap-1.5">
+              Pipeline distribution
+              <InfoTooltip content="Beneficiaries grouped by their current pipeline stage across all programmes (top 5)." />
+            </CardTitle>
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-100 text-purple-700">
+              <CheckCircle2 className="h-4 w-4" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            {signals.pipelineDistribution.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-2">
+                No enrolments yet — pipeline fills as beneficiaries get enrolled.
+              </p>
+            ) : (
+              <ul className="space-y-1.5 text-sm">
+                {signals.pipelineDistribution.map((row) => (
+                  <li key={row.label} className="flex items-center justify-between">
+                    <span className="truncate">{row.label}</span>
+                    <span className="font-medium">{row.count}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
       </section>
 
       <section className="grid gap-4 lg:grid-cols-3">

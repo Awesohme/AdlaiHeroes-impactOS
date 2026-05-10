@@ -22,19 +22,44 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
-import { SCORECARD_WEIGHTS, scorecardSuggestion } from "@/lib/programme-pipeline";
+import { ExternalLink, Loader2 } from "lucide-react";
+import {
+  SCORECARD_RUBRICS,
+  SCORECARD_WEIGHTS,
+  scorecardSuggestion,
+} from "@/lib/programme-pipeline";
 import {
   enrolBeneficiaryAction,
   listProgrammeStagesAction,
   moveEnrolmentStageAction,
-  setEnrolmentDecisionAction,
+  setBeneficiaryConsentAction,
+  setBeneficiarySafeguardingAction,
   upsertScorecardAction,
 } from "@/app/(protected)/beneficiaries/actions";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { InfoTooltip } from "@/components/info-tooltip";
+import { BeneficiaryNotesSection } from "@/components/beneficiaries/beneficiary-notes-section";
 
 type StageOption = { id: string; label: string; position: number };
+
+const safeguardingOptions = [
+  {
+    value: "none",
+    label: "None",
+    helper: "No concerns identified.",
+  },
+  {
+    value: "reviewed",
+    label: "Reviewed",
+    helper: "A concern was raised and resolved.",
+  },
+  {
+    value: "follow_up_needed",
+    label: "Follow-up needed",
+    helper: "Active concern requiring attention before further programming.",
+  },
+];
 
 export function BeneficiaryDetailSheet({
   beneficiary,
@@ -54,8 +79,13 @@ export function BeneficiaryDetailSheet({
   const [enrolFeedback, setEnrolFeedback] = useState<string | null>(null);
   const [stages, setStages] = useState<StageOption[]>([]);
   const [stageId, setStageId] = useState<string>("");
-  const [decision, setDecision] = useState<string>("");
-  const [decisionReason, setDecisionReason] = useState<string>("");
+  const [safeguarding, setSafeguarding] = useState<string>("none");
+  const [safeguardingFeedback, setSafeguardingFeedback] = useState<string | null>(null);
+  const [consentReceived, setConsentReceived] = useState(false);
+  const [consentFile, setConsentFile] = useState<File | null>(null);
+  const [consentFeedback, setConsentFeedback] = useState<string | null>(null);
+  const [consentDriveFileId, setConsentDriveFileId] = useState<string | null>(null);
+  const [consentRecordedAt, setConsentRecordedAt] = useState<string | null>(null);
   const [scorecard, setScorecard] = useState({
     financial_need: 0,
     academic_record: 0,
@@ -72,8 +102,13 @@ export function BeneficiaryDetailSheet({
   useEffect(() => {
     if (!open || !beneficiary) return;
     setStageId(beneficiary.stage_id ?? "");
-    setDecision(beneficiary.decision ?? "");
-    setDecisionReason(beneficiary.decision_reason ?? "");
+    setSafeguarding(beneficiary.safeguarding_flag ?? "none");
+    setSafeguardingFeedback(null);
+    setConsentReceived(beneficiary.consent_received);
+    setConsentDriveFileId(beneficiary.consent_evidence_drive_file_id);
+    setConsentRecordedAt(beneficiary.consent_recorded_at);
+    setConsentFile(null);
+    setConsentFeedback(null);
     setScorecard({
       financial_need: beneficiary.scorecard?.financial_need ?? 0,
       academic_record: beneficiary.scorecard?.academic_record ?? 0,
@@ -115,6 +150,7 @@ export function BeneficiaryDetailSheet({
     scorecard.cbt_readiness +
     scorecard.commitment;
   const suggestion = scorecardSuggestion(total);
+  const consentEnrolmentReady = isLive;
 
   function saveStage() {
     if (!beneficiary?.enrolment_id) return;
@@ -129,17 +165,32 @@ export function BeneficiaryDetailSheet({
     });
   }
 
-  function saveDecision() {
-    if (!beneficiary?.enrolment_id) return;
-    setFeedback(null);
+  function saveSafeguarding() {
+    if (!beneficiary?.id) return;
+    setSafeguardingFeedback(null);
     startTransition(async () => {
-      const result = await setEnrolmentDecisionAction(
-        beneficiary.enrolment_id!,
-        decision,
-        decisionReason,
-      );
-      if (result.ok) setFeedback("Decision saved.");
-      else setFeedback(result.error);
+      const result = await setBeneficiarySafeguardingAction(beneficiary.id!, safeguarding);
+      if (result.ok) setSafeguardingFeedback("Safeguarding updated.");
+      else setSafeguardingFeedback(result.error);
+    });
+  }
+
+  function saveConsent(received: boolean) {
+    if (!beneficiary?.id) return;
+    setConsentFeedback(null);
+    const fd = received && consentFile ? new FormData() : null;
+    if (fd && consentFile) fd.set("consent_file", consentFile);
+    startTransition(async () => {
+      const result = await setBeneficiaryConsentAction(beneficiary.id!, received, fd);
+      if (result.ok) {
+        setConsentReceived(received);
+        setConsentDriveFileId(result.data?.driveFileId ?? null);
+        setConsentRecordedAt(received ? new Date().toISOString() : null);
+        setConsentFile(null);
+        setConsentFeedback(received ? "Consent recorded." : "Consent cleared.");
+      } else {
+        setConsentFeedback(result.error);
+      }
     });
   }
 
@@ -155,7 +206,7 @@ export function BeneficiaryDetailSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-lg overflow-y-auto">
+      <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
         <SheetHeader>
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary">
@@ -171,8 +222,11 @@ export function BeneficiaryDetailSheet({
         </SheetHeader>
 
         <div className="mt-6 flex flex-wrap gap-1.5">
-          <Badge variant="default" className="font-normal">
-            {formatStatus(beneficiary.consent_status)}
+          <Badge
+            variant={consentReceived ? "default" : "secondary"}
+            className="font-normal"
+          >
+            {consentReceived ? "Consent received" : "Consent not received"}
           </Badge>
           <Badge
             variant={beneficiary.risk_flag === "review" ? "destructive" : "secondary"}
@@ -304,70 +358,203 @@ export function BeneficiaryDetailSheet({
                 {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Move"}
               </Button>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Moving to Approved / Deferred / Declined records the decision.
+            </p>
             {!stages.length && beneficiary.programme_id ? (
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground">
                 Define stages on the programme first.
               </p>
             ) : null}
           </DetailSection>
         ) : null}
 
-        {isLive ? (
-          <DetailSection title="Decision">
-            <Select value={decision || "_none"} onValueChange={(v) => setDecision(v === "_none" ? "" : v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="No decision yet" />
+        <DetailSection
+          title={
+            <span className="inline-flex items-center gap-2">
+              Safeguarding
+              <InfoTooltip
+                content={
+                  <ul className="space-y-1">
+                    {safeguardingOptions.map((option) => (
+                      <li key={option.value}>
+                        <strong>{option.label}</strong>: {option.helper}
+                      </li>
+                    ))}
+                  </ul>
+                }
+              />
+            </span>
+          }
+        >
+          <div className="flex gap-2">
+            <Select value={safeguarding} onValueChange={setSafeguarding}>
+              <SelectTrigger className="flex-1">
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="_none">No decision yet</SelectItem>
-                <SelectItem value="approved">Approved</SelectItem>
-                <SelectItem value="deferred">Deferred to readiness</SelectItem>
-                <SelectItem value="declined">Declined</SelectItem>
+                {safeguardingOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
-            <Textarea
-              value={decisionReason}
-              onChange={(event) => setDecisionReason(event.target.value)}
-              placeholder="Reason or note for this decision (optional)"
-              rows={2}
-            />
-            <Button type="button" size="sm" onClick={saveDecision} disabled={pending}>
-              Save decision
+            <Button
+              type="button"
+              onClick={saveSafeguarding}
+              disabled={pending || safeguarding === (beneficiary.safeguarding_flag ?? "none")}
+            >
+              Save
             </Button>
-          </DetailSection>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {safeguardingOptions.find((o) => o.value === safeguarding)?.helper}
+          </p>
+          {safeguardingFeedback ? (
+            <p
+              className={cn(
+                "text-xs",
+                safeguardingFeedback.endsWith("updated.")
+                  ? "text-emerald-700"
+                  : "text-destructive",
+              )}
+            >
+              {safeguardingFeedback}
+            </p>
+          ) : null}
+        </DetailSection>
+
+        <DetailSection title="Consent">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant={consentReceived ? "default" : "outline"}
+              onClick={() => saveConsent(true)}
+              disabled={pending}
+            >
+              Received
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={!consentReceived ? "default" : "outline"}
+              onClick={() => saveConsent(false)}
+              disabled={pending}
+            >
+              Not received
+            </Button>
+          </div>
+
+          {consentReceived ? (
+            <>
+              {consentRecordedAt ? (
+                <p className="text-xs text-muted-foreground">
+                  Received on {formatDate(consentRecordedAt)}
+                </p>
+              ) : null}
+              {consentDriveFileId ? (
+                <a
+                  href={`https://drive.google.com/file/d/${consentDriveFileId}/view`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                >
+                  View consent file <ExternalLink className="h-3 w-3" />
+                </a>
+              ) : null}
+              {!consentEnrolmentReady ? (
+                <p className="text-xs text-muted-foreground">
+                  Enrol this beneficiary in a programme to attach the consent form to Drive.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  <Label className="text-xs">
+                    {consentDriveFileId ? "Replace consent file" : "Attach consent file"}
+                  </Label>
+                  <Input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png,.webp"
+                    onChange={(event) => setConsentFile(event.target.files?.[0] ?? null)}
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={pending || !consentFile}
+                    onClick={() => saveConsent(true)}
+                  >
+                    Upload to Drive
+                  </Button>
+                </div>
+              )}
+            </>
+          ) : null}
+          {consentFeedback ? (
+            <p
+              className={cn(
+                "text-xs",
+                consentFeedback.endsWith("recorded.") || consentFeedback.endsWith("cleared.")
+                  ? "text-emerald-700"
+                  : "text-destructive",
+              )}
+            >
+              {consentFeedback}
+            </p>
+          ) : null}
+        </DetailSection>
+
+        {beneficiary.id ? (
+          <BeneficiaryNotesSection
+            beneficiaryId={beneficiary.id}
+            enrolmentId={beneficiary.enrolment_id}
+            programmeId={beneficiary.programme_id}
+          />
         ) : null}
 
         {isLive ? (
-          <DetailSection title="Selection scorecard">
+          <DetailSection
+            title={
+              <span className="inline-flex items-center gap-2">
+                Selection scorecard
+                <InfoTooltip content="Each area contributes its weight to a 100-point total. Bands are guidance, not strict rules." />
+              </span>
+            }
+          >
             <ScoreField
               label="Financial need"
               max={SCORECARD_WEIGHTS.financial_need}
               value={scorecard.financial_need}
               onChange={(v) => setScorecard((s) => ({ ...s, financial_need: v }))}
+              rubric={SCORECARD_RUBRICS.financial_need}
             />
             <ScoreField
               label="School academic record"
               max={SCORECARD_WEIGHTS.academic_record}
               value={scorecard.academic_record}
               onChange={(v) => setScorecard((s) => ({ ...s, academic_record: v }))}
+              rubric={SCORECARD_RUBRICS.academic_record}
             />
             <ScoreField
               label="Attendance & commitment"
               max={SCORECARD_WEIGHTS.attendance_score}
               value={scorecard.attendance_score}
               onChange={(v) => setScorecard((s) => ({ ...s, attendance_score: v }))}
+              rubric={SCORECARD_RUBRICS.attendance_score}
             />
             <ScoreField
               label="CBT & exam-readiness"
               max={SCORECARD_WEIGHTS.cbt_readiness}
               value={scorecard.cbt_readiness}
               onChange={(v) => setScorecard((s) => ({ ...s, cbt_readiness: v }))}
+              rubric={SCORECARD_RUBRICS.cbt_readiness}
             />
             <ScoreField
               label="Guardian & student commitment"
               max={SCORECARD_WEIGHTS.commitment}
               value={scorecard.commitment}
               onChange={(v) => setScorecard((s) => ({ ...s, commitment: v }))}
+              rubric={SCORECARD_RUBRICS.commitment}
             />
             <Textarea
               value={scorecard.notes}
@@ -411,7 +598,7 @@ export function BeneficiaryDetailSheet({
 
         {!isLive ? (
           <p className="text-xs text-muted-foreground mt-6">
-            Pipeline actions are available for live records only.
+            Stage and scorecard appear once this beneficiary is enrolled in a programme.
           </p>
         ) : null}
       </SheetContent>
@@ -424,16 +611,32 @@ function ScoreField({
   max,
   value,
   onChange,
+  rubric,
 }: {
   label: string;
   max: number;
   value: number;
   onChange: (v: number) => void;
+  rubric: { helper: string; bands: string[] };
 }) {
   return (
-    <div className="space-y-1">
-      <div className="flex justify-between text-xs">
-        <Label className="text-xs">{label}</Label>
+    <div className="space-y-1.5">
+      <div className="flex flex-wrap justify-between text-xs gap-1">
+        <span className="inline-flex items-center gap-1">
+          <Label className="text-xs">{label}</Label>
+          <InfoTooltip
+            content={
+              <div className="space-y-1">
+                <p>{rubric.helper}</p>
+                <ul className="list-disc pl-3 space-y-0.5">
+                  {rubric.bands.map((band) => (
+                    <li key={band}>{band}</li>
+                  ))}
+                </ul>
+              </div>
+            }
+          />
+        </span>
         <span className="text-muted-foreground">
           {value}/{max}
         </span>
@@ -446,6 +649,7 @@ function ScoreField({
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}
       />
+      <p className="text-xs text-muted-foreground leading-snug">{rubric.helper}</p>
     </div>
   );
 }
@@ -454,7 +658,7 @@ function DetailSection({
   title,
   children,
 }: {
-  title: string;
+  title: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -478,4 +682,14 @@ function DetailItem({ label, value }: { label: string; value: string }) {
 
 function formatStatus(value: string) {
   return value.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("en-NG", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(date);
 }

@@ -31,13 +31,6 @@ const genderOptions = [
   { value: "prefer_not_to_say", label: "Prefer not to say" },
 ];
 
-const consentOptions = [
-  { value: "not_recorded", label: "Not recorded" },
-  { value: "consent_captured", label: "Consent captured" },
-  { value: "photo_consent_pending", label: "Photo consent pending" },
-  { value: "declined", label: "Declined" },
-];
-
 const safeguardingOptions = [
   { value: "none", label: "None" },
   { value: "reviewed", label: "Reviewed" },
@@ -55,8 +48,7 @@ export function BeneficiaryCreateSheet({
 }) {
   const [gender, setGender] = useState("");
   const [stateValue, setStateValue] = useState("");
-  const [consent, setConsent] = useState("not_recorded");
-  const [photoConsent, setPhotoConsent] = useState("not_recorded");
+  const [consentReceived, setConsentReceived] = useState(false);
   const [safeguarding, setSafeguarding] = useState("none");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -64,8 +56,7 @@ export function BeneficiaryCreateSheet({
   function reset() {
     setGender("");
     setStateValue("");
-    setConsent("not_recorded");
-    setPhotoConsent("not_recorded");
+    setConsentReceived(false);
     setSafeguarding("none");
     setError(null);
   }
@@ -73,8 +64,9 @@ export function BeneficiaryCreateSheet({
   function handleSubmit(formData: FormData) {
     formData.set("gender", gender);
     formData.set("state", stateValue);
-    formData.set("consent_status", consent);
-    formData.set("photo_video_consent", photoConsent);
+    formData.set("consent_status", consentReceived ? "consent_captured" : "not_recorded");
+    formData.set("consent_received", consentReceived ? "true" : "false");
+    formData.set("photo_video_consent", "not_recorded");
     formData.set("safeguarding_flag", safeguarding);
     setError(null);
     startTransition(async () => {
@@ -161,36 +153,17 @@ export function BeneficiaryCreateSheet({
             <Input name="school_name" placeholder="Government Secondary School, Karu" />
           </Field>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Consent status">
-              <Select value={consent} onValueChange={setConsent}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {consentOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field label="Photo / video consent">
-              <Select value={photoConsent} onValueChange={setPhotoConsent}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {consentOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-          </div>
+          <Field label="Consent" hint="Tick if a signed consent form is in hand. You can attach the file later from the detail panel.">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={consentReceived}
+                onChange={(event) => setConsentReceived(event.target.checked)}
+                className="h-4 w-4 rounded border-input"
+              />
+              Consent received
+            </label>
+          </Field>
 
           <Field label="Safeguarding flag">
             <Select value={safeguarding} onValueChange={setSafeguarding}>

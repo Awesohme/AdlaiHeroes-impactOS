@@ -132,7 +132,7 @@ export function ProgrammeDetailSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-2xl overflow-y-auto">
+      <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
         <SheetHeader>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
@@ -146,12 +146,12 @@ export function ProgrammeDetailSheet({
         </SheetHeader>
 
         <Tabs defaultValue="overview" className="mt-6">
-          <TabsList className="w-full">
-            <TabsTrigger value="overview" className="flex-1">Overview</TabsTrigger>
-            <TabsTrigger value="milestones" className="flex-1">Milestones</TabsTrigger>
-            <TabsTrigger value="funds" className="flex-1">Funds</TabsTrigger>
-            <TabsTrigger value="pipeline" className="flex-1">Pipeline</TabsTrigger>
-            <TabsTrigger value="beneficiaries" className="flex-1">People</TabsTrigger>
+          <TabsList className="w-full overflow-x-auto whitespace-nowrap justify-start sm:justify-stretch">
+            <TabsTrigger value="overview" className="flex-1 min-w-fit">Overview</TabsTrigger>
+            <TabsTrigger value="milestones" className="flex-1 min-w-fit">Milestones</TabsTrigger>
+            <TabsTrigger value="funds" className="flex-1 min-w-fit">Funds</TabsTrigger>
+            <TabsTrigger value="pipeline" className="flex-1 min-w-fit">Pipeline</TabsTrigger>
+            <TabsTrigger value="beneficiaries" className="flex-1 min-w-fit">People</TabsTrigger>
           </TabsList>
 
           {/* OVERVIEW */}

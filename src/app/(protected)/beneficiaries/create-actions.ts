@@ -49,6 +49,8 @@ export async function createBeneficiaryAction(
   const userSuppliedCode = Boolean(codeOverride);
   let beneficiaryCode = codeOverride || (await generateBeneficiaryCode(supabase));
 
+  const consentReceived = String(formData.get("consent_received") ?? "false") === "true";
+
   const buildPayload = (code: string) => ({
     beneficiary_code: code,
     full_name: fullName,
@@ -62,6 +64,8 @@ export async function createBeneficiaryAction(
     consent_status: consent,
     photo_video_consent: photoVideoConsent,
     safeguarding_flag: safeguarding,
+    consent_received: consentReceived,
+    consent_recorded_at: consentReceived ? new Date().toISOString() : null,
   });
 
   const maxAttempts = userSuppliedCode ? 1 : 5;

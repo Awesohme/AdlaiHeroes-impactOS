@@ -2,6 +2,18 @@ import { hasSupabaseBrowserEnv } from "@/lib/env";
 import type { ProgrammeModuleKey } from "@/lib/programme-config";
 import type { ProgrammeRow } from "@/lib/programmes";
 import { createClient } from "@/lib/supabase/server";
+import { TERMINAL_STAGE_LABELS } from "@/lib/programme-pipeline";
+
+export function isEnrolmentActive(row: {
+  enrolment_id: string | null;
+  current_status: string;
+  stage_label: string | null;
+}) {
+  if (!row.enrolment_id) return false;
+  if (row.current_status !== "active") return false;
+  if (row.stage_label && TERMINAL_STAGE_LABELS.has(row.stage_label)) return false;
+  return true;
+}
 
 export type BeneficiaryRow = {
   id: string | null;
@@ -35,6 +47,9 @@ export type BeneficiaryRow = {
     commitment: number;
     notes: string | null;
   } | null;
+  consent_received: boolean;
+  consent_evidence_drive_file_id: string | null;
+  consent_recorded_at: string | null;
 };
 
 type BeneficiaryRecord = {
@@ -48,6 +63,9 @@ type BeneficiaryRecord = {
   school_name: string | null;
   consent_status: string;
   safeguarding_flag: string;
+  consent_received: boolean | null;
+  consent_evidence_drive_file_id: string | null;
+  consent_recorded_at: string | null;
 };
 
 type ProgrammeRel = {
@@ -95,7 +113,9 @@ export async function getBeneficiaries(programmes: ProgrammeRow[]) {
     await Promise.all([
       supabase
         .from("beneficiaries")
-        .select("id,beneficiary_code,full_name,guardian_name,guardian_phone,community,state,school_name,consent_status,safeguarding_flag")
+        .select(
+          "id,beneficiary_code,full_name,guardian_name,guardian_phone,community,state,school_name,consent_status,safeguarding_flag,consent_received,consent_evidence_drive_file_id,consent_recorded_at",
+        )
         .order("created_at", { ascending: false })
         .limit(40),
       supabase
@@ -175,6 +195,9 @@ function formatBeneficiary(
     decision: enrolment?.decision ?? null,
     decision_reason: enrolment?.decision_reason ?? null,
     scorecard: scoreRel ? { ...scoreRel } : null,
+    consent_received: beneficiary.consent_received ?? false,
+    consent_evidence_drive_file_id: beneficiary.consent_evidence_drive_file_id ?? null,
+    consent_recorded_at: beneficiary.consent_recorded_at ?? null,
   };
 }
 
@@ -183,7 +206,17 @@ function buildMockBeneficiaries(programmes: ProgrammeRow[]): BeneficiaryRow[] {
 
   const base = (): Pick<
     BeneficiaryRow,
-    "id" | "enrolment_id" | "programme_id" | "stage_id" | "stage_label" | "decision" | "decision_reason" | "scorecard"
+    | "id"
+    | "enrolment_id"
+    | "programme_id"
+    | "stage_id"
+    | "stage_label"
+    | "decision"
+    | "decision_reason"
+    | "scorecard"
+    | "consent_received"
+    | "consent_evidence_drive_file_id"
+    | "consent_recorded_at"
   > => ({
     id: null,
     enrolment_id: null,
@@ -193,6 +226,9 @@ function buildMockBeneficiaries(programmes: ProgrammeRow[]): BeneficiaryRow[] {
     decision: null,
     decision_reason: null,
     scorecard: null,
+    consent_received: false,
+    consent_evidence_drive_file_id: null,
+    consent_recorded_at: null,
   });
 
   return [
