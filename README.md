@@ -40,12 +40,13 @@ Required environment variables:
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 NEXT_PUBLIC_SITE_URL=
-GOOGLE_SERVICE_ACCOUNT_EMAIL=
-GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=
+GOOGLE_DRIVE_CLIENT_ID=
+GOOGLE_DRIVE_CLIENT_SECRET=
+GOOGLE_DRIVE_REFRESH_TOKEN=
 GOOGLE_DRIVE_ROOT_FOLDER_ID=
 ```
 
-`GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY` must stay server-side only. In Vercel, add it as a normal server env var and preserve line breaks with `\n`.
+`GOOGLE_DRIVE_CLIENT_SECRET` and `GOOGLE_DRIVE_REFRESH_TOKEN` must stay server-side only.
 
 Do not add `SUPABASE_SECRET_KEY` until a server-only route or scheduled job requires it.
 
@@ -63,7 +64,7 @@ Before real beneficiary data enters the system:
 - Remove the temporary `dev_read_programmes` policy from `supabase/seed-dev.sql`.
 - Add authenticated, role-aware RLS policies.
 - Configure Google OAuth in Supabase.
-- Configure the Google Drive service account and share the chosen root folder or Shared Drive with that service account email.
+- Configure Google Drive upload auth for the current rollout.
 - Confirm no secret key is exposed to the client bundle.
 - Run and document a backup/restore test.
 
@@ -71,16 +72,19 @@ Before real beneficiary data enters the system:
 
 ImpactOps uploads evidence files directly into Google Drive from the backend. Staff should not enter raw Drive file IDs manually in normal operation.
 
-Required setup:
+Current rollout setup:
 
 1. Enable the Google Drive API in the Adlai Google Cloud project.
-2. Create a service account.
+2. Create or reuse a Web OAuth client.
 3. Set:
-   - `GOOGLE_SERVICE_ACCOUNT_EMAIL`
-   - `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY`
+   - `GOOGLE_DRIVE_CLIENT_ID`
+   - `GOOGLE_DRIVE_CLIENT_SECRET`
+   - `GOOGLE_DRIVE_REFRESH_TOKEN`
    - `GOOGLE_DRIVE_ROOT_FOLDER_ID`
-4. Share the chosen root folder or Shared Drive with the service account email.
+4. Authorize the uploader Google account once and store the refresh token in Vercel.
 5. Use the Settings page to run the Drive root test.
+
+Later, when Google Workspace Shared Drives are approved, the backend can switch back to service-account mode for cleaner NGO-owned storage.
 
 Routing rules:
 

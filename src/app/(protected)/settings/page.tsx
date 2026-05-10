@@ -42,16 +42,22 @@ export default async function SettingsPage({
         <article>
           <div>
             <h2>Google Drive automation</h2>
-            <p>Evidence uploads now route through a backend service account. Share the chosen root folder or Shared Drive with the service account email below, then use the test action to verify folder access.</p>
+            <p>Evidence uploads now route through a backend Google connection. For now, the app prefers OAuth refresh-token mode so files can upload into the chosen Adlai Drive account even before Shared Drives are approved.</p>
           </div>
           <span>{driveReady ? "Configured" : "Missing env or folder access"}</span>
         </article>
         <article>
           <div>
-            <h2>Service account email</h2>
-            <p>{drive.email || "Set GOOGLE_SERVICE_ACCOUNT_EMAIL in Vercel or local env."}</p>
+            <h2>Drive auth mode</h2>
+            <p>
+              {drive.mode === "oauth-refresh-token"
+                ? "OAuth refresh token"
+                : drive.mode === "service-account"
+                  ? "Service account"
+                  : "Not configured"}
+            </p>
           </div>
-          <span>{drive.email ? "Present" : "Missing"}</span>
+          <span>{drive.mode ? "Detected" : "Missing"}</span>
         </article>
         <article>
           <div>
@@ -62,10 +68,24 @@ export default async function SettingsPage({
         </article>
         <article>
           <div>
-            <h2>Private key</h2>
-            <p>Keep GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY server-side only. Never expose it to the browser bundle.</p>
+            <h2>OAuth client</h2>
+            <p>{drive.oauthClientId || "Set GOOGLE_DRIVE_CLIENT_ID in Vercel when using OAuth refresh-token mode."}</p>
           </div>
-          <span>{drive.hasPrivateKey ? "Configured" : "Missing"}</span>
+          <span>{drive.oauthClientId && drive.hasOauthClientSecret ? "Configured" : "Missing"}</span>
+        </article>
+        <article>
+          <div>
+            <h2>OAuth refresh token</h2>
+            <p>Keep GOOGLE_DRIVE_REFRESH_TOKEN server-side only. The backend exchanges it for short-lived access tokens automatically when uploads run.</p>
+          </div>
+          <span>{drive.hasOauthRefreshToken ? "Configured" : "Missing"}</span>
+        </article>
+        <article>
+          <div>
+            <h2>Service account fallback</h2>
+            <p>{drive.serviceAccountEmail || "Optional for later Shared Drive mode."}</p>
+          </div>
+          <span>{drive.serviceAccountEmail && drive.hasServiceAccountPrivateKey ? "Ready later" : "Optional"}</span>
         </article>
       </section>
 

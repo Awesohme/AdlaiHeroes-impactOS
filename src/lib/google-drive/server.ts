@@ -1,6 +1,6 @@
 import { createSign } from "node:crypto";
 
-const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive";
+const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GOOGLE_DRIVE_API = "https://www.googleapis.com/drive/v3";
 const GOOGLE_DRIVE_UPLOAD_API = "https://www.googleapis.com/upload/drive/v3/files";
@@ -43,30 +43,63 @@ type UploadEvidenceResult = {
   webViewLink: string | null;
 };
 
-let tokenCache: AccessTokenCache | null = null;
+type DriveAuthMode = "oauth-refresh-token" | "service-account";
+
+type DriveEnvStatus = {
+  mode: DriveAuthMode | null;
+  rootFolderId: string;
+  oauthClientId: string;
+  hasOauthClientSecret: boolean;
+  hasOauthRefreshToken: boolean;
+  serviceAccountEmail: string;
+  hasServiceAccountPrivateKey: boolean;
+};
 
 type ServiceAccountCredentials = {
   email: string;
   privateKey: string;
 };
 
-export function getGoogleDriveEnvStatus() {
-  const credentials = getServiceAccountCredentials();
+let tokenCache: AccessTokenCache | null = null;
+
+export function getGoogleDriveEnvStatus(): DriveEnvStatus {
+  const serviceAccount = getServiceAccountCredentials();
+  const rootFolderId = normalizeDriveFolderId(process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID?.trim() ?? "");
+  const oauthClientId = process.env.GOOGLE_DRIVE_CLIENT_ID?.trim() ?? "";
+  const hasOauthClientSecret = Boolean(process.env.GOOGLE_DRIVE_CLIENT_SECRET?.trim());
+  const hasOauthRefreshToken = Boolean(process.env.GOOGLE_DRIVE_REFRESH_TOKEN?.trim());
 
   return {
-    email: credentials.email,
-    hasPrivateKey: Boolean(credentials.privateKey),
-    rootFolderId: normalizeDriveFolderId(process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID?.trim() ?? ""),
+    mode: resolveDriveAuthMode(),
+    rootFolderId,
+    oauthClientId,
+    hasOauthClientSecret,
+    hasOauthRefreshToken,
+    serviceAccountEmail: serviceAccount.email,
+    hasServiceAccountPrivateKey: Boolean(serviceAccount.privateKey),
   };
 }
 
 export function hasGoogleDriveServerEnv() {
   const status = getGoogleDriveEnvStatus();
-  return Boolean(status.email && status.hasPrivateKey && status.rootFolderId);
+
+  if (!status.rootFolderId) {
+    return false;
+  }
+
+  if (status.mode === "oauth-refresh-token") {
+    return Boolean(status.oauthClientId && status.hasOauthClientSecret && status.hasOauthRefreshToken);
+  }
+
+  if (status.mode === "service-account") {
+    return Boolean(status.serviceAccountEmail && status.hasServiceAccountPrivateKey);
+  }
+
+  return false;
 }
 
 export async function testGoogleDriveSetup() {
-  const rootFolderId = getRequiredEnv("GOOGLE_DRIVE_ROOT_FOLDER_ID");
+  const rootFolderId = getRequiredRootFolderId();
   const rootFolder = await getDriveFile(rootFolderId);
 
   if (rootFolder.mimeType !== FOLDER_MIME_TYPE) {
@@ -79,6 +112,7 @@ export async function testGoogleDriveSetup() {
   });
 
   return {
+    authMode: resolveDriveAuthMode(),
     rootFolderId: rootFolder.id,
     rootFolderName: rootFolder.name,
     healthcheckFolderId: healthcheckFolder.id,
@@ -97,7 +131,7 @@ export async function uploadEvidenceFileToDrive({
     (
       await findOrCreateFolder({
         folderName: formatProgrammeFolderName(programme.programme_code, programme.name),
-        parentId: getRequiredEnv("GOOGLE_DRIVE_ROOT_FOLDER_ID"),
+        parentId: getRequiredRootFolderId(),
       })
     ).id;
 
@@ -271,11 +305,13 @@ async function getAccessToken() {
     return tokenCache.accessToken;
   }
 
-  const assertion = createSignedAssertion();
-  const body = new URLSearchParams({
-    grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-    assertion,
-  });
+  const mode = resolveDriveAuthMode();
+
+  if (!mode) {
+    throw new Error("Google Drive auth is not configured. Add OAuth refresh-token env vars or service-account env vars.");
+  }
+
+  const body = mode === "oauth-refresh-token" ? buildOauthRefreshBody() : buildServiceAccountBody();
   const response = await fetch(GOOGLE_TOKEN_URL, {
     method: "POST",
     headers: {
@@ -305,6 +341,24 @@ async function getAccessToken() {
   };
 
   return tokenCache.accessToken;
+}
+
+function buildOauthRefreshBody() {
+  return new URLSearchParams({
+    client_id: getRequiredEnv("GOOGLE_DRIVE_CLIENT_ID"),
+    client_secret: getRequiredEnv("GOOGLE_DRIVE_CLIENT_SECRET"),
+    refresh_token: getRequiredEnv("GOOGLE_DRIVE_REFRESH_TOKEN"),
+    grant_type: "refresh_token",
+  });
+}
+
+function buildServiceAccountBody() {
+  const assertion = createSignedAssertion();
+
+  return new URLSearchParams({
+    grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+    assertion,
+  });
 }
 
 function createSignedAssertion() {
@@ -337,7 +391,15 @@ function normalizePrivateKey(value: string) {
   return value.replace(/\\n/g, "\n");
 }
 
-function getRequiredEnv(name: "GOOGLE_SERVICE_ACCOUNT_EMAIL" | "GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY" | "GOOGLE_DRIVE_ROOT_FOLDER_ID") {
+function getRequiredEnv(
+  name:
+    | "GOOGLE_DRIVE_CLIENT_ID"
+    | "GOOGLE_DRIVE_CLIENT_SECRET"
+    | "GOOGLE_DRIVE_REFRESH_TOKEN"
+    | "GOOGLE_DRIVE_ROOT_FOLDER_ID"
+    | "GOOGLE_SERVICE_ACCOUNT_EMAIL"
+    | "GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY",
+) {
   if (name === "GOOGLE_SERVICE_ACCOUNT_EMAIL" || name === "GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY") {
     const credentials = getServiceAccountCredentials();
     const value = name === "GOOGLE_SERVICE_ACCOUNT_EMAIL" ? credentials.email : credentials.privateKey;
@@ -349,7 +411,11 @@ function getRequiredEnv(name: "GOOGLE_SERVICE_ACCOUNT_EMAIL" | "GOOGLE_SERVICE_A
     return value;
   }
 
-  const value = normalizeDriveFolderId(process.env[name]?.trim() ?? "");
+  if (name === "GOOGLE_DRIVE_ROOT_FOLDER_ID") {
+    return getRequiredRootFolderId();
+  }
+
+  const value = process.env[name]?.trim();
 
   if (!value) {
     throw new Error(`Missing required environment variable: ${name}`);
@@ -358,12 +424,34 @@ function getRequiredEnv(name: "GOOGLE_SERVICE_ACCOUNT_EMAIL" | "GOOGLE_SERVICE_A
   return value;
 }
 
-function formatProgrammeFolderName(programmeCode: string, programmeName: string) {
-  return `${programmeCode} - ${programmeName}`.replace(/[\\/:*?"<>|]/g, " ").replace(/\s+/g, " ").trim();
+function getRequiredRootFolderId() {
+  const value = normalizeDriveFolderId(process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID?.trim() ?? "");
+
+  if (!value) {
+    throw new Error("Missing required environment variable: GOOGLE_DRIVE_ROOT_FOLDER_ID");
+  }
+
+  return value;
 }
 
-function toDriveLiteral(value: string) {
-  return `'${value.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`;
+function resolveDriveAuthMode(): DriveAuthMode | null {
+  const hasOauth =
+    Boolean(process.env.GOOGLE_DRIVE_CLIENT_ID?.trim()) &&
+    Boolean(process.env.GOOGLE_DRIVE_CLIENT_SECRET?.trim()) &&
+    Boolean(process.env.GOOGLE_DRIVE_REFRESH_TOKEN?.trim());
+
+  if (hasOauth) {
+    return "oauth-refresh-token";
+  }
+
+  const serviceAccount = getServiceAccountCredentials();
+  const hasServiceAccount = Boolean(serviceAccount.email && serviceAccount.privateKey);
+
+  if (hasServiceAccount) {
+    return "service-account";
+  }
+
+  return null;
 }
 
 function getServiceAccountCredentials(): ServiceAccountCredentials {
@@ -395,6 +483,14 @@ function getServiceAccountCredentials(): ServiceAccountCredentials {
     email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim() ?? "",
     privateKey: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.trim() ?? "",
   };
+}
+
+function formatProgrammeFolderName(programmeCode: string, programmeName: string) {
+  return `${programmeCode} - ${programmeName}`.replace(/[\\/:*?"<>|]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function toDriveLiteral(value: string) {
+  return `'${value.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`;
 }
 
 function normalizeDriveFolderId(value: string) {
