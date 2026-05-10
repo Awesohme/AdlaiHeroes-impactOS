@@ -3,8 +3,9 @@
 ## Now
 
 - Confirm Vercel is reading live Programme rows with the public demo policy.
-- Configure Google OAuth redirect URLs in Supabase.
 - Test login on Vercel with an approved Google account.
+- Set `NEXT_PUBLIC_SITE_URL=https://adlai-heroes-impact-os.vercel.app` in Vercel.
+- Verify protected routes redirect when logged out after redeploy.
 - Replace temporary public programme read policy before real data.
 
 ## Next

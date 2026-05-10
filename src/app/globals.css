@@ -525,6 +525,19 @@ h3 {
   line-height: 1.55;
 }
 
+.sidebar-note small {
+  display: block;
+  max-width: 100%;
+  margin-top: 12px;
+  overflow: hidden;
+  color: var(--muted);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .sidebar-note a {
   display: inline-flex;
   margin-top: 12px;

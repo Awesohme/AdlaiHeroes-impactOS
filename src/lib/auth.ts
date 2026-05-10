@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { hasSupabaseBrowserEnv } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 
 export type CurrentUser = {
@@ -7,6 +8,10 @@ export type CurrentUser = {
 };
 
 export async function getCurrentUser(): Promise<CurrentUser | null> {
+  if (!hasSupabaseBrowserEnv()) {
+    return null;
+  }
+
   const supabase = await createClient();
   const {
     data: { user },

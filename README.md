@@ -45,7 +45,11 @@ NEXT_PUBLIC_SITE_URL=
 Do not add `SUPABASE_SECRET_KEY` until a server-only route or scheduled job requires it.
 
 For local OAuth callbacks, set `NEXT_PUBLIC_SITE_URL=http://localhost:3000`.
-For Vercel production, set it to the deployed app URL.
+For Vercel production, set it to:
+
+```bash
+NEXT_PUBLIC_SITE_URL=https://adlai-heroes-impact-os.vercel.app
+```
 
 ## Launch Gates
 

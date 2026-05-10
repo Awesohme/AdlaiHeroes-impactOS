@@ -44,7 +44,7 @@ In Supabase Authentication -> URL Configuration, add:
 
 ```text
 http://localhost:3000/auth/callback
-https://<vercel-production-domain>/auth/callback
+https://adlai-heroes-impact-os.vercel.app/auth/callback
 ```
 
 Set `NEXT_PUBLIC_SITE_URL` in Vercel to the production app URL so OAuth redirects back to the correct callback route.

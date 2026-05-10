@@ -12,8 +12,18 @@ export async function middleware(request: NextRequest) {
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const pathname = request.nextUrl.pathname;
+  const isPublic = publicRoutes.includes(pathname);
 
   if (!supabaseUrl || !supabaseAnonKey) {
+    if (!isPublic) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/auth/login";
+      url.searchParams.set("next", pathname);
+      url.searchParams.set("error", "env");
+      return NextResponse.redirect(url);
+    }
+
     return response;
   }
 
@@ -33,8 +43,6 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  const pathname = request.nextUrl.pathname;
-  const isPublic = publicRoutes.includes(pathname);
   const {
     data: { user },
   } = await supabase.auth.getUser();

@@ -1,7 +1,8 @@
 import Link from "next/link";
+import { requireUser } from "@/lib/auth";
 import { navigation } from "@/lib/navigation";
 
-export function AppFrame({
+export async function AppFrame({
   title,
   eyebrow,
   description,
@@ -14,6 +15,8 @@ export function AppFrame({
   action?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  const user = await requireUser();
+
   return (
     <main className="product-shell">
       <aside className="sidebar">
@@ -31,6 +34,7 @@ export function AppFrame({
         <div className="sidebar-note">
           <span>Phase 1</span>
           <p>Supabase records. Google Drive files. Sheets exports. Vercel frontend.</p>
+          {user.email ? <small>{user.email}</small> : null}
           <Link href="/auth/sign-out">Sign out</Link>
         </div>
       </aside>
