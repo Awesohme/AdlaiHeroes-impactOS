@@ -4,6 +4,7 @@ import { AppFrame } from "@/components/app-frame";
 import { Button } from "@/components/ui/button";
 import { ProgrammeCreateForm } from "@/components/programmes/programme-create-form";
 import { getProgrammeByCode } from "@/lib/programmes";
+import { getFieldTemplates } from "@/lib/field-templates";
 import { ChevronLeft } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +15,10 @@ export default async function EditProgrammePage({
   params: Promise<{ programmeCode: string }>;
 }) {
   const { programmeCode } = await params;
-  const result = await getProgrammeByCode(programmeCode);
+  const [result, fieldCatalog] = await Promise.all([
+    getProgrammeByCode(programmeCode),
+    getFieldTemplates(),
+  ]);
 
   if (!result.programme) {
     notFound();
@@ -33,7 +37,7 @@ export default async function EditProgrammePage({
         </Button>
       }
     >
-      <ProgrammeCreateForm initialProgramme={result.programme} mode="edit" />
+      <ProgrammeCreateForm initialProgramme={result.programme} mode="edit" fieldCatalog={fieldCatalog} />
     </AppFrame>
   );
 }

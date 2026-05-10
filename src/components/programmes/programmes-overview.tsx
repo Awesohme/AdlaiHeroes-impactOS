@@ -7,7 +7,6 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { MetricTile, type MetricTone } from "@/components/metric-tile";
 import { FolderKanban, Activity, ClipboardList, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -25,6 +24,8 @@ import {
 } from "@/components/ui/table";
 import { ArrowUpRight, CheckCircle2, Info } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { ProgrammeStatusBadge } from "@/components/programmes/programme-status-badge";
+import { ProgrammeDetailSheet } from "@/components/programmes/programme-detail-sheet";
 
 export function ProgrammesOverview({
   rows,
@@ -42,6 +43,7 @@ export function ProgrammesOverview({
   const [donorFilter, setDonorFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [selected, setSelected] = useState<ProgrammeRow | null>(null);
 
   const filteredRows = rows.filter((row) => {
     const yearMatch =
@@ -205,14 +207,18 @@ export function ProgrammesOverview({
                 </TableRow>
               ) : (
                 filteredRows.map((row) => (
-                  <TableRow key={row.programme_code}>
+                  <TableRow
+                    key={row.programme_code}
+                    className="cursor-pointer"
+                    onClick={() => setSelected(row)}
+                  >
                     <TableCell>
                       <div className="font-medium">{row.name}</div>
                       <div className="text-xs text-muted-foreground">{row.programme_code}</div>
                     </TableCell>
                     <TableCell className="text-sm">{row.programme_type}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {row.location_areas.join(", ") || "TBD"}
+                      <LocationsCell areas={row.location_areas} />
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
                       {row.timeline_label}
@@ -224,11 +230,12 @@ export function ProgrammesOverview({
                       {row.budget_ngn ? row.budget_ngn.toLocaleString("en-NG") : "—"}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={statusVariant(row.status)} className="font-normal">
-                        {formatStatus(row.status)}
-                      </Badge>
+                      <ProgrammeStatusBadge status={row.status} />
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell
+                      className="text-right"
+                      onClick={(event) => event.stopPropagation()}
+                    >
                       {row.flyer_drive_file_id ? (
                         <a
                           href={`https://drive.google.com/file/d/${row.flyer_drive_file_id}/view`}
@@ -242,7 +249,10 @@ export function ProgrammesOverview({
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell
+                      className="text-right"
+                      onClick={(event) => event.stopPropagation()}
+                    >
                       <Link
                         href={`/programmes/${row.programme_code}/edit`}
                         prefetch={false}
@@ -258,7 +268,26 @@ export function ProgrammesOverview({
           </Table>
         </CardContent>
       </Card>
+
+      <ProgrammeDetailSheet
+        programme={selected}
+        open={!!selected}
+        onOpenChange={(open) => {
+          if (!open) setSelected(null);
+        }}
+      />
     </div>
+  );
+}
+
+function LocationsCell({ areas }: { areas: string[] }) {
+  if (areas.length === 0) return <span>TBD</span>;
+  if (areas.length === 1) return <span>{areas[0]}</span>;
+  return (
+    <span title={areas.join(", ")} className="inline-flex items-center gap-1">
+      <span className="truncate max-w-[120px]">{areas[0]}</span>
+      <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs">+{areas.length - 1}</span>
+    </span>
   );
 }
 
@@ -305,8 +334,3 @@ function formatStatus(value: string) {
   return value.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
-  if (status === "active" || status === "completed") return "default";
-  if (status === "at_risk") return "destructive";
-  return "secondary";
-}

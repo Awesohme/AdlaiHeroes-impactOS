@@ -6,6 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getGoogleDriveEnvStatus, hasGoogleDriveServerEnv } from "@/lib/google-drive/server";
 import { testGoogleDriveConnectionAction } from "./actions";
 import { CheckCircle2, AlertCircle } from "lucide-react";
+import { getFieldTemplates } from "@/lib/field-templates";
+import { FieldTemplatesTab } from "@/components/settings/field-templates-tab";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +47,7 @@ export default async function SettingsPage({
 }) {
   const params = (await searchParams) ?? {};
   const drive = getGoogleDriveEnvStatus();
+  const fieldTemplates = await getFieldTemplates();
   const driveReady = hasGoogleDriveServerEnv();
   const driveOk = params.drive_test === "ok";
   const driveError = params.drive_test === "error";
@@ -143,9 +146,14 @@ export default async function SettingsPage({
       <Tabs defaultValue="drive" className="space-y-4">
         <TabsList>
           <TabsTrigger value="drive">Google Drive</TabsTrigger>
+          <TabsTrigger value="fields">Field templates</TabsTrigger>
           <TabsTrigger value="platform">Platform</TabsTrigger>
           {diagnostics ? <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger> : null}
         </TabsList>
+
+        <TabsContent value="fields">
+          <FieldTemplatesTab initial={fieldTemplates} />
+        </TabsContent>
 
         <TabsContent value="drive" className="space-y-4">
           <Card>

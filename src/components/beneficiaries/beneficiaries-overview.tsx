@@ -4,12 +4,12 @@ import { useState } from "react";
 import type { BeneficiaryRow } from "@/lib/beneficiaries";
 import type { ProgrammeRow } from "@/lib/programmes";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { MetricTile, type MetricTone } from "@/components/metric-tile";
-import { Users, ShieldCheck, AlertTriangle, Activity } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { MetricTile, type MetricTone } from "@/components/metric-tile";
+import { Users, ShieldCheck, AlertTriangle, Activity } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -25,14 +25,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { Search, Info, Plus } from "lucide-react";
+import { BeneficiaryDetailSheet } from "@/components/beneficiaries/beneficiary-detail-sheet";
 
 export function BeneficiariesOverview({
   rows,
@@ -49,7 +43,8 @@ export function BeneficiariesOverview({
   const [programmeFilter, setProgrammeFilter] = useState("all");
   const [safeguardingFilter, setSafeguardingFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [selectedCode, setSelectedCode] = useState<string | null>(null);
+  const [stageFilter, setStageFilter] = useState("all");
+  const [selected, setSelected] = useState<BeneficiaryRow | null>(null);
 
   const filteredRows = rows.filter((row) => {
     const queryMatch =
@@ -60,11 +55,16 @@ export function BeneficiariesOverview({
     const programmeMatch = programmeFilter === "all" || row.programme_name === programmeFilter;
     const safeguardingMatch = safeguardingFilter === "all" || row.risk_flag === safeguardingFilter;
     const statusMatch = statusFilter === "all" || row.current_status === statusFilter;
-    return queryMatch && programmeMatch && safeguardingMatch && statusMatch;
+    const stageMatch =
+      stageFilter === "all" ||
+      (stageFilter === "_unstaged" ? !row.stage_label : row.stage_label === stageFilter);
+    return queryMatch && programmeMatch && safeguardingMatch && statusMatch && stageMatch;
   });
 
-  const selected = rows.find((row) => row.beneficiary_code === selectedCode) ?? null;
   const programmeNames = [...new Set(programmes.map((p) => p.name))];
+  const stages = [
+    ...new Set(rows.map((row) => row.stage_label).filter((label): label is string => !!label)),
+  ];
   const metrics = {
     total: rows.length,
     consentCaptured: rows.filter((row) => row.consent_status.includes("captured")).length,
@@ -142,6 +142,13 @@ export function BeneficiariesOverview({
               options={programmeNames}
             />
             <FilterSelect
+              label="Stage"
+              value={stageFilter}
+              onChange={setStageFilter}
+              options={stages}
+              extraOptions={[{ value: "_unstaged", label: "Unstaged" }]}
+            />
+            <FilterSelect
               label="Safeguarding"
               value={safeguardingFilter}
               onChange={setSafeguardingFilter}
@@ -167,7 +174,7 @@ export function BeneficiariesOverview({
                 <TableHead>ID</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Programme</TableHead>
-                <TableHead>Community</TableHead>
+                <TableHead>Stage</TableHead>
                 <TableHead>Last activity</TableHead>
                 <TableHead>Consent</TableHead>
                 <TableHead>Risk</TableHead>
@@ -186,7 +193,7 @@ export function BeneficiariesOverview({
                   <TableRow
                     key={row.beneficiary_code}
                     className="cursor-pointer"
-                    onClick={() => setSelectedCode(row.beneficiary_code)}
+                    onClick={() => setSelected(row)}
                   >
                     <TableCell className="text-xs text-muted-foreground font-mono">
                       {row.beneficiary_code}
@@ -195,7 +202,15 @@ export function BeneficiariesOverview({
                     <TableCell className="text-sm text-muted-foreground">
                       {row.programme_name}
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{row.community}</TableCell>
+                    <TableCell>
+                      {row.stage_label ? (
+                        <Badge variant="outline" className="font-normal">
+                          {row.stage_label}
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
                       {row.last_activity}
                     </TableCell>
@@ -231,109 +246,13 @@ export function BeneficiariesOverview({
         </CardContent>
       </Card>
 
-      <Sheet open={!!selected} onOpenChange={(open) => !open && setSelectedCode(null)}>
-        <SheetContent className="sm:max-w-md overflow-y-auto">
-          {selected ? (
-            <>
-              <SheetHeader>
-                <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary">
-                    {selected.full_name.slice(0, 2).toUpperCase()}
-                  </div>
-                  <div className="min-w-0">
-                    <SheetTitle className="text-base">{selected.full_name}</SheetTitle>
-                    <SheetDescription className="font-mono text-xs">
-                      {selected.beneficiary_code}
-                    </SheetDescription>
-                  </div>
-                </div>
-              </SheetHeader>
-
-              <div className="mt-6 flex flex-wrap gap-1.5">
-                <Badge variant="default" className="font-normal">
-                  {formatStatus(selected.consent_status)}
-                </Badge>
-                <Badge
-                  variant={selected.risk_flag === "review" ? "destructive" : "secondary"}
-                  className="font-normal"
-                >
-                  {selected.risk_flag === "review" ? "Safeguarding review" : "Risk clear"}
-                </Badge>
-                <Badge variant="secondary" className="font-normal">
-                  {formatStatus(selected.current_status)}
-                </Badge>
-              </div>
-
-              <DetailSection title="Personal & contact">
-                <DetailItem label="Guardian" value={selected.guardian_name} />
-                <DetailItem label="Phone" value={selected.guardian_phone} />
-                <DetailItem label="Community" value={selected.community} />
-                <DetailItem label="State" value={selected.state} />
-                <DetailItem label="School" value={selected.school_name} />
-              </DetailSection>
-
-              <DetailSection title="Programme">
-                <DetailItem label="Name" value={selected.programme_name} />
-                <DetailItem
-                  label="Code"
-                  value={selected.programme_code ?? "Not linked"}
-                />
-                {selected.programme_modules.length ? (
-                  <div className="flex flex-wrap gap-1.5 pt-2">
-                    {selected.programme_modules.map((module) => (
-                      <Badge key={module} variant="outline" className="font-normal">
-                        {formatStatus(module)}
-                      </Badge>
-                    ))}
-                  </div>
-                ) : null}
-              </DetailSection>
-
-              {selected.highlights.length ? (
-                <DetailSection title="Signals">
-                  <ul className="space-y-1.5">
-                    {selected.highlights.map((highlight) => (
-                      <li
-                        key={highlight}
-                        className="flex justify-between text-sm border-b last:border-b-0 pb-1.5 last:pb-0"
-                      >
-                        <span className="text-muted-foreground">{formatStatus(highlight)}</span>
-                        <span className="font-medium text-emerald-600">Live</span>
-                      </li>
-                    ))}
-                  </ul>
-                </DetailSection>
-              ) : null}
-            </>
-          ) : null}
-        </SheetContent>
-      </Sheet>
-    </div>
-  );
-}
-
-function DetailSection({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="mt-6">
-      <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-3">
-        {title}
-      </h3>
-      <div className="space-y-2">{children}</div>
-    </section>
-  );
-}
-
-function DetailItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between gap-4 text-sm border-b pb-1.5">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium text-right">{value}</span>
+      <BeneficiaryDetailSheet
+        beneficiary={selected}
+        open={!!selected}
+        onOpenChange={(open) => {
+          if (!open) setSelected(null);
+        }}
+      />
     </div>
   );
 }
@@ -344,12 +263,14 @@ function FilterSelect({
   options,
   onChange,
   formatter,
+  extraOptions,
 }: {
   label: string;
   value: string;
   options: string[];
   onChange: (value: string) => void;
   formatter?: (value: string) => string;
+  extraOptions?: Array<{ value: string; label: string }>;
 }) {
   return (
     <Select value={value} onValueChange={onChange}>
@@ -358,6 +279,11 @@ function FilterSelect({
       </SelectTrigger>
       <SelectContent>
         <SelectItem value="all">All {label.toLowerCase()}</SelectItem>
+        {extraOptions?.map((opt) => (
+          <SelectItem key={opt.value} value={opt.value}>
+            {opt.label}
+          </SelectItem>
+        ))}
         {options.map((option) => (
           <SelectItem key={option} value={option}>
             {formatter ? formatter(option) : option}

@@ -3,15 +3,14 @@
 import { useActionState, useState, type Dispatch, type SetStateAction } from "react";
 import { useFormStatus } from "react-dom";
 import {
-  defaultProgrammeFieldKeys,
   getProgrammeStatusLabel,
   moduleOptions,
   nigeriaLocationOptions,
-  programmeFieldCatalog,
   programmeStatusOptions,
   programmeTypeOptions,
   type ProgrammeModuleKey,
 } from "@/lib/programme-config";
+import type { FieldTemplate } from "@/lib/field-templates";
 import type { ProgrammeDataFieldRow, ProgrammeRow } from "@/lib/programmes";
 import { saveProgrammeAction, type SaveProgrammeState } from "@/app/(protected)/programmes/new/actions";
 import { Button } from "@/components/ui/button";
@@ -41,11 +40,13 @@ const initialState: SaveProgrammeState = {};
 type ProgrammeCreateFormProps = {
   mode?: "create" | "edit";
   initialProgramme?: ProgrammeRow | null;
+  fieldCatalog: FieldTemplate[];
 };
 
 export function ProgrammeCreateForm({
   mode = "create",
   initialProgramme,
+  fieldCatalog,
 }: ProgrammeCreateFormProps) {
   const [state, formAction] = useActionState(saveProgrammeAction, initialState);
 
@@ -60,7 +61,7 @@ export function ProgrammeCreateForm({
   const initialFields =
     parseDataFields(state.fields?.data_fields_json) ||
     initialProgramme?.data_fields ||
-    buildDefaultFieldSet();
+    buildDefaultFieldSet(fieldCatalog);
 
   const [selectedLocations, setSelectedLocations] = useState<string[]>(initialLocations);
   const [enabledModules, setEnabledModules] = useState<ProgrammeModuleKey[]>(initialModules);
@@ -94,7 +95,7 @@ export function ProgrammeCreateForm({
   );
   const [endDate, setEndDate] = useState(state.fields?.end_date ?? initialProgramme?.end_date ?? "");
 
-  const availableFields = programmeFieldCatalog.filter(
+  const availableFields = fieldCatalog.filter(
     (field) => !selectedFields.some((selectedField) => selectedField.field_key === field.field_key),
   );
   const summaryStatus = mode === "create" && status === "draft" ? "draft" : status;
@@ -357,7 +358,7 @@ export function ProgrammeCreateForm({
                               size="sm"
                               variant="outline"
                               type="button"
-                              onClick={() => addField(field.field_key, setSelectedFields)}
+                              onClick={() => addField(field.field_key, fieldCatalog, setSelectedFields)}
                             >
                               <Plus className="h-3 w-3" /> Add
                             </Button>
@@ -578,18 +579,17 @@ function statusVariant(status: string): "default" | "secondary" | "destructive" 
   return "secondary";
 }
 
-function buildDefaultFieldSet(): ProgrammeDataFieldRow[] {
-  return defaultProgrammeFieldKeys.map((fieldKey, index) => {
-    const definition = programmeFieldCatalog.find((field) => field.field_key === fieldKey);
-    return {
-      field_key: fieldKey,
-      label: definition?.label ?? fieldKey,
-      field_type: definition?.field_type ?? "text",
-      required: index < 4,
+function buildDefaultFieldSet(catalog: FieldTemplate[]): ProgrammeDataFieldRow[] {
+  return catalog
+    .filter((field) => field.default_required)
+    .map((field, index) => ({
+      field_key: field.field_key,
+      label: field.label,
+      field_type: field.field_type,
+      required: true,
       position: index,
       enabled: true,
-    };
-  });
+    }));
 }
 
 function parseJsonArray(raw?: string) {
@@ -632,9 +632,10 @@ function removeLocation(
 
 function addField(
   fieldKey: string,
+  catalog: FieldTemplate[],
   setSelectedFields: Dispatch<SetStateAction<ProgrammeDataFieldRow[]>>,
 ) {
-  const definition = programmeFieldCatalog.find((field) => field.field_key === fieldKey);
+  const definition = catalog.find((field) => field.field_key === fieldKey);
   if (!definition) return;
   setSelectedFields((current) => [
     ...current,

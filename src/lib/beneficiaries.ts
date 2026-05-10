@@ -4,8 +4,11 @@ import type { ProgrammeRow } from "@/lib/programmes";
 import { createClient } from "@/lib/supabase/server";
 
 export type BeneficiaryRow = {
+  id: string | null;
+  enrolment_id: string | null;
   beneficiary_code: string;
   full_name: string;
+  programme_id: string | null;
   programme_name: string;
   programme_code?: string;
   programme_modules: ProgrammeModuleKey[];
@@ -20,6 +23,18 @@ export type BeneficiaryRow = {
   last_activity: string;
   risk_flag: string;
   highlights: string[];
+  stage_id: string | null;
+  stage_label: string | null;
+  decision: string | null;
+  decision_reason: string | null;
+  scorecard: {
+    financial_need: number;
+    academic_record: number;
+    attendance_score: number;
+    cbt_readiness: number;
+    commitment: number;
+    notes: string | null;
+  } | null;
 };
 
 type BeneficiaryRecord = {
@@ -35,21 +50,34 @@ type BeneficiaryRecord = {
   safeguarding_flag: string;
 };
 
+type ProgrammeRel = {
+  id: string;
+  name: string;
+  programme_code: string;
+  enabled_modules: ProgrammeModuleKey[] | null;
+};
+
+type StageRel = { id: string; label: string };
+
+type ScorecardRel = {
+  financial_need: number;
+  academic_record: number;
+  attendance_score: number;
+  cbt_readiness: number;
+  commitment: number;
+  notes: string | null;
+};
+
 type EnrolmentRecord = {
+  id: string;
   beneficiary_id: string;
   status: string;
-  programmes:
-    | {
-        name: string;
-        programme_code: string;
-        enabled_modules: ProgrammeModuleKey[] | null;
-      }
-    | {
-        name: string;
-        programme_code: string;
-        enabled_modules: ProgrammeModuleKey[] | null;
-      }[]
-    | null;
+  stage_id: string | null;
+  decision: string | null;
+  decision_reason: string | null;
+  programmes: ProgrammeRel | ProgrammeRel[] | null;
+  programme_stages?: StageRel | StageRel[] | null;
+  enrolment_scorecards?: ScorecardRel | ScorecardRel[] | null;
 };
 
 export async function getBeneficiaries(programmes: ProgrammeRow[]) {
@@ -72,7 +100,9 @@ export async function getBeneficiaries(programmes: ProgrammeRow[]) {
         .limit(40),
       supabase
         .from("enrolments")
-        .select("beneficiary_id,status,programmes(name,programme_code,enabled_modules)")
+        .select(
+          "id,beneficiary_id,status,stage_id,decision,decision_reason,programmes(id,name,programme_code,enabled_modules),programme_stages:stage_id(id,label),enrolment_scorecards(financial_need,academic_record,attendance_score,cbt_readiness,commitment,notes)",
+        )
         .order("enrolled_at", { ascending: false })
         .limit(80),
     ]);
@@ -113,10 +143,19 @@ function formatBeneficiary(
   index: number,
 ): BeneficiaryRow {
   const programme = Array.isArray(enrolment?.programmes) ? enrolment?.programmes[0] : enrolment?.programmes;
+  const stage = Array.isArray(enrolment?.programme_stages)
+    ? enrolment?.programme_stages[0]
+    : enrolment?.programme_stages;
+  const scoreRel = Array.isArray(enrolment?.enrolment_scorecards)
+    ? enrolment?.enrolment_scorecards[0]
+    : enrolment?.enrolment_scorecards;
 
   return {
+    id: beneficiary.id,
+    enrolment_id: enrolment?.id ?? null,
     beneficiary_code: beneficiary.beneficiary_code,
     full_name: beneficiary.full_name,
+    programme_id: programme?.id ?? null,
     programme_name: programme?.name ?? "Not linked yet",
     programme_code: programme?.programme_code,
     programme_modules: programme?.enabled_modules ?? [],
@@ -131,14 +170,34 @@ function formatBeneficiary(
     last_activity: relativeActivityDate(index),
     risk_flag: beneficiary.safeguarding_flag === "none" ? "clear" : "review",
     highlights: (programme?.enabled_modules ?? []).slice(0, 3).map((module) => module.replace(/_/g, " ")),
+    stage_id: enrolment?.stage_id ?? null,
+    stage_label: stage?.label ?? null,
+    decision: enrolment?.decision ?? null,
+    decision_reason: enrolment?.decision_reason ?? null,
+    scorecard: scoreRel ? { ...scoreRel } : null,
   };
 }
 
 function buildMockBeneficiaries(programmes: ProgrammeRow[]): BeneficiaryRow[] {
   const references = programmes.length ? programmes : [];
 
+  const base = (): Pick<
+    BeneficiaryRow,
+    "id" | "enrolment_id" | "programme_id" | "stage_id" | "stage_label" | "decision" | "decision_reason" | "scorecard"
+  > => ({
+    id: null,
+    enrolment_id: null,
+    programme_id: null,
+    stage_id: null,
+    stage_label: null,
+    decision: null,
+    decision_reason: null,
+    scorecard: null,
+  });
+
   return [
     {
+      ...base(),
       beneficiary_code: "BEN-2026-000512",
       full_name: "Chinedu I. Okafor",
       programme_name: references[0]?.name ?? "Girls' Education & Dignity Initiative",
@@ -157,6 +216,7 @@ function buildMockBeneficiaries(programmes: ProgrammeRow[]): BeneficiaryRow[] {
       highlights: ["consent captured", "safeguarding reviewed", "active in programme"],
     },
     {
+      ...base(),
       beneficiary_code: "BEN-2026-000511",
       full_name: "Amina S. Ibrahim",
       programme_name: references[1]?.name ?? "Back to School",
@@ -175,6 +235,7 @@ function buildMockBeneficiaries(programmes: ProgrammeRow[]): BeneficiaryRow[] {
       highlights: ["school support", "evidence enabled"],
     },
     {
+      ...base(),
       beneficiary_code: "BEN-2026-000510",
       full_name: "Maryam B. Aliyu",
       programme_name: references[2]?.name ?? "Pad-Up Campaign",

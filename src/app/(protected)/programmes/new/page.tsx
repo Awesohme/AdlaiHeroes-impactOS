@@ -3,10 +3,12 @@ import { AppFrame } from "@/components/app-frame";
 import { Button } from "@/components/ui/button";
 import { ProgrammeCreateForm } from "@/components/programmes/programme-create-form";
 import { ChevronLeft } from "lucide-react";
+import { getFieldTemplates } from "@/lib/field-templates";
 
 export const dynamic = "force-dynamic";
 
-export default function NewProgrammePage() {
+export default async function NewProgrammePage() {
+  const fieldCatalog = await getFieldTemplates();
   return (
     <AppFrame
       eyebrow="Programmes"
@@ -20,7 +22,7 @@ export default function NewProgrammePage() {
         </Button>
       }
     >
-      <ProgrammeCreateForm mode="create" />
+      <ProgrammeCreateForm mode="create" fieldCatalog={fieldCatalog} />
     </AppFrame>
   );
 }
