@@ -1,13 +1,12 @@
 import { AppFrame } from "@/components/app-frame";
 import { DataTable } from "@/components/data-table";
 import { requireUser } from "@/lib/auth";
-import { getProgrammes } from "@/lib/programmes";
+import { programmeRows } from "@/lib/sample-records";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProgrammesPage() {
   const user = await requireUser();
-  const programmes = await getProgrammes();
 
   return (
     <AppFrame
@@ -17,27 +16,14 @@ export default async function ProgrammesPage() {
       user={user}
       action={<button className="button button--primary">New programme</button>}
     >
-      {programmes.source === "mock" ? (
-        <div className="data-banner">
-          <strong>Mock data active.</strong>
-          <span>{programmes.error ?? "Connect Supabase and add records to switch this table live."}</span>
-        </div>
-      ) : (
-        <div className="data-banner data-banner--live">
-          <strong>Live Supabase data.</strong>
-          <span>This table is reading from the `programmes` table.</span>
-        </div>
-      )}
+      <div className="data-banner">
+        <strong>Programmes UI is live.</strong>
+        <span>Live Supabase reads are temporarily paused while we finish the role-aware access handoff.</span>
+      </div>
       <section className="workspace-card">
         <DataTable
           columns={["Code", "Programme", "Type", "Status", "Reach"]}
-          rows={programmes.rows.map((row) => [
-            row.programme_code,
-            row.name,
-            row.programme_type,
-            row.status,
-            row.reach,
-          ])}
+          rows={programmeRows}
         />
       </section>
     </AppFrame>
