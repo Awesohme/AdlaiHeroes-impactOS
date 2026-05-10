@@ -6,7 +6,7 @@ const publicRoutes = ["/", "/auth/login", "/auth/callback", "/auth/sign-in"];
 type CookieToSet = { name: string; value: string; options: CookieOptions };
 
 export async function middleware(request: NextRequest) {
-  const response = NextResponse.next({
+  let response = NextResponse.next({
     request,
   });
 
@@ -32,13 +32,21 @@ export async function middleware(request: NextRequest) {
       getAll() {
         return request.cookies.getAll();
       },
-      setAll(cookiesToSet: CookieToSet[]) {
+      setAll(cookiesToSet: CookieToSet[], headers?: HeadersInit) {
         cookiesToSet.forEach(({ name, value }) => {
           request.cookies.set(name, value);
+        });
+        response = NextResponse.next({
+          request,
         });
         cookiesToSet.forEach(({ name, value, options }) => {
           response.cookies.set(name, value, options);
         });
+        if (headers) {
+          new Headers(headers).forEach((value, key) => {
+            response.headers.set(key, value);
+          });
+        }
       },
     },
   });
