@@ -13,7 +13,7 @@ const settings = [
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ drive_test?: string }>;
+  searchParams?: Promise<{ drive_test?: string; drive_error?: string }>;
 }) {
   const params = (await searchParams) ?? {};
   const drive = getGoogleDriveEnvStatus();
@@ -22,7 +22,7 @@ export default async function SettingsPage({
     params.drive_test === "ok"
       ? "Drive root verified."
       : params.drive_test === "error"
-        ? "Drive test failed. Check the service account and folder sharing."
+        ? params.drive_error || "Drive test failed. Check the service account and folder sharing."
         : undefined;
 
   return (

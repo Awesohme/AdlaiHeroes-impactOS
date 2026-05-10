@@ -9,6 +9,10 @@ export async function testGoogleDriveConnectionAction() {
     redirect("/settings?drive_test=ok");
   } catch (error) {
     console.error("Google Drive readiness test failed", error);
-    redirect("/settings?drive_test=error");
+    const message =
+      error instanceof Error
+        ? error.message.slice(0, 220)
+        : "Unknown Google Drive setup error.";
+    redirect(`/settings?drive_test=error&drive_error=${encodeURIComponent(message)}`);
   }
 }

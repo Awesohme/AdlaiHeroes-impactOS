@@ -45,11 +45,18 @@ type UploadEvidenceResult = {
 
 let tokenCache: AccessTokenCache | null = null;
 
+type ServiceAccountCredentials = {
+  email: string;
+  privateKey: string;
+};
+
 export function getGoogleDriveEnvStatus() {
+  const credentials = getServiceAccountCredentials();
+
   return {
-    email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim() ?? "",
-    hasPrivateKey: Boolean(process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.trim()),
-    rootFolderId: process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID?.trim() ?? "",
+    email: credentials.email,
+    hasPrivateKey: Boolean(credentials.privateKey),
+    rootFolderId: normalizeDriveFolderId(process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID?.trim() ?? ""),
   };
 }
 
@@ -301,8 +308,9 @@ async function getAccessToken() {
 }
 
 function createSignedAssertion() {
-  const email = getRequiredEnv("GOOGLE_SERVICE_ACCOUNT_EMAIL");
-  const privateKey = normalizePrivateKey(getRequiredEnv("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY"));
+  const credentials = getServiceAccountCredentials();
+  const email = credentials.email;
+  const privateKey = normalizePrivateKey(credentials.privateKey);
   const now = Math.floor(Date.now() / 1000);
   const header = encodeJwtPart({ alg: "RS256", typ: "JWT" });
   const claimSet = encodeJwtPart({
@@ -330,7 +338,18 @@ function normalizePrivateKey(value: string) {
 }
 
 function getRequiredEnv(name: "GOOGLE_SERVICE_ACCOUNT_EMAIL" | "GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY" | "GOOGLE_DRIVE_ROOT_FOLDER_ID") {
-  const value = process.env[name]?.trim();
+  if (name === "GOOGLE_SERVICE_ACCOUNT_EMAIL" || name === "GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY") {
+    const credentials = getServiceAccountCredentials();
+    const value = name === "GOOGLE_SERVICE_ACCOUNT_EMAIL" ? credentials.email : credentials.privateKey;
+
+    if (!value) {
+      throw new Error(`Missing required environment variable: ${name}`);
+    }
+
+    return value;
+  }
+
+  const value = normalizeDriveFolderId(process.env[name]?.trim() ?? "");
 
   if (!value) {
     throw new Error(`Missing required environment variable: ${name}`);
@@ -345,4 +364,45 @@ function formatProgrammeFolderName(programmeCode: string, programmeName: string)
 
 function toDriveLiteral(value: string) {
   return `'${value.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`;
+}
+
+function getServiceAccountCredentials(): ServiceAccountCredentials {
+  const jsonCandidate =
+    process.env.GOOGLE_SERVICE_ACCOUNT_KEY_JSON?.trim() ||
+    process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.trim() ||
+    "";
+
+  if (jsonCandidate.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(jsonCandidate) as {
+        client_email?: string;
+        private_key?: string;
+      };
+
+      return {
+        email: parsed.client_email?.trim() || process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim() || "",
+        privateKey: parsed.private_key?.trim() || "",
+      };
+    } catch {
+      return {
+        email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim() ?? "",
+        privateKey: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.trim() ?? "",
+      };
+    }
+  }
+
+  return {
+    email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim() ?? "",
+    privateKey: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.trim() ?? "",
+  };
+}
+
+function normalizeDriveFolderId(value: string) {
+  const folderMatch = value.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+
+  if (folderMatch?.[1]) {
+    return folderMatch[1];
+  }
+
+  return value;
 }
