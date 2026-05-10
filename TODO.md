@@ -2,11 +2,10 @@
 
 ## Now
 
-- Confirm Vercel is reading live Programme rows with the public demo policy.
-- Test login on Vercel with an approved Google account.
-- Set `NEXT_PUBLIC_SITE_URL=https://adlai-heroes-impact-os.vercel.app` in Vercel.
-- Verify protected routes redirect when logged out after redeploy.
-- Replace temporary public programme read policy before real data.
+- Run `supabase/admin-bootstrap.sql` now that `adlaioog@gmail.com` has signed in.
+- Verify `/programmes` works for the signed-in admin after the RLS handoff.
+- Verify public anon reads no longer work against `programmes`.
+- Refine the app shell and landing surfaces with Poppins + Adlai brand colors.
 
 ## Next
 

@@ -1,15 +1,16 @@
 :root {
-  --ink: #17211b;
-  --muted: #607066;
-  --paper: #fffaf0;
+  --ink: #10263a;
+  --muted: #597087;
+  --paper: #f6fbff;
   --surface: #ffffff;
-  --line: rgba(23, 33, 27, 0.12);
-  --leaf: #1f6b4d;
-  --leaf-dark: #124630;
-  --sun: #e0a83a;
-  --clay: #bf6847;
-  --mist: #eaf3ec;
-  --shadow: 0 24px 80px rgba(31, 70, 48, 0.14);
+  --line: rgba(16, 38, 58, 0.12);
+  --leaf: #20b2f6;
+  --leaf-dark: #0e79b6;
+  --sun: #f69731;
+  --clay: #e92a8f;
+  --mist: #eef8ff;
+  --brand-green: #bfd836;
+  --shadow: 0 24px 80px rgba(32, 178, 246, 0.14);
 }
 
 * {
@@ -24,9 +25,10 @@ body {
   margin: 0;
   color: var(--ink);
   background:
-    radial-gradient(circle at top left, rgba(224, 168, 58, 0.22), transparent 32rem),
-    linear-gradient(135deg, #fff8e8 0%, #edf6ee 48%, #f9efe6 100%);
-  font-family: Georgia, "Times New Roman", serif;
+    radial-gradient(circle at top left, rgba(32, 178, 246, 0.2), transparent 32rem),
+    radial-gradient(circle at bottom right, rgba(233, 42, 143, 0.12), transparent 24rem),
+    linear-gradient(135deg, #f7fcff 0%, #fff7ee 52%, #f9ffea 100%);
+  font-family: var(--font-poppins), sans-serif;
 }
 
 a {
@@ -69,7 +71,7 @@ svg {
   padding: clamp(34px, 6vw, 72px);
   border-radius: 36px;
   background:
-    linear-gradient(115deg, rgba(18, 70, 48, 0.92), rgba(31, 107, 77, 0.8)),
+    linear-gradient(125deg, rgba(14, 121, 182, 0.96), rgba(32, 178, 246, 0.84) 52%, rgba(233, 42, 143, 0.78)),
     url("data:image/svg+xml,%3Csvg width='180' height='180' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='rgba(255,255,255,0.13)' stroke-width='1'%3E%3Cpath d='M0 90h180M90 0v180'/%3E%3Ccircle cx='90' cy='90' r='54'/%3E%3C/g%3E%3C/svg%3E");
   color: white;
 }
@@ -82,13 +84,13 @@ svg {
   width: 330px;
   height: 330px;
   border-radius: 999px;
-  background: rgba(224, 168, 58, 0.26);
+  background: rgba(246, 151, 49, 0.28);
 }
 
 .eyebrow {
   margin: 0 0 12px;
   color: var(--clay);
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-family: inherit;
   font-size: 0.76rem;
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -96,7 +98,7 @@ svg {
 }
 
 .hero .eyebrow {
-  color: #ffe0a3;
+  color: rgba(255, 244, 224, 0.92);
 }
 
 h1,
@@ -129,7 +131,7 @@ h3 {
 .hero__text {
   max-width: 640px;
   color: rgba(255, 255, 255, 0.78);
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-family: inherit;
   font-size: 1.08rem;
   line-height: 1.7;
 }
@@ -150,14 +152,14 @@ h3 {
   min-height: 48px;
   padding: 0 20px;
   border-radius: 999px;
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-family: inherit;
   font-size: 0.9rem;
   font-weight: 800;
 }
 
 .button--primary {
   background: var(--sun);
-  color: #1b1304;
+  color: #422004;
 }
 
 .button--ghost {
@@ -192,14 +194,14 @@ h3 {
 
 .stack-card span {
   color: var(--muted);
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-family: inherit;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.12em;
 }
 
 .stack-card--hot span {
-  color: #a9cdbb;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .stack-card strong {
@@ -243,7 +245,7 @@ h3 {
 .evidence-row span,
 .guardrail p {
   color: var(--muted);
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-family: inherit;
 }
 
 .stat-card strong {
@@ -296,8 +298,8 @@ h3 {
   margin-top: 18px;
   padding: 7px 10px;
   border-radius: 999px;
-  background: #fff4dc;
-  color: #8a5a08;
+  background: rgba(246, 151, 49, 0.18);
+  color: #9c570c;
   font-size: 0.76rem;
   font-weight: 800;
 }
@@ -346,13 +348,13 @@ h3 {
   height: 9px;
   overflow: hidden;
   border-radius: 999px;
-  background: #e4eadf;
+  background: rgba(16, 38, 58, 0.08);
 }
 
 .meter div {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--leaf), var(--sun));
+  background: linear-gradient(90deg, var(--leaf), var(--clay), var(--sun));
 }
 
 .evidence-row {
@@ -444,8 +446,9 @@ h3 {
   grid-template-columns: 280px minmax(0, 1fr);
   min-height: 100vh;
   background:
-    radial-gradient(circle at top right, rgba(224, 168, 58, 0.18), transparent 26rem),
-    #f7f4ea;
+    radial-gradient(circle at top right, rgba(246, 151, 49, 0.16), transparent 26rem),
+    radial-gradient(circle at bottom left, rgba(191, 216, 54, 0.12), transparent 22rem),
+    #f6fbff;
 }
 
 .sidebar {
@@ -456,7 +459,7 @@ h3 {
   min-height: 100vh;
   padding: 24px;
   border-right: 1px solid var(--line);
-  background: rgba(255, 250, 240, 0.82);
+  background: rgba(255, 255, 255, 0.86);
   backdrop-filter: blur(20px);
 }
 
@@ -465,7 +468,7 @@ h3 {
   gap: 12px;
   align-items: center;
   margin-bottom: 34px;
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-family: inherit;
   font-weight: 900;
 }
 
@@ -489,7 +492,7 @@ h3 {
   padding: 12px 14px;
   border-radius: 16px;
   color: var(--muted);
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-family: inherit;
   font-size: 0.92rem;
   font-weight: 800;
 }
@@ -510,7 +513,7 @@ h3 {
 .sidebar-note span,
 .settings-list span {
   color: var(--clay);
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-family: inherit;
   font-size: 0.75rem;
   font-weight: 900;
   letter-spacing: 0.1em;
@@ -520,7 +523,7 @@ h3 {
 .sidebar-note p {
   margin: 8px 0 0;
   color: var(--muted);
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-family: inherit;
   font-size: 0.86rem;
   line-height: 1.55;
 }
@@ -531,7 +534,7 @@ h3 {
   margin-top: 12px;
   overflow: hidden;
   color: var(--muted);
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-family: inherit;
   font-size: 0.76rem;
   font-weight: 800;
   text-overflow: ellipsis;
@@ -542,7 +545,7 @@ h3 {
   display: inline-flex;
   margin-top: 12px;
   color: var(--leaf-dark);
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-family: inherit;
   font-size: 0.82rem;
   font-weight: 900;
 }
@@ -571,7 +574,7 @@ h3 {
 .workspace-card > p {
   max-width: 760px;
   color: var(--muted);
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-family: inherit;
   font-size: 1rem;
   line-height: 1.65;
 }
@@ -598,7 +601,7 @@ h3 {
 
 .metric-card span {
   color: var(--muted);
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-family: inherit;
   font-size: 0.82rem;
   font-weight: 900;
 }
@@ -613,7 +616,7 @@ h3 {
 .metric-card p {
   margin: 0;
   color: var(--muted);
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-family: inherit;
   font-size: 0.88rem;
   line-height: 1.5;
 }
@@ -634,16 +637,16 @@ h3 {
   align-items: center;
   margin-bottom: 16px;
   padding: 13px 16px;
-  border: 1px solid rgba(191, 104, 71, 0.28);
+  border: 1px solid rgba(246, 151, 49, 0.3);
   border-radius: 18px;
-  background: #fff4dc;
-  color: #7d4c03;
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  background: rgba(246, 151, 49, 0.14);
+  color: #8f4f08;
+  font-family: inherit;
 }
 
 .data-banner--live {
-  border-color: rgba(31, 107, 77, 0.24);
-  background: #e8f5ee;
+  border-color: rgba(32, 178, 246, 0.24);
+  background: rgba(32, 178, 246, 0.12);
   color: var(--leaf-dark);
 }
 
@@ -665,7 +668,7 @@ table {
   width: 100%;
   min-width: 720px;
   border-collapse: collapse;
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-family: inherit;
 }
 
 th {
@@ -715,7 +718,7 @@ tbody tr:last-child td {
 .settings-list p {
   margin: 0;
   color: var(--muted);
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-family: inherit;
   line-height: 1.5;
 }
 
@@ -762,8 +765,9 @@ tbody tr:last-child td {
   place-items: center;
   padding: 24px;
   background:
-    radial-gradient(circle at top left, rgba(224, 168, 58, 0.22), transparent 26rem),
-    linear-gradient(135deg, #fff8e8 0%, #edf6ee 55%, #f9efe6 100%);
+    radial-gradient(circle at top left, rgba(32, 178, 246, 0.22), transparent 26rem),
+    radial-gradient(circle at bottom right, rgba(233, 42, 143, 0.1), transparent 20rem),
+    linear-gradient(135deg, #f7fcff 0%, #fff7ee 55%, #f9ffea 100%);
 }
 
 .auth-card {
@@ -783,7 +787,7 @@ tbody tr:last-child td {
 
 .auth-card p {
   color: var(--muted);
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-family: inherit;
   line-height: 1.7;
 }
 
@@ -795,6 +799,6 @@ tbody tr:last-child td {
   display: block;
   margin-top: 18px;
   color: var(--muted);
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-family: inherit;
   font-weight: 800;
 }
