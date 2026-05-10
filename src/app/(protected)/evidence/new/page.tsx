@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AppFrame } from "@/components/app-frame";
+import { getProgrammes } from "@/lib/programmes";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +10,9 @@ const uploadSteps = [
   "Set verification and consent status before report linking.",
 ];
 
-export default function NewEvidencePage() {
+export default async function NewEvidencePage() {
+  const programmes = await getProgrammes();
+
   return (
     <AppFrame
       eyebrow="Evidence library"
@@ -38,6 +41,7 @@ export default function NewEvidencePage() {
             <label>
               <span>Evidence code</span>
               <input placeholder="EVD-2026-0004" type="text" />
+              <small className="field-hint">Leave blank to auto-generate once evidence creation is wired live.</small>
             </label>
             <label>
               <span>Evidence type</span>
@@ -47,6 +51,17 @@ export default function NewEvidencePage() {
                 <option>Video</option>
                 <option>Attendance</option>
               </select>
+            </label>
+            <label>
+              <span>Linked programme</span>
+              <select defaultValue={programmes.rows[0]?.programme_code ?? ""}>
+                {programmes.rows.map((programme) => (
+                  <option key={programme.programme_code} value={programme.programme_code}>
+                    {programme.name}
+                  </option>
+                ))}
+              </select>
+              <small className="field-hint">This tells the system which programme folder in Google Drive the evidence should belong to.</small>
             </label>
             <label>
               <span>Verification status</span>
@@ -59,6 +74,7 @@ export default function NewEvidencePage() {
             <label className="programme-form__full">
               <span>Drive folder path</span>
               <input placeholder="Programme evidence / Education / Nominations" type="text" />
+              <small className="field-hint">This will eventually be suggested automatically from the selected programme and evidence type.</small>
             </label>
           </form>
         </article>

@@ -740,6 +740,12 @@ h3 {
   line-height: 1.5;
 }
 
+.field-hint {
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
 .programme-type {
   display: inline-flex;
   padding: 8px 12px;

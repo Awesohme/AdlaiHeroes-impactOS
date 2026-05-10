@@ -18,6 +18,7 @@ export function ProgrammeCreateForm() {
       <label>
         <span>Programme code</span>
         <input defaultValue={state.fields?.programme_code ?? ""} name="programme_code" placeholder="PRG-2027-0001" type="text" />
+        <small className="field-hint">Leave blank to auto-generate the next programme code.</small>
       </label>
       <label>
         <span>Programme type</span>

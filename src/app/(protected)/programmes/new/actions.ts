@@ -35,9 +35,9 @@ export async function createProgrammeAction(
     status: String(formData.get("status") ?? "draft").trim().toLowerCase(),
   };
 
-  if (!fields.name || !fields.programme_code || !fields.programme_type) {
+  if (!fields.name || !fields.programme_type) {
     return {
-      error: "Programme name, code, and type are required.",
+      error: "Programme name and type are required.",
       fields,
     };
   }
@@ -68,6 +68,10 @@ export async function createProgrammeAction(
     };
   }
 
+  if (!fields.programme_code) {
+    fields.programme_code = await generateProgrammeCode(supabase);
+  }
+
   const { error } = await supabase.from("programmes").insert({
     programme_code: fields.programme_code,
     name: fields.name,
@@ -91,4 +95,24 @@ export async function createProgrammeAction(
   }
 
   redirect("/programmes?created=1");
+}
+
+async function generateProgrammeCode(supabase: Awaited<ReturnType<typeof createClient>>) {
+  const year = new Date().getFullYear();
+  const prefix = `PRG-${year}-`;
+
+  const { data } = await supabase
+    .from("programmes")
+    .select("programme_code")
+    .ilike("programme_code", `${prefix}%`)
+    .order("programme_code", { ascending: false })
+    .limit(50);
+
+  const highest = (data ?? []).reduce((max, row) => {
+    const match = row.programme_code.match(/(\d{4})$/);
+    const current = match ? Number(match[1]) : 0;
+    return current > max ? current : max;
+  }, 0);
+
+  return `${prefix}${String(highest + 1).padStart(4, "0")}`;
 }
