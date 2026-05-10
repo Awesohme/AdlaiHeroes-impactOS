@@ -829,6 +829,11 @@ h3 {
   resize: vertical;
 }
 
+.programme-form__actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
 .program-action {
   border: 1px solid var(--line);
   color: var(--ink);

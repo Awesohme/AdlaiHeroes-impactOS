@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AppFrame } from "@/components/app-frame";
+import { ProgrammeCreateForm } from "@/components/programmes/programme-create-form";
 
 export const dynamic = "force-dynamic";
 
@@ -26,41 +27,10 @@ export default function NewProgrammePage() {
           <div className="programmes-toolbar">
             <div>
               <p className="eyebrow">Draft record</p>
-              <h2>First-pass create flow</h2>
+              <h2>Create a live programme</h2>
             </div>
           </div>
-
-          <form className="programme-form">
-            <label>
-              <span>Programme name</span>
-              <input placeholder="Education Sponsorship 2027" type="text" />
-            </label>
-            <label>
-              <span>Programme code</span>
-              <input placeholder="PRG-2027-0001" type="text" />
-            </label>
-            <label>
-              <span>Programme type</span>
-              <select defaultValue="Education Support">
-                <option>Education Support</option>
-                <option>Health &amp; WASH</option>
-                <option>Food Support</option>
-                <option>Livelihood Support</option>
-              </select>
-            </label>
-            <label>
-              <span>Status</span>
-              <select defaultValue="Planned">
-                <option>Planned</option>
-                <option>Active</option>
-                <option>Monitoring</option>
-              </select>
-            </label>
-            <label className="programme-form__full">
-              <span>Notes</span>
-              <textarea placeholder="Short operational note, donor context, or launch readiness summary." rows={5} />
-            </label>
-          </form>
+          <ProgrammeCreateForm />
         </article>
 
         <aside className="workspace-card programmes-sidecard">
@@ -81,8 +51,9 @@ export default function NewProgrammePage() {
           </div>
           <div className="workspace-card programmes-note">
             <p className="eyebrow">Important</p>
-            <h2>UI scaffold only</h2>
-            <p>This create screen is the structural shell for the next slice. Submission wiring comes immediately after the Programmes list polish.</p>
+            <h2>Write policy required</h2>
+            <p>Run the programme write policy SQL before first submission so the signed-in admin can create real records through the app.</p>
+            <p>SQL file: <code>supabase/programmes-write-policies.sql</code></p>
           </div>
         </aside>
       </section>
