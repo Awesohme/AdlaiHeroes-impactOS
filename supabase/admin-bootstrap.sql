@@ -63,9 +63,18 @@ using (
 
 -- 5. Programmes: only active profiled users can read.
 drop policy if exists "programmes_read_authenticated_active" on public.programmes;
+drop policy if exists "programme_data_fields_read_authenticated_active" on public.programme_data_fields;
 
 create policy "programmes_read_authenticated_active"
 on public.programmes
+for select
+to authenticated
+using (
+  public.current_app_role() is not null
+);
+
+create policy "programme_data_fields_read_authenticated_active"
+on public.programme_data_fields
 for select
 to authenticated
 using (

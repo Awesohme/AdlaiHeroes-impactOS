@@ -19,7 +19,7 @@ export function AppFrame({
           <h1>{title}</h1>
           <p>{description}</p>
         </div>
-        {action}
+        {action ? <div className="workspace-header__action">{action}</div> : null}
       </header>
       {children}
     </>

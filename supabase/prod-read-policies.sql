@@ -31,4 +31,11 @@ for select
 to authenticated
 using (public.current_role() is not null);
 
+drop policy if exists "programme_data_fields_read_authenticated_active" on public.programme_data_fields;
+create policy "programme_data_fields_read_authenticated_active"
+on public.programme_data_fields
+for select
+to authenticated
+using (public.current_role() is not null);
+
 -- Write policies come after protected reads are verified in the deployed app.

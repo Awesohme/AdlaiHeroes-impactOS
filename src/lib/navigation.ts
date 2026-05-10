@@ -1,10 +1,10 @@
 export const navigation = [
-  { label: "Dashboard", href: "/dashboard" },
-  { label: "Programmes", href: "/programmes" },
-  { label: "Beneficiaries", href: "/beneficiaries" },
-  { label: "Activities", href: "/activities" },
-  { label: "Evidence", href: "/evidence" },
-  { label: "Education", href: "/education" },
-  { label: "Reports", href: "/reports" },
-  { label: "Settings", href: "/settings" },
+  { label: "Dashboard", href: "/dashboard", icon: "⌂" },
+  { label: "Programmes", href: "/programmes", icon: "▣" },
+  { label: "Beneficiaries", href: "/beneficiaries", icon: "◎" },
+  { label: "Activities", href: "/activities", icon: "✓" },
+  { label: "Education Support", href: "/education", icon: "◧" },
+  { label: "Evidence", href: "/evidence", icon: "▤" },
+  { label: "Reports", href: "/reports", icon: "▥" },
+  { label: "Settings", href: "/settings", icon: "○" },
 ];

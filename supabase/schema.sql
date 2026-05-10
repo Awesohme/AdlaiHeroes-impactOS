@@ -24,14 +24,38 @@ create table public.programmes (
   name text not null,
   programme_type text not null,
   donor text,
+  donor_funder text,
   location text,
+  location_areas text[] not null default '{}'::text[],
+  target_group text,
+  expected_beneficiaries integer,
+  budget_ngn numeric(14,2),
+  objectives text,
+  programme_description text,
   starts_on date,
+  start_date date,
   ends_on date,
+  end_date date,
   status text not null default 'draft',
+  enabled_modules text[] not null default '{}'::text[],
   drive_folder_id text,
   owner_id uuid references public.profiles(id),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
+);
+
+create table public.programme_data_fields (
+  id uuid primary key default gen_random_uuid(),
+  programme_id uuid not null references public.programmes(id) on delete cascade,
+  field_key text not null,
+  label text not null,
+  field_type text not null,
+  required boolean not null default false,
+  position integer not null default 0,
+  enabled boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (programme_id, field_key)
 );
 
 create table public.beneficiaries (
@@ -118,6 +142,7 @@ create table public.audit_log (
 
 alter table public.profiles enable row level security;
 alter table public.programmes enable row level security;
+alter table public.programme_data_fields enable row level security;
 alter table public.beneficiaries enable row level security;
 alter table public.enrolments enable row level security;
 alter table public.activities enable row level security;
