@@ -1,5 +1,16 @@
 import Link from "next/link";
 import type { EvidenceRow } from "@/lib/evidence";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { CheckCircle2, FileText, Image as ImageIcon, Video, Sheet as SheetIcon, File, ExternalLink } from "lucide-react";
 
 export function EvidenceOverview({
   rows,
@@ -18,134 +29,135 @@ export function EvidenceOverview({
     review: rows.filter((item) => item.status === "In review").length,
     consent: rows.filter((item) => item.status === "Consent check").length,
   };
-  const selected = rows[0];
+
+  const counters = [
+    { label: "Total", value: metrics.total, hint: "Records linked to Drive" },
+    { label: "Verified", value: metrics.verified, hint: "Ready for use" },
+    { label: "In review", value: metrics.review, hint: "Awaiting review" },
+    { label: "Consent check", value: metrics.consent, hint: "Hold until confirmed" },
+  ];
 
   return (
-    <>
+    <div className="space-y-6">
       {created ? (
-        <div className="data-banner data-banner--live">
-          <strong>Evidence uploaded.</strong>
-          <span>The file reached Google Drive and the metadata record was saved to Supabase.</span>
+        <div className="flex gap-2 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+          <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
+          <span>Evidence uploaded — file is in Drive and metadata saved to Supabase.</span>
         </div>
       ) : null}
 
-      <div className={`data-banner ${source === "supabase" ? "data-banner--live" : ""}`}>
-        <strong>{source === "supabase" ? "Live metadata active." : "Metadata workspace active."}</strong>
-        <span>
-          {source === "supabase"
-            ? "The register below is loading from Supabase while files remain in Google Drive."
-            : error || "The file system stays in Google Drive; this screen is shaping the metadata, verification, and linkage workflow first."}
-        </span>
-      </div>
+      {source === "mock" ? (
+        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          {error ?? "Showing fallback data."}
+        </div>
+      ) : null}
 
-      <section className="dashboard-metrics">
-        <article className="dashboard-metric-card">
-          <span>Total evidence</span>
-          <strong>{metrics.total}</strong>
-          <p>Metadata records linked back to Drive.</p>
-        </article>
-        <article className="dashboard-metric-card">
-          <span>Verified</span>
-          <strong>{metrics.verified}</strong>
-          <p>Ready for outward-facing use.</p>
-        </article>
-        <article className="dashboard-metric-card">
-          <span>In review</span>
-          <strong>{metrics.review}</strong>
-          <p>Still waiting on operational review.</p>
-        </article>
-        <article className="dashboard-metric-card dashboard-metric-card--risk">
-          <span>Consent check</span>
-          <strong>{metrics.consent}</strong>
-          <p>Do not reuse until consent is confirmed.</p>
-        </article>
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {counters.map((stat) => (
+          <Card key={stat.label}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                {stat.label}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-semibold tracking-tight">{stat.value}</div>
+              <p className="mt-1 text-xs text-muted-foreground">{stat.hint}</p>
+            </CardContent>
+          </Card>
+        ))}
       </section>
 
-      <section className="portfolio-grid">
-        <article className="workspace-card portfolio-panel">
-          <div className="compact-card__header">
-            <h2>Evidence register</h2>
-            <Link className="row-link" href="/evidence/new" prefetch={false}>
-              Upload next
-            </Link>
-          </div>
-
-          <div className="portfolio-table">
-            <div className="portfolio-table__head portfolio-table__head--evidence">
-              <span>Evidence</span>
-              <span>Linked record</span>
-              <span>Type</span>
-              <span>Uploaded by</span>
-              <span>Status</span>
-              <span>Storage</span>
-            </div>
-            {rows.map((record) => (
-              <article className="portfolio-row portfolio-row--evidence" key={record.code}>
-                <div>
-                  <strong>{record.title}</strong>
-                  <p>{record.code}</p>
-                </div>
-                <div>
-                  <p>{record.linkedRecord}</p>
-                </div>
-                <div>
-                  <span className="type-chip">{record.fileType}</span>
-                </div>
-                <div>
-                  <p>{record.uploadedBy}</p>
-                </div>
-                <div>
-                  <span className={`status-pill status-pill--${evidenceTone(record.status)}`}>{record.status}</span>
-                </div>
-                <div>
-                  <p>{record.storage}</p>
-                </div>
-              </article>
-            ))}
-          </div>
-        </article>
-
-        <aside className="portfolio-side">
-          <article className="workspace-card insight-card insight-card--compact">
-            <div className="insight-card__header">
-              <h2>Selected record</h2>
-            </div>
-            <div className="distribution-list">
-              <div className="distribution-row">
-                <span>Title</span>
-                <strong>{selected?.title || "No evidence yet"}</strong>
-              </div>
-              <div className="distribution-row">
-                <span>Folder</span>
-                <strong>{selected?.folder || "No folder yet"}</strong>
-              </div>
-              <div className="distribution-row">
-                <span>Blocker</span>
-                <strong>{selected?.blocker || "Upload the first record"}</strong>
-              </div>
-              <div className="distribution-row">
-                <span>Status</span>
-                <strong>{selected?.status || "Pending"}</strong>
-              </div>
-            </div>
-            <p className="insight-note">
-              Keep this screen focused on finding files, checking status, and jumping back into the upload flow.
-            </p>
-          </article>
-        </aside>
-      </section>
-    </>
+      <Card>
+        <CardHeader className="border-b flex flex-row items-center justify-between space-y-0">
+          <CardTitle className="text-base">Register</CardTitle>
+          <Link
+            href="/evidence/new"
+            prefetch={false}
+            className="text-sm font-medium text-primary hover:underline"
+          >
+            Upload next →
+          </Link>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-8" />
+                <TableHead>Evidence</TableHead>
+                <TableHead>Linked record</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Uploaded by</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="w-16 text-right">Open</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-10 text-sm text-muted-foreground">
+                    No evidence yet — upload your first record.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                rows.map((record) => (
+                  <TableRow key={record.code}>
+                    <TableCell className="text-muted-foreground">
+                      <FileTypeIcon type={record.fileType} />
+                    </TableCell>
+                    <TableCell>
+                      <div className="font-medium">{record.title}</div>
+                      <div className="text-xs text-muted-foreground font-mono">{record.code}</div>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {record.linkedRecord}
+                    </TableCell>
+                    <TableCell className="text-sm">{record.fileType}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {record.uploadedBy}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={statusVariant(record.status)} className="font-normal">
+                        {record.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {record.driveFileId ? (
+                        <a
+                          href={`https://drive.google.com/file/d/${record.driveFileId}/view`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+                          aria-label={`Open ${record.title} in Drive`}
+                        >
+                          Open <ExternalLink className="h-3 w-3" />
+                        </a>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
-function evidenceTone(status: string) {
-  if (status === "Verified") {
-    return "active";
-  }
+function FileTypeIcon({ type }: { type: string }) {
+  const className = "h-4 w-4";
+  if (type === "Image") return <ImageIcon className={className} />;
+  if (type === "Video") return <Video className={className} />;
+  if (type === "PDF" || type === "Document") return <FileText className={className} />;
+  if (type === "Spreadsheet") return <SheetIcon className={className} />;
+  return <File className={className} />;
+}
 
-  if (status === "In review") {
-    return "monitoring";
-  }
-
-  return "planned";
+function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
+  if (status === "Verified") return "default";
+  if (status === "Consent check") return "destructive";
+  return "secondary";
 }

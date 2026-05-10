@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { AppFrame } from "@/components/app-frame";
+import { Button } from "@/components/ui/button";
 import { ProgrammesOverview } from "@/components/programmes/programmes-overview";
 import { getProgrammes } from "@/lib/programmes";
+import { Plus } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -17,24 +19,25 @@ export default async function ProgrammesPage({
 
   return (
     <AppFrame
-      eyebrow="Programme portfolio"
+      eyebrow="Portfolio"
       title="Programmes"
-      description="Manage programme setup, budgets, timelines, data fields, and delivery status from one cleaner operational workspace."
+      description="Setup, budgets, timelines, fields, and delivery status across the portfolio."
       action={
-        <div className="page-actions">
-          <button className="button button--ghost" type="button">
-            Import Programme Plan
-          </button>
-          <Link className="button button--primary" href="/programmes/new" prefetch={false}>
-            Create Programme
+        <Button size="sm" asChild>
+          <Link href="/programmes/new" prefetch={false}>
+            <Plus className="h-4 w-4" /> New programme
           </Link>
-        </div>
+        </Button>
       }
     >
       <ProgrammesOverview
         error={programmes.error}
         notice={
-          created ? "Programme created successfully." : updated ? "Programme updated successfully." : undefined
+          created
+            ? "Programme created successfully."
+            : updated
+              ? "Programme updated successfully."
+              : undefined
         }
         rows={programmes.rows}
         source={programmes.source}

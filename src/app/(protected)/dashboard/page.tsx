@@ -1,8 +1,23 @@
 import Link from "next/link";
 import { AppFrame } from "@/components/app-frame";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { getBeneficiaries } from "@/lib/beneficiaries";
 import { getEvidenceRecords } from "@/lib/evidence";
 import { getProgrammes } from "@/lib/programmes";
+import {
+  AlertCircle,
+  ArrowUpRight,
+  FileCheck2,
+  FilePlus,
+  FolderKanban,
+  FolderPlus,
+  Users,
+  UserPlus,
+  type LucideIcon,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -11,29 +26,42 @@ export default async function DashboardPage() {
   const evidence = await getEvidenceRecords();
   const beneficiaries = await getBeneficiaries(programmes.rows);
 
-  const counters = [
+  const counters: Array<{
+    label: string;
+    value: number;
+    detail: string;
+    tone: MetricTone;
+    icon: LucideIcon;
+  }> = [
     {
       label: "Programmes",
-      value: String(programmes.rows.length),
+      value: programmes.rows.length,
       detail: `${programmes.rows.filter((item) => item.status === "active").length} active`,
+      tone: "purple",
+      icon: FolderKanban,
     },
     {
       label: "Beneficiaries",
-      value: String(beneficiaries.rows.length),
-      detail: `${beneficiaries.rows.filter((item) => item.current_status === "active").length} active in programmes`,
+      value: beneficiaries.rows.length,
+      detail: `${beneficiaries.rows.filter((item) => item.current_status === "active").length} active`,
+      tone: "teal",
+      icon: Users,
     },
     {
       label: "Evidence",
-      value: String(evidence.rows.length),
+      value: evidence.rows.length,
       detail: `${evidence.rows.filter((item) => item.status === "Verified").length} verified`,
+      tone: "blue",
+      icon: FileCheck2,
     },
     {
       label: "Needs attention",
-      value: String(
+      value:
         beneficiaries.rows.filter((item) => item.risk_flag === "review").length +
-          evidence.rows.filter((item) => item.status !== "Verified").length,
-      ),
-      detail: "Consent, review, or safeguarding follow-up",
+        evidence.rows.filter((item) => item.status !== "Verified").length,
+      detail: "Review and follow-up",
+      tone: "amber",
+      icon: AlertCircle,
     },
   ];
 
@@ -77,95 +105,215 @@ export default async function DashboardPage() {
   return (
     <AppFrame
       eyebrow="Overview"
-      title="ImpactOps"
-      description="Use this as a light launchpad into programme setup, beneficiary tracking, and evidence review."
+      title="Dashboard"
+      description="A light launchpad into programmes, beneficiaries, and evidence."
       action={
-        <div className="page-actions">
-          <Link className="button button--ghost button--compact" href="/beneficiaries" prefetch={false}>
-            Add Beneficiary
-          </Link>
-          <Link className="button button--primary button--compact" href="/programmes/new" prefetch={false}>
-            Create Programme
-          </Link>
-        </div>
+        <>
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/beneficiaries" prefetch={false}>
+              <UserPlus className="h-4 w-4" /> Beneficiary
+            </Link>
+          </Button>
+          <Button size="sm" asChild>
+            <Link href="/programmes/new" prefetch={false}>
+              <FolderPlus className="h-4 w-4" /> New programme
+            </Link>
+          </Button>
+        </>
       }
     >
-      <section className="dashboard-metrics">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {counters.map((stat) => (
-          <article className="dashboard-metric-card" key={stat.label}>
-            <span>{stat.label}</span>
-            <strong>{stat.value}</strong>
-            <p>{stat.detail}</p>
-          </article>
+          <MetricCard key={stat.label} {...stat} />
         ))}
       </section>
 
-      <section className="compact-dashboard-grid">
-        <article className="workspace-card compact-card">
-          <div className="compact-card__header">
-            <h2>Needs attention</h2>
-            <Link className="row-link" href="/evidence" prefetch={false}>
-              Open Evidence
+      <section className="grid gap-4 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-base">Needs attention</CardTitle>
+            <Link
+              href="/evidence"
+              prefetch={false}
+              className="text-xs font-medium text-primary hover:underline inline-flex items-center gap-1"
+            >
+              Open evidence <ArrowUpRight className="h-3 w-3" />
             </Link>
-          </div>
-          <div className="compact-list">
-            {attentionRows.length ? (
+          </CardHeader>
+          <CardContent className="divide-y">
+            {attentionRows.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                No urgent blockers right now.
+              </p>
+            ) : (
               attentionRows.map((item) => (
-                <div className="compact-list__row" key={`${item.label}-${item.meta}`}>
-                  <div>
-                    <strong>{item.label}</strong>
-                    <p>{item.meta}</p>
+                <div
+                  key={`${item.label}-${item.meta}`}
+                  className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">{item.label}</p>
+                    <p className="text-xs text-muted-foreground truncate">{item.meta}</p>
                   </div>
-                  <span>{item.action}</span>
+                  <Badge variant="secondary" className="font-normal">
+                    {item.action}
+                  </Badge>
                 </div>
               ))
-            ) : (
-              <div className="compact-empty">No urgent blockers right now.</div>
             )}
-          </div>
-        </article>
+          </CardContent>
+        </Card>
 
-        <article className="workspace-card compact-card">
-          <div className="compact-card__header">
-            <h2>Recent records</h2>
-            <Link className="row-link" href="/programmes" prefetch={false}>
-              Open Programmes
-            </Link>
-          </div>
-          <div className="compact-record-table">
-            {recentRecords.map((item) => (
-              <div className="compact-record-table__row" key={`${item.type}-${item.title}`}>
-                <div>
-                  <strong>{item.type}</strong>
-                  <p>{item.title}</p>
-                </div>
-                <span>{item.detail}</span>
-              </div>
-            ))}
-          </div>
-        </article>
-
-        <article className="workspace-card compact-card compact-card--actions">
-          <div className="compact-card__header">
-            <h2>Quick actions</h2>
-          </div>
-          <div className="quick-actions">
-            <Link className="quick-action" href="/programmes/new" prefetch={false}>
-              <strong>Create Programme</strong>
-              <span>Start a new operational record.</span>
-            </Link>
-            <Link className="quick-action" href="/beneficiaries" prefetch={false}>
-              <strong>Open Beneficiaries</strong>
-              <span>Search, review, and follow up on people records.</span>
-            </Link>
-            <Link className="quick-action" href="/evidence/new" prefetch={false}>
-              <strong>Upload Evidence</strong>
-              <span>Send a file to Drive and save the metadata record.</span>
-            </Link>
-          </div>
-        </article>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Quick actions</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2">
+            <QuickAction
+              href="/programmes/new"
+              icon={<FolderPlus className="h-4 w-4" />}
+              title="Create programme"
+              subtitle="Start a new operational record"
+            />
+            <QuickAction
+              href="/beneficiaries"
+              icon={<UserPlus className="h-4 w-4" />}
+              title="Open beneficiaries"
+              subtitle="Search and review people records"
+            />
+            <QuickAction
+              href="/evidence/new"
+              icon={<FilePlus className="h-4 w-4" />}
+              title="Upload evidence"
+              subtitle="Send a file to Drive"
+            />
+          </CardContent>
+        </Card>
       </section>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <CardTitle className="text-base">Recent records</CardTitle>
+          <Link
+            href="/programmes"
+            prefetch={false}
+            className="text-xs font-medium text-primary hover:underline inline-flex items-center gap-1"
+          >
+            Open programmes <ArrowUpRight className="h-3 w-3" />
+          </Link>
+        </CardHeader>
+        <CardContent className="divide-y">
+          {recentRecords.map((item) => (
+            <div
+              key={`${item.type}-${item.title}`}
+              className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <Badge variant="outline" className="font-normal shrink-0">
+                  {item.type}
+                </Badge>
+                <p className="text-sm font-medium truncate">{item.title}</p>
+              </div>
+              <p className="text-xs text-muted-foreground truncate">{item.detail}</p>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
     </AppFrame>
+  );
+}
+
+type MetricTone = "purple" | "teal" | "blue" | "amber";
+
+const toneStyles: Record<
+  MetricTone,
+  { card: string; bar: string; chip: string }
+> = {
+  purple: {
+    card: "bg-purple-50/60",
+    bar: "bg-purple-500",
+    chip: "bg-purple-100 text-purple-700",
+  },
+  teal: {
+    card: "bg-teal-50/60",
+    bar: "bg-teal-500",
+    chip: "bg-teal-100 text-teal-700",
+  },
+  blue: {
+    card: "bg-blue-50/60",
+    bar: "bg-blue-500",
+    chip: "bg-blue-100 text-blue-700",
+  },
+  amber: {
+    card: "bg-amber-50/60",
+    bar: "bg-amber-500",
+    chip: "bg-amber-100 text-amber-700",
+  },
+};
+
+function MetricCard({
+  label,
+  value,
+  detail,
+  tone,
+  icon: Icon,
+}: {
+  label: string;
+  value: number;
+  detail: string;
+  tone: MetricTone;
+  icon: LucideIcon;
+}) {
+  const styles = toneStyles[tone];
+  return (
+    <Card className={cn("relative overflow-hidden", styles.card)}>
+      <span className={cn("absolute inset-y-0 left-0 w-1", styles.bar)} aria-hidden="true" />
+      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+        <CardTitle className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          {label}
+        </CardTitle>
+        <div
+          className={cn(
+            "flex h-9 w-9 items-center justify-center rounded-lg",
+            styles.chip,
+          )}
+        >
+          <Icon className="h-4 w-4" />
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="text-3xl font-semibold tracking-tight">{value}</div>
+        <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function QuickAction({
+  href,
+  icon,
+  title,
+  subtitle,
+}: {
+  href: string;
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+}) {
+  return (
+    <Link
+      href={href}
+      prefetch={false}
+      className="group flex items-start gap-3 rounded-md border p-3 hover:border-primary/40 hover:bg-muted/50 transition-colors"
+    >
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <p className="text-sm font-medium">{title}</p>
+        <p className="text-xs text-muted-foreground">{subtitle}</p>
+      </div>
+    </Link>
   );
 }
 

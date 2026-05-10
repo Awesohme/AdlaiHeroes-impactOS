@@ -14,6 +14,27 @@ import {
 } from "@/lib/programme-config";
 import type { ProgrammeDataFieldRow, ProgrammeRow } from "@/lib/programmes";
 import { saveProgrammeAction, type SaveProgrammeState } from "@/app/(protected)/programmes/new/actions";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { ArrowDown, ArrowUp, Plus, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const initialState: SaveProgrammeState = {};
 
@@ -28,28 +49,49 @@ export function ProgrammeCreateForm({
 }: ProgrammeCreateFormProps) {
   const [state, formAction] = useActionState(saveProgrammeAction, initialState);
 
-  const initialLocations = parseJsonArray(state.fields?.location_areas_json) || initialProgramme?.location_areas || ["Abuja, FCT"];
+  const initialLocations =
+    parseJsonArray(state.fields?.location_areas_json) ||
+    initialProgramme?.location_areas ||
+    ["Abuja, FCT"];
   const initialModules =
     (parseJsonArray(state.fields?.enabled_modules_json) as ProgrammeModuleKey[]) ||
     initialProgramme?.enabled_modules ||
     ["beneficiaries", "activities", "evidence", "reporting", "education_support"];
-  const initialFields = parseDataFields(state.fields?.data_fields_json) || initialProgramme?.data_fields || buildDefaultFieldSet();
+  const initialFields =
+    parseDataFields(state.fields?.data_fields_json) ||
+    initialProgramme?.data_fields ||
+    buildDefaultFieldSet();
 
   const [selectedLocations, setSelectedLocations] = useState<string[]>(initialLocations);
   const [enabledModules, setEnabledModules] = useState<ProgrammeModuleKey[]>(initialModules);
   const [selectedFields, setSelectedFields] = useState<ProgrammeDataFieldRow[]>(initialFields);
   const [name, setName] = useState(state.fields?.name ?? initialProgramme?.name ?? "");
-  const [programmeType, setProgrammeType] = useState(state.fields?.programme_type ?? initialProgramme?.programme_type ?? "Education Support");
-  const [status, setStatus] = useState(state.fields?.status ?? initialProgramme?.status ?? "draft");
-  const [donorFunder, setDonorFunder] = useState(state.fields?.donor_funder ?? initialProgramme?.donor_funder ?? "Adlai Heroes Foundation");
-  const [targetGroup, setTargetGroup] = useState(state.fields?.target_group ?? initialProgramme?.target_group ?? "");
-  const [expectedBeneficiaries, setExpectedBeneficiaries] = useState(
-    state.fields?.expected_beneficiaries ?? formatNullableNumber(initialProgramme?.expected_beneficiaries),
+  const [programmeType, setProgrammeType] = useState(
+    state.fields?.programme_type ?? initialProgramme?.programme_type ?? "Education Support",
   );
-  const [budgetNgn, setBudgetNgn] = useState(state.fields?.budget_ngn ?? formatCurrencyInput(initialProgramme?.budget_ngn));
-  const [objectives, setObjectives] = useState(state.fields?.objectives ?? initialProgramme?.objectives ?? "");
-  const [description, setDescription] = useState(state.fields?.programme_description ?? initialProgramme?.programme_description ?? "");
-  const [startDate, setStartDate] = useState(state.fields?.start_date ?? initialProgramme?.start_date ?? "");
+  const [status, setStatus] = useState(state.fields?.status ?? initialProgramme?.status ?? "draft");
+  const [donorFunder, setDonorFunder] = useState(
+    state.fields?.donor_funder ?? initialProgramme?.donor_funder ?? "Adlai Heroes Foundation",
+  );
+  const [targetGroup, setTargetGroup] = useState(
+    state.fields?.target_group ?? initialProgramme?.target_group ?? "",
+  );
+  const [expectedBeneficiaries, setExpectedBeneficiaries] = useState(
+    state.fields?.expected_beneficiaries ??
+      formatNullableNumber(initialProgramme?.expected_beneficiaries),
+  );
+  const [budgetNgn, setBudgetNgn] = useState(
+    state.fields?.budget_ngn ?? formatCurrencyInput(initialProgramme?.budget_ngn),
+  );
+  const [objectives, setObjectives] = useState(
+    state.fields?.objectives ?? initialProgramme?.objectives ?? "",
+  );
+  const [description, setDescription] = useState(
+    state.fields?.programme_description ?? initialProgramme?.programme_description ?? "",
+  );
+  const [startDate, setStartDate] = useState(
+    state.fields?.start_date ?? initialProgramme?.start_date ?? "",
+  );
   const [endDate, setEndDate] = useState(state.fields?.end_date ?? initialProgramme?.end_date ?? "");
 
   const availableFields = programmeFieldCatalog.filter(
@@ -58,142 +100,162 @@ export function ProgrammeCreateForm({
   const summaryStatus = mode === "create" && status === "draft" ? "draft" : status;
 
   return (
-    <form action={formAction} className="programme-builder">
+    <form action={formAction} className="grid gap-6 lg:grid-cols-[1fr_320px]">
       <input name="programme_id" type="hidden" value={initialProgramme?.id ?? ""} />
       <input name="location_areas_json" type="hidden" value={JSON.stringify(selectedLocations)} />
       <input name="enabled_modules_json" type="hidden" value={JSON.stringify(enabledModules)} />
       <input name="data_fields_json" type="hidden" value={JSON.stringify(selectedFields)} />
 
-      <section className="programme-builder__main">
-        <article className="workspace-card form-section">
-          <div className="form-section__header">
-            <span className="form-step">1</span>
-            <div>
-              <h2>Programme details</h2>
-              <p>Capture the delivery frame, funding context, locations, and beneficiary expectations before anything else is linked.</p>
-            </div>
-          </div>
-
-          <div className="form-grid form-grid--programme">
-            <label>
-              <span>Programme name</span>
-              <input
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Programme details</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Delivery frame, funding, locations, and beneficiary expectations.
+            </p>
+          </CardHeader>
+          <CardContent className="grid gap-5 sm:grid-cols-2">
+            <Field label="Programme name">
+              <Input
                 defaultValue={name}
                 name="name"
                 onChange={(event) => setName(event.target.value)}
                 placeholder="Girls' Education & Dignity Initiative"
-                type="text"
               />
-            </label>
+            </Field>
 
-            <label>
-              <span>Programme type</span>
-              <select defaultValue={programmeType} name="programme_type" onChange={(event) => setProgrammeType(event.target.value)}>
-                {programmeTypeOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <Field label="Programme type">
+              <Select value={programmeType} onValueChange={setProgrammeType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {programmeTypeOptions.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <input type="hidden" name="programme_type" value={programmeType} />
+            </Field>
 
-            <label>
-              <span>Donor / Funder</span>
-              <input
+            <Field label="Donor / funder">
+              <Input
                 defaultValue={donorFunder}
                 name="donor_funder"
                 onChange={(event) => setDonorFunder(event.target.value)}
                 placeholder="Adlai Heroes Foundation"
-                type="text"
               />
-            </label>
+            </Field>
 
-            <label>
-              <span>Programme code</span>
-              <input
+            <Field label="Programme code" hint="Leave blank to auto-generate.">
+              <Input
                 defaultValue={state.fields?.programme_code ?? initialProgramme?.programme_code ?? ""}
                 name="programme_code"
                 placeholder="PRG-2026-0001"
-                type="text"
               />
-              <small className="field-hint">Leave blank to auto-generate the next programme code.</small>
-            </label>
+            </Field>
 
-            <label>
-              <span>Start date</span>
-              <input defaultValue={startDate} name="start_date" onChange={(event) => setStartDate(event.target.value)} type="date" />
-            </label>
+            <Field label="Start date">
+              <Input
+                defaultValue={startDate}
+                name="start_date"
+                onChange={(event) => setStartDate(event.target.value)}
+                type="date"
+              />
+            </Field>
 
-            <label>
-              <span>End date</span>
-              <input defaultValue={endDate} name="end_date" onChange={(event) => setEndDate(event.target.value)} type="date" />
-            </label>
+            <Field label="End date">
+              <Input
+                defaultValue={endDate}
+                name="end_date"
+                onChange={(event) => setEndDate(event.target.value)}
+                type="date"
+              />
+            </Field>
 
-            <label>
-              <span>Target group</span>
-              <input
+            <Field label="Target group">
+              <Input
                 defaultValue={targetGroup}
                 name="target_group"
                 onChange={(event) => setTargetGroup(event.target.value)}
-                placeholder="Adolescent Girls (10-19 years)"
-                type="text"
+                placeholder="Adolescent girls (10–19 years)"
               />
-            </label>
+            </Field>
 
-            <label>
-              <span>Expected beneficiaries</span>
-              <input
+            <Field label="Expected beneficiaries">
+              <Input
                 defaultValue={expectedBeneficiaries}
                 inputMode="numeric"
                 name="expected_beneficiaries"
                 onChange={(event) => setExpectedBeneficiaries(event.target.value)}
                 placeholder="1200"
-                type="text"
               />
-            </label>
+            </Field>
 
-            <label>
-              <span>Budget (NGN)</span>
-              <input
+            <Field label="Budget (NGN)">
+              <Input
                 defaultValue={budgetNgn}
                 inputMode="decimal"
                 name="budget_ngn"
                 onChange={(event) => setBudgetNgn(event.target.value)}
-                placeholder="25000000"
-                type="text"
+                placeholder="25,000,000"
               />
-            </label>
+            </Field>
 
-            <label className="form-grid__full">
-              <span>Operating locations</span>
-              <div className="selection-panel">
-                <div className="selection-tags">
+            <Field label="Programme status">
+              <Select value={summaryStatus} onValueChange={setStatus}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {programmeStatusOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <input type="hidden" name="status" value={summaryStatus} />
+            </Field>
+
+            <div className="sm:col-span-2 space-y-2">
+              <Label>Operating locations</Label>
+              <div className="rounded-md border bg-muted/30 p-3 space-y-3">
+                <div className="flex flex-wrap gap-1.5 min-h-[28px]">
                   {selectedLocations.length ? (
                     selectedLocations.map((location) => (
                       <button
-                        className="selection-tag"
                         key={location}
-                        onClick={() => removeLocation(location, setSelectedLocations)}
                         type="button"
+                        onClick={() => removeLocation(location, setSelectedLocations)}
+                        className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary hover:bg-primary/15"
                       >
                         {location}
-                        <span>×</span>
+                        <X className="h-3 w-3" />
                       </button>
                     ))
                   ) : (
-                    <span className="selection-empty">Pick one or more locations from the list below.</span>
+                    <p className="text-xs text-muted-foreground">
+                      Pick one or more locations from the list below.
+                    </p>
                   )}
                 </div>
-                <div className="selection-grid">
+                <div className="grid grid-cols-2 gap-1 sm:grid-cols-3 md:grid-cols-4 max-h-48 overflow-y-auto">
                   {nigeriaLocationOptions.map((location) => {
                     const active = selectedLocations.includes(location);
-
                     return (
                       <button
-                        className={`selection-option${active ? " selection-option--active" : ""}`}
                         key={location}
-                        onClick={() => toggleLocation(location, setSelectedLocations)}
                         type="button"
+                        onClick={() => toggleLocation(location, setSelectedLocations)}
+                        className={cn(
+                          "rounded px-2 py-1 text-left text-xs transition-colors",
+                          active
+                            ? "bg-primary text-primary-foreground"
+                            : "hover:bg-background",
+                        )}
                       >
                         {location}
                       </button>
@@ -201,236 +263,259 @@ export function ProgrammeCreateForm({
                   })}
                 </div>
               </div>
-            </label>
+            </div>
 
-            <label className="form-grid__full">
-              <span>Objectives</span>
-              <textarea
+            <Field label="Objectives" className="sm:col-span-2">
+              <Textarea
                 defaultValue={objectives}
                 maxLength={500}
                 name="objectives"
                 onChange={(event) => setObjectives(event.target.value)}
-                placeholder="Summarise the operational and beneficiary outcome the programme is meant to achieve."
-                rows={4}
+                placeholder="Operational and beneficiary outcome the programme should achieve."
+                rows={3}
               />
-            </label>
+            </Field>
 
-            <label className="form-grid__full">
-              <span>Programme description</span>
-              <textarea
+            <Field label="Programme description" className="sm:col-span-2">
+              <Textarea
                 defaultValue={description}
                 maxLength={1000}
                 name="programme_description"
                 onChange={(event) => setDescription(event.target.value)}
-                placeholder="Describe how this programme will be delivered, what modules it will rely on, and what field teams should expect to capture."
-                rows={5}
+                placeholder="How this programme will be delivered, modules used, what teams should capture."
+                rows={4}
               />
-            </label>
+            </Field>
+          </CardContent>
+        </Card>
 
-            <label>
-              <span>Programme status</span>
-              <select defaultValue={summaryStatus} name="status" onChange={(event) => setStatus(event.target.value)}>
-                {programmeStatusOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-        </article>
-
-        <article className="workspace-card form-section">
-          <div className="form-section__header">
-            <span className="form-step">2</span>
-            <div>
-              <h2>Advanced setup</h2>
-              <p>Keep the core setup light by default. Open this only when the programme truly needs tailored data fields or module access.</p>
-            </div>
-          </div>
-
-          <details className="advanced-panel">
-            <summary>Open advanced programme setup</summary>
-            <div className="advanced-panel__body">
-              <div className="field-config">
-                <div className="field-catalog">
-                  <div className="field-catalog__header">
-                    <strong>Available fields</strong>
-                    <span>Pick the data the team should collect for this programme.</span>
+        <Card>
+          <CardContent className="pt-6">
+            <Accordion type="single" collapsible>
+              <AccordionItem value="advanced" className="border-none">
+                <AccordionTrigger className="py-0 hover:no-underline">
+                  <div className="text-left">
+                    <p className="font-medium">Advanced setup</p>
+                    <p className="text-sm text-muted-foreground font-normal">
+                      Tailored data fields and module access. Optional.
+                    </p>
                   </div>
-                  <div className="field-catalog__list">
-                    {availableFields.map((field) => (
-                      <article className="field-card" key={field.field_key}>
-                        <div>
-                          <strong>{field.label}</strong>
-                          <p>{field.description}</p>
-                        </div>
-                        <div className="field-card__meta">
-                          <span className="field-chip">{field.field_type.replace("_", "/")}</span>
-                          <button className="mini-button" onClick={() => addField(field.field_key, setSelectedFields)} type="button">
-                            Add
-                          </button>
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="field-selected">
-                  <div className="field-catalog__header">
-                    <strong>Included fields</strong>
-                    <span>Reorder the list and mark the ones that must always be captured.</span>
-                  </div>
-                  <div className="field-selected__list">
-                    {selectedFields.map((field, index) => (
-                      <article className="field-selected__row" key={field.field_key}>
-                        <div className="field-selected__identity">
-                          <div className="field-drag">
-                            <button className="icon-button" disabled={index === 0} onClick={() => moveField(index, -1, setSelectedFields)} type="button">
-                              ↑
-                            </button>
-                            <button
-                              className="icon-button"
-                              disabled={index === selectedFields.length - 1}
-                              onClick={() => moveField(index, 1, setSelectedFields)}
+                </AccordionTrigger>
+                <AccordionContent className="pt-6 pb-0">
+                  <div className="grid gap-6 lg:grid-cols-2">
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-sm font-medium">Available fields</p>
+                        <p className="text-xs text-muted-foreground">
+                          Pick the data the team should collect.
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        {availableFields.map((field) => (
+                          <div
+                            key={field.field_key}
+                            className="flex items-start gap-3 rounded-md border p-3"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium">{field.label}</p>
+                              <p className="text-xs text-muted-foreground">{field.description}</p>
+                              <Badge variant="outline" className="mt-2 font-normal text-xs">
+                                {field.field_type.replace("_", "/")}
+                              </Badge>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
                               type="button"
+                              onClick={() => addField(field.field_key, setSelectedFields)}
                             >
-                              ↓
-                            </button>
+                              <Plus className="h-3 w-3" /> Add
+                            </Button>
                           </div>
-                          <div>
-                            <strong>{field.label}</strong>
-                            <p>{field.field_type.replace("_", "/")}</p>
+                        ))}
+                        {availableFields.length === 0 ? (
+                          <p className="text-xs text-muted-foreground py-2">All fields added.</p>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-sm font-medium">Included fields</p>
+                        <p className="text-xs text-muted-foreground">
+                          Reorder and mark required fields.
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        {selectedFields.map((field, index) => (
+                          <div
+                            key={field.field_key}
+                            className="flex items-center gap-2 rounded-md border p-2"
+                          >
+                            <div className="flex flex-col">
+                              <button
+                                type="button"
+                                disabled={index === 0}
+                                onClick={() => moveField(index, -1, setSelectedFields)}
+                                className="rounded p-0.5 disabled:opacity-30 hover:bg-muted"
+                              >
+                                <ArrowUp className="h-3 w-3" />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={index === selectedFields.length - 1}
+                                onClick={() => moveField(index, 1, setSelectedFields)}
+                                className="rounded p-0.5 disabled:opacity-30 hover:bg-muted"
+                              >
+                                <ArrowDown className="h-3 w-3" />
+                              </button>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium truncate">{field.label}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {field.field_type.replace("_", "/")}
+                              </p>
+                            </div>
+                            <label className="flex items-center gap-1.5 text-xs">
+                              <input
+                                type="checkbox"
+                                checked={field.required}
+                                onChange={() =>
+                                  toggleFieldRequired(field.field_key, setSelectedFields)
+                                }
+                                className="h-3.5 w-3.5 rounded border-input"
+                              />
+                              Required
+                            </label>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => removeField(field.field_key, setSelectedFields)}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
                           </div>
-                        </div>
-                        <div className="field-selected__controls">
-                          <label className="toggle-chip">
-                            <input
-                              checked={field.required}
-                              onChange={() => toggleFieldRequired(field.field_key, setSelectedFields)}
-                              type="checkbox"
-                            />
-                            <span>Required</span>
-                          </label>
-                          <button className="mini-button mini-button--ghost" onClick={() => removeField(field.field_key, setSelectedFields)} type="button">
-                            Remove
-                          </button>
-                        </div>
-                      </article>
-                    ))}
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              <article className="workspace-card modules-card modules-card--nested">
-                <div className="modules-card__header">
-                  <strong>Modules enabled</strong>
-                  <p>Only turn on the operational modules this programme genuinely needs from day one.</p>
-                </div>
-                <div className="module-list">
-                  {moduleOptions.map((module) => {
-                    const active = enabledModules.includes(module.key);
+                  <div className="mt-6 space-y-3">
+                    <div>
+                      <p className="text-sm font-medium">Modules enabled</p>
+                      <p className="text-xs text-muted-foreground">
+                        Operational modules this programme uses from day one.
+                      </p>
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {moduleOptions.map((module) => {
+                        const active = enabledModules.includes(module.key);
+                        return (
+                          <label
+                            key={module.key}
+                            className={cn(
+                              "flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors",
+                              active && "border-primary/40 bg-primary/5",
+                            )}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={active}
+                              onChange={() => toggleModule(module.key, setEnabledModules)}
+                              className="mt-0.5 h-4 w-4 rounded border-input"
+                            />
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium">{module.label}</p>
+                              <p className="text-xs text-muted-foreground">{module.description}</p>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </CardContent>
+        </Card>
 
-                    return (
-                      <label className={`module-toggle${active ? " module-toggle--active" : ""}`} key={module.key}>
-                        <div>
-                          <strong>{module.label}</strong>
-                          <p>{module.description}</p>
-                        </div>
-                        <input
-                          checked={active}
-                          onChange={() => toggleModule(module.key, setEnabledModules)}
-                          type="checkbox"
-                        />
-                      </label>
-                    );
-                  })}
-                </div>
-              </article>
-            </div>
-          </details>
-        </article>
-
-        <article className="workspace-card form-section form-section--compact">
-          <div className="form-section__header">
-            <span className="form-step">3</span>
-            <div>
-              <h2>Programme summary</h2>
-              <p>A quick check before you save or publish.</p>
-            </div>
-          </div>
-          <div className="compact-summary-grid">
-            <div>
-              <span>Name</span>
-              <strong>{name || "Untitled programme"}</strong>
-            </div>
-            <div>
-              <span>Type</span>
-              <strong>{programmeType || "Pending"}</strong>
-            </div>
-            <div>
-              <span>Locations</span>
-              <strong>{selectedLocations.length ? selectedLocations.join(", ") : "Pending"}</strong>
-            </div>
-            <div>
-              <span>Modules</span>
-              <strong>{enabledModules.length}</strong>
-            </div>
-            <div>
-              <span>Beneficiaries</span>
-              <strong>{expectedBeneficiaries || "—"}</strong>
-            </div>
-            <div>
-              <span>Budget</span>
-              <strong>{budgetNgn ? `NGN ${formatBudget(budgetNgn)}` : "—"}</strong>
-            </div>
-          </div>
-        </article>
-        
         {state.error ? (
-          <div className="data-banner programme-form__full">
-            <strong>Save blocked.</strong>
-            <span>{state.error}</span>
+          <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+            <p className="font-medium">Save blocked.</p>
+            <p>{state.error}</p>
           </div>
         ) : null}
 
-        <div className="programme-builder__actions">
+        <div className="flex flex-wrap gap-2 justify-end">
           <SubmitButton intent="draft" label={mode === "edit" ? "Save changes" : "Save draft"} />
-          <SubmitButton intent="publish" label={mode === "edit" ? "Update programme" : "Publish programme"} primary />
+          <SubmitButton
+            intent="publish"
+            label={mode === "edit" ? "Update programme" : "Publish programme"}
+            primary
+          />
         </div>
-      </section>
+      </div>
 
-      <aside className="programme-builder__side">
-        <article className="workspace-card preview-card preview-card--compact">
-          <div className="preview-card__header">
-            <div>
-              <p className="eyebrow">Preview</p>
-              <h2>{name || "Untitled programme"}</h2>
+      <aside className="space-y-4">
+        <Card className="sticky top-20">
+          <CardHeader className="pb-3">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Preview
+            </p>
+            <CardTitle className="text-lg">{name || "Untitled programme"}</CardTitle>
+            <Badge variant={statusVariant(summaryStatus)} className="self-start font-normal">
+              {getProgrammeStatusLabel(summaryStatus)}
+            </Badge>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <p className="text-muted-foreground">{programmeType || "Programme type pending"}</p>
+            <p className="text-muted-foreground">
+              {selectedLocations.join(", ") || "No locations selected"}
+            </p>
+            <p className="text-muted-foreground">{timelineLabel(startDate, endDate)}</p>
+            <div className="border-t pt-3 space-y-2">
+              <Stat label="Expected beneficiaries" value={expectedBeneficiaries || "—"} />
+              <Stat
+                label="Budget"
+                value={budgetNgn ? `NGN ${formatBudget(budgetNgn)}` : "—"}
+              />
+              <Stat label="Donor / funder" value={donorFunder || "—"} />
+              <Stat label="Modules" value={enabledModules.length} />
             </div>
-            <span className={`status-pill status-pill--${mapStatusTone(summaryStatus)}`}>{getProgrammeStatusLabel(summaryStatus)}</span>
-          </div>
-          <div className="preview-card__meta">
-            <p>{programmeType || "Programme type pending"}</p>
-            <p>{selectedLocations.join(", ") || "No locations selected yet"}</p>
-            <p>{timelineLabel(startDate, endDate)}</p>
-          </div>
-          <dl className="preview-card__stats">
-            <div>
-              <dt>Expected beneficiaries</dt>
-              <dd>{expectedBeneficiaries || "—"}</dd>
-            </div>
-            <div>
-              <dt>Budget</dt>
-              <dd>{budgetNgn ? `NGN ${formatBudget(budgetNgn)}` : "—"}</dd>
-            </div>
-            <div>
-              <dt>Donor / Funder</dt>
-              <dd>{donorFunder || "—"}</dd>
-            </div>
-          </dl>
-        </article>
+          </CardContent>
+        </Card>
       </aside>
     </form>
+  );
+}
+
+function Field({
+  label,
+  hint,
+  children,
+  className,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("space-y-1.5", className)}>
+      <Label>{label}</Label>
+      {children}
+      {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="flex justify-between text-xs">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium">{value}</span>
+    </div>
   );
 }
 
@@ -444,24 +529,28 @@ function SubmitButton({
   primary?: boolean;
 }) {
   const { pending } = useFormStatus();
-
   return (
-    <button
-      className={`button ${primary ? "button--primary" : "button--ghost"}`}
-      disabled={pending}
-      name="intent"
+    <Button
       type="submit"
+      name="intent"
       value={intent}
+      variant={primary ? "default" : "outline"}
+      disabled={pending}
     >
-      {pending ? "Saving..." : label}
-    </button>
+      {pending ? "Saving…" : label}
+    </Button>
   );
+}
+
+function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
+  if (status === "active" || status === "completed") return "default";
+  if (status === "at_risk") return "destructive";
+  return "secondary";
 }
 
 function buildDefaultFieldSet(): ProgrammeDataFieldRow[] {
   return defaultProgrammeFieldKeys.map((fieldKey, index) => {
     const definition = programmeFieldCatalog.find((field) => field.field_key === fieldKey);
-
     return {
       field_key: fieldKey,
       label: definition?.label ?? fieldKey,
@@ -474,10 +563,7 @@ function buildDefaultFieldSet(): ProgrammeDataFieldRow[] {
 }
 
 function parseJsonArray(raw?: string) {
-  if (!raw) {
-    return null;
-  }
-
+  if (!raw) return null;
   try {
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed.map((item) => String(item)) : null;
@@ -487,10 +573,7 @@ function parseJsonArray(raw?: string) {
 }
 
 function parseDataFields(raw?: string) {
-  if (!raw) {
-    return null;
-  }
-
+  if (!raw) return null;
   try {
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? (parsed as ProgrammeDataFieldRow[]) : null;
@@ -504,7 +587,9 @@ function toggleLocation(
   setSelectedLocations: Dispatch<SetStateAction<string[]>>,
 ) {
   setSelectedLocations((current) =>
-    current.includes(location) ? current.filter((item) => item !== location) : [...current, location],
+    current.includes(location)
+      ? current.filter((item) => item !== location)
+      : [...current, location],
   );
 }
 
@@ -520,11 +605,7 @@ function addField(
   setSelectedFields: Dispatch<SetStateAction<ProgrammeDataFieldRow[]>>,
 ) {
   const definition = programmeFieldCatalog.find((field) => field.field_key === fieldKey);
-
-  if (!definition) {
-    return;
-  }
-
+  if (!definition) return;
   setSelectedFields((current) => [
     ...current,
     {
@@ -543,7 +624,9 @@ function removeField(
   setSelectedFields: Dispatch<SetStateAction<ProgrammeDataFieldRow[]>>,
 ) {
   setSelectedFields((current) =>
-    current.filter((field) => field.field_key !== fieldKey).map((field, index) => ({ ...field, position: index })),
+    current
+      .filter((field) => field.field_key !== fieldKey)
+      .map((field, index) => ({ ...field, position: index })),
   );
 }
 
@@ -554,15 +637,10 @@ function moveField(
 ) {
   setSelectedFields((current) => {
     const nextIndex = index + direction;
-
-    if (nextIndex < 0 || nextIndex >= current.length) {
-      return current;
-    }
-
+    if (nextIndex < 0 || nextIndex >= current.length) return current;
     const cloned = [...current];
     const [item] = cloned.splice(index, 1);
     cloned.splice(nextIndex, 0, item);
-
     return cloned.map((field, position) => ({ ...field, position }));
   });
 }
@@ -572,7 +650,9 @@ function toggleFieldRequired(
   setSelectedFields: Dispatch<SetStateAction<ProgrammeDataFieldRow[]>>,
 ) {
   setSelectedFields((current) =>
-    current.map((field) => (field.field_key === fieldKey ? { ...field, required: !field.required } : field)),
+    current.map((field) =>
+      field.field_key === fieldKey ? { ...field, required: !field.required } : field,
+    ),
   );
 }
 
@@ -581,7 +661,9 @@ function toggleModule(
   setEnabledModules: Dispatch<SetStateAction<ProgrammeModuleKey[]>>,
 ) {
   setEnabledModules((current) =>
-    current.includes(moduleKey) ? current.filter((item) => item !== moduleKey) : [...current, moduleKey],
+    current.includes(moduleKey)
+      ? current.filter((item) => item !== moduleKey)
+      : [...current, moduleKey],
   );
 }
 
@@ -599,25 +681,7 @@ function formatBudget(value: string) {
 }
 
 function timelineLabel(startDate: string, endDate: string) {
-  if (!startDate && !endDate) {
-    return "Date range not set yet";
-  }
-
-  if (startDate && endDate) {
-    return `${startDate} - ${endDate}`;
-  }
-
+  if (!startDate && !endDate) return "Date range not set";
+  if (startDate && endDate) return `${startDate} – ${endDate}`;
   return startDate ? `Starts ${startDate}` : `Ends ${endDate}`;
-}
-
-function mapStatusTone(status: string) {
-  if (status === "active" || status === "completed") {
-    return "active";
-  }
-
-  if (status === "monitoring" || status === "at_risk") {
-    return "monitoring";
-  }
-
-  return "planned";
 }
