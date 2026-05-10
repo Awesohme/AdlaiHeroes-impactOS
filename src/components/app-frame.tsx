@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireUser } from "@/lib/auth";
+import { requireUser, type CurrentUser } from "@/lib/auth";
 import { navigation } from "@/lib/navigation";
 
 export async function AppFrame({
@@ -7,15 +7,17 @@ export async function AppFrame({
   eyebrow,
   description,
   action,
+  user: initialUser,
   children,
 }: {
   title: string;
   eyebrow: string;
   description: string;
   action?: React.ReactNode;
+  user?: CurrentUser;
   children: React.ReactNode;
 }) {
-  const user = await requireUser();
+  const user = initialUser ?? (await requireUser());
 
   return (
     <main className="product-shell">

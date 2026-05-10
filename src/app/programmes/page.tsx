@@ -1,8 +1,10 @@
 import { AppFrame } from "@/components/app-frame";
 import { DataTable } from "@/components/data-table";
+import { requireUser } from "@/lib/auth";
 import { getProgrammes } from "@/lib/programmes";
 
 export default async function ProgrammesPage() {
+  const user = await requireUser();
   const programmes = await getProgrammes();
 
   return (
@@ -10,6 +12,7 @@ export default async function ProgrammesPage() {
       eyebrow="Programme management"
       title="Programmes"
       description="Create, configure, publish, and monitor every Adlai programme from one structured place."
+      user={user}
       action={<button className="button button--primary">New programme</button>}
     >
       {programmes.source === "mock" ? (
