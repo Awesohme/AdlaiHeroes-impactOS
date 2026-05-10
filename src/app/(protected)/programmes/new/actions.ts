@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import type { ProgrammeFieldType, ProgrammeModuleKey, ProgrammeStatus } from "@/lib/programme-config";
 import { createClient } from "@/lib/supabase/server";
+import { uploadProgrammeFlyerToDrive } from "@/lib/google-drive/server";
 
 export type ProgrammeFieldPayload = {
   field_key: string;
@@ -128,12 +129,13 @@ export async function saveProgrammeAction(
     };
   }
 
+  const userSuppliedCode = Boolean(fields.programme_code);
   if (!fields.programme_code) {
     fields.programme_code = await generateProgrammeCode(supabase);
   }
 
-  const programmePayload = {
-    programme_code: fields.programme_code,
+  const buildPayload = (programmeCode: string) => ({
+    programme_code: programmeCode,
     name: fields.name,
     programme_type: fields.programme_type,
     donor: fields.donor_funder || null,
@@ -152,18 +154,42 @@ export async function saveProgrammeAction(
     status: fields.status,
     enabled_modules: enabledModules,
     owner_id: user.id,
-  };
+  });
 
   const isEdit = Boolean(fields.programme_id);
-  const mutation = isEdit
-    ? supabase.from("programmes").update(programmePayload).eq("id", fields.programme_id).select("id, programme_code").single()
-    : supabase.from("programmes").insert(programmePayload).select("id, programme_code").single();
+  let savedProgramme: { id: string; programme_code: string } | null = null;
+  let lastError: { message?: string; code?: string } | null = null;
 
-  const { data: savedProgramme, error } = await mutation;
+  // Retry up to 5 times when an auto-generated code clashes (RLS-hidden duplicates).
+  const maxAttempts = isEdit || userSuppliedCode ? 1 : 5;
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const payload = buildPayload(fields.programme_code);
+    const mutation = isEdit
+      ? supabase
+          .from("programmes")
+          .update(payload)
+          .eq("id", fields.programme_id)
+          .select("id, programme_code")
+          .single()
+      : supabase.from("programmes").insert(payload).select("id, programme_code").single();
 
-  if (error || !savedProgramme) {
+    const { data, error } = await mutation;
+    if (data) {
+      savedProgramme = data;
+      break;
+    }
+    lastError = error ?? null;
+    const isUniqueViolation =
+      error?.code === "23505" || (error?.message ?? "").includes("programmes_programme_code_key");
+    if (!isUniqueViolation || isEdit || userSuppliedCode) {
+      break;
+    }
+    fields.programme_code = await generateProgrammeCode(supabase, attempt + 1);
+  }
+
+  if (!savedProgramme) {
     return {
-      error: mapSaveError(error?.message),
+      error: mapSaveError(lastError?.message, lastError?.code, userSuppliedCode),
       fields,
     };
   }
@@ -198,7 +224,56 @@ export async function saveProgrammeAction(
     };
   }
 
-  redirect(`/programmes?${isEdit ? "updated=1" : "created=1"}&code=${encodeURIComponent(savedProgramme.programme_code)}`);
+  let flyerWarning = false;
+  const flyerFile = formData.get("flyer_file");
+  if (flyerFile instanceof File && flyerFile.size > 0) {
+    try {
+      const { data: programmeRecord } = await supabase
+        .from("programmes")
+        .select("id, programme_code, name, drive_folder_id")
+        .eq("id", savedProgramme.id)
+        .maybeSingle();
+
+      if (programmeRecord) {
+        const uploaded = await uploadProgrammeFlyerToDrive({
+          file: flyerFile,
+          programme: programmeRecord,
+        });
+
+        const flyerUpdate: Record<string, string> = {
+          flyer_drive_file_id: uploaded.fileId,
+        };
+        if (!programmeRecord.drive_folder_id && uploaded.programmeFolderId) {
+          flyerUpdate.drive_folder_id = uploaded.programmeFolderId;
+        }
+
+        const { error: flyerUpdateError } = await supabase
+          .from("programmes")
+          .update(flyerUpdate)
+          .eq("id", savedProgramme.id);
+
+        if (flyerUpdateError) {
+          console.error("Flyer uploaded to Drive but column update failed", {
+            programmeId: savedProgramme.id,
+            error: flyerUpdateError.message,
+          });
+          flyerWarning = true;
+        }
+      }
+    } catch (error) {
+      console.error("Flyer upload failed", {
+        programmeId: savedProgramme.id,
+        error: error instanceof Error ? error.message : "unknown",
+      });
+      flyerWarning = true;
+    }
+  }
+
+  const params = new URLSearchParams();
+  params.set(isEdit ? "updated" : "created", "1");
+  params.set("code", savedProgramme.programme_code);
+  if (flyerWarning) params.set("flyer_warning", "1");
+  redirect(`/programmes?${params.toString()}`);
 }
 
 function parseStringArray(raw: string) {
@@ -238,7 +313,7 @@ function parseProgrammeFields(raw: string): ProgrammeFieldPayload[] {
   }
 }
 
-function mapSaveError(message?: string) {
+function mapSaveError(message?: string, code?: string, userSuppliedCode = false) {
   if (!message) {
     return "Something went wrong while saving this programme.";
   }
@@ -251,10 +326,19 @@ function mapSaveError(message?: string) {
     return "The richer programme schema is not live yet. Run supabase/programme-model-upgrade.sql and the updated write-policy SQL, then try again.";
   }
 
+  if (code === "23505" || message.includes("programmes_programme_code_key")) {
+    return userSuppliedCode
+      ? "Programme code already exists. Choose a different code."
+      : "Could not generate a unique programme code after several attempts. Try again or set the code manually.";
+  }
+
   return message;
 }
 
-async function generateProgrammeCode(supabase: Awaited<ReturnType<typeof createClient>>) {
+async function generateProgrammeCode(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  retryOffset = 0,
+) {
   const year = new Date().getFullYear();
   const prefix = `PRG-${year}-`;
 
@@ -271,5 +355,5 @@ async function generateProgrammeCode(supabase: Awaited<ReturnType<typeof createC
     return current > max ? current : max;
   }, 0);
 
-  return `${prefix}${String(highest + 1).padStart(4, "0")}`;
+  return `${prefix}${String(highest + 1 + retryOffset).padStart(4, "0")}`;
 }

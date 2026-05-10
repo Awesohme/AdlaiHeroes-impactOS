@@ -190,6 +190,57 @@ export async function uploadEvidenceFileToDrive({
   };
 }
 
+type UploadFlyerInput = {
+  file: File;
+  programme: ProgrammeFolderRecord;
+};
+
+type UploadFlyerResult = {
+  fileId: string;
+  fileName: string;
+  fileSizeBytes: number;
+  mimeType: string;
+  driveFolderId: string;
+  programmeFolderId: string;
+  webViewLink: string | null;
+};
+
+export async function uploadProgrammeFlyerToDrive({
+  file,
+  programme,
+}: UploadFlyerInput): Promise<UploadFlyerResult> {
+  const mimeType = file.type || "application/octet-stream";
+  const programmeFolderId =
+    programme.drive_folder_id ||
+    (
+      await findOrCreateFolder({
+        folderName: formatProgrammeFolderName(programme.programme_code, programme.name),
+        parentId: getRequiredRootFolderId(),
+      })
+    ).id;
+
+  const flyersFolder = await findOrCreateFolder({
+    folderName: "Flyers",
+    parentId: programmeFolderId,
+  });
+
+  const uploaded = await uploadFile({
+    file,
+    parentId: flyersFolder.id,
+    mimeType,
+  });
+
+  return {
+    fileId: uploaded.id,
+    fileName: uploaded.name,
+    fileSizeBytes: Number(uploaded.size ?? file.size ?? 0),
+    mimeType: uploaded.mimeType || mimeType,
+    driveFolderId: flyersFolder.id,
+    programmeFolderId,
+    webViewLink: uploaded.webViewLink ?? null,
+  };
+}
+
 async function resolveEvidenceTypeFolder(programmeFolderId: string, evidenceType: string) {
   const subfolder = evidenceTypeFolderName(evidenceType);
 

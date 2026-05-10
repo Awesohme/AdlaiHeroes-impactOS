@@ -100,7 +100,11 @@ export function ProgrammeCreateForm({
   const summaryStatus = mode === "create" && status === "draft" ? "draft" : status;
 
   return (
-    <form action={formAction} className="grid gap-6 lg:grid-cols-[1fr_320px]">
+    <form
+      action={formAction}
+      encType="multipart/form-data"
+      className="grid gap-6 lg:grid-cols-[1fr_320px]"
+    >
       <input name="programme_id" type="hidden" value={initialProgramme?.id ?? ""} />
       <input name="location_areas_json" type="hidden" value={JSON.stringify(selectedLocations)} />
       <input name="enabled_modules_json" type="hidden" value={JSON.stringify(enabledModules)} />
@@ -186,20 +190,20 @@ export function ProgrammeCreateForm({
 
             <Field label="Expected beneficiaries">
               <Input
-                defaultValue={expectedBeneficiaries}
+                value={expectedBeneficiaries}
                 inputMode="numeric"
                 name="expected_beneficiaries"
-                onChange={(event) => setExpectedBeneficiaries(event.target.value)}
-                placeholder="1200"
+                onChange={(event) => setExpectedBeneficiaries(formatThousands(event.target.value))}
+                placeholder="1,200"
               />
             </Field>
 
             <Field label="Budget (NGN)">
               <Input
-                defaultValue={budgetNgn}
+                value={budgetNgn}
                 inputMode="decimal"
                 name="budget_ngn"
-                onChange={(event) => setBudgetNgn(event.target.value)}
+                onChange={(event) => setBudgetNgn(formatThousands(event.target.value))}
                 placeholder="25,000,000"
               />
             </Field>
@@ -218,6 +222,32 @@ export function ProgrammeCreateForm({
                 </SelectContent>
               </Select>
               <input type="hidden" name="status" value={summaryStatus} />
+            </Field>
+
+            <Field
+              label="Programme flyer"
+              hint={
+                initialProgramme?.flyer_drive_file_id
+                  ? "A flyer is already attached. Upload a new file to replace it."
+                  : "Optional. PDF or image. Goes to Drive 'Flyers' subfolder."
+              }
+              className="sm:col-span-2"
+            >
+              <Input
+                name="flyer_file"
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.webp"
+              />
+              {initialProgramme?.flyer_drive_file_id ? (
+                <a
+                  href={`https://drive.google.com/file/d/${initialProgramme.flyer_drive_file_id}/view`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-medium text-primary hover:underline"
+                >
+                  View current flyer
+                </a>
+              ) : null}
             </Field>
 
             <div className="sm:col-span-2 space-y-2">
@@ -668,7 +698,7 @@ function toggleModule(
 }
 
 function formatNullableNumber(value?: number | null) {
-  return value ? String(value) : "";
+  return value ? value.toLocaleString("en-NG") : "";
 }
 
 function formatCurrencyInput(value?: number | null) {
@@ -678,6 +708,12 @@ function formatCurrencyInput(value?: number | null) {
 function formatBudget(value: string) {
   const parsed = Number(value.replace(/,/g, ""));
   return Number.isFinite(parsed) ? parsed.toLocaleString("en-NG") : value;
+}
+
+function formatThousands(value: string) {
+  const digits = value.replace(/[^\d]/g, "");
+  if (!digits) return "";
+  return Number(digits).toLocaleString("en-NG");
 }
 
 function timelineLabel(startDate: string, endDate: string) {

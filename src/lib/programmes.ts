@@ -38,6 +38,7 @@ export type ProgrammeRow = {
   progress: number;
   timeline_label: string;
   reach: string;
+  flyer_drive_file_id: string | null;
 };
 
 type ProgrammeRecord = {
@@ -60,6 +61,7 @@ type ProgrammeRecord = {
   end_date: string | null;
   status: ProgrammeStatus | string;
   enabled_modules: ProgrammeModuleKey[] | null;
+  flyer_drive_file_id?: string | null;
   programme_data_fields?: ProgrammeDataFieldRow[] | null;
 };
 
@@ -100,6 +102,7 @@ export async function getProgrammes(): Promise<{
       end_date,
       status,
       enabled_modules,
+      flyer_drive_file_id,
       programme_data_fields (
         field_key,
         label,
@@ -167,6 +170,7 @@ export async function getProgrammeByCode(programmeCode: string) {
       end_date,
       status,
       enabled_modules,
+      flyer_drive_file_id,
       programme_data_fields (
         field_key,
         label,
@@ -230,6 +234,7 @@ function formatProgramme(programme: ProgrammeRecord): ProgrammeRow {
     progress: deriveProgress(status, startDate, endDate),
     timeline_label: formatTimeline(startDate, endDate),
     reach: expectedBeneficiaries ? `${expectedBeneficiaries.toLocaleString()} beneficiaries` : "Not set",
+    flyer_drive_file_id: programme.flyer_drive_file_id ?? null,
   };
 }
 
@@ -347,5 +352,6 @@ function mockProgrammes(): ProgrammeRow[] {
     progress: [74, 52, 28][index % 3] ?? 0,
     timeline_label: "Jan 1, 2026 - Dec 31, 2026",
     reach: String(reach),
+    flyer_drive_file_id: null,
   }));
 }

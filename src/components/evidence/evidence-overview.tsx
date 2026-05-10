@@ -1,7 +1,11 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
 import type { EvidenceRow } from "@/lib/evidence";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { MetricTile, type MetricTone } from "@/components/metric-tile";
 import {
   Table,
   TableBody,
@@ -10,7 +14,25 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { CheckCircle2, FileText, Image as ImageIcon, Video, Sheet as SheetIcon, File, ExternalLink } from "lucide-react";
+import {
+  CheckCircle2,
+  FileText,
+  Image as ImageIcon,
+  Video,
+  Sheet as SheetIcon,
+  File,
+  ExternalLink,
+  FolderOpen,
+  ShieldCheck,
+  Clock,
+  AlertOctagon,
+  type LucideIcon,
+} from "lucide-react";
+import {
+  EvidenceDetailSheet,
+  statusBadgeClass,
+} from "@/components/evidence/evidence-detail-sheet";
+import { cn } from "@/lib/utils";
 
 export function EvidenceOverview({
   rows,
@@ -23,6 +45,8 @@ export function EvidenceOverview({
   error?: string;
   created?: boolean;
 }) {
+  const [selected, setSelected] = useState<EvidenceRow | null>(null);
+
   const metrics = {
     total: rows.length,
     verified: rows.filter((item) => item.status === "Verified").length,
@@ -30,11 +54,41 @@ export function EvidenceOverview({
     consent: rows.filter((item) => item.status === "Consent check").length,
   };
 
-  const counters = [
-    { label: "Total", value: metrics.total, hint: "Records linked to Drive" },
-    { label: "Verified", value: metrics.verified, hint: "Ready for use" },
-    { label: "In review", value: metrics.review, hint: "Awaiting review" },
-    { label: "Consent check", value: metrics.consent, hint: "Hold until confirmed" },
+  const counters: Array<{
+    label: string;
+    value: number;
+    detail: string;
+    tone: MetricTone;
+    icon: LucideIcon;
+  }> = [
+    {
+      label: "Total",
+      value: metrics.total,
+      detail: "Records linked to Drive",
+      tone: "purple",
+      icon: FolderOpen,
+    },
+    {
+      label: "Verified",
+      value: metrics.verified,
+      detail: "Ready for use",
+      tone: "green",
+      icon: ShieldCheck,
+    },
+    {
+      label: "In review",
+      value: metrics.review,
+      detail: "Awaiting review",
+      tone: "amber",
+      icon: Clock,
+    },
+    {
+      label: "Consent check",
+      value: metrics.consent,
+      detail: "Hold until confirmed",
+      tone: "red",
+      icon: AlertOctagon,
+    },
   ];
 
   return (
@@ -54,17 +108,7 @@ export function EvidenceOverview({
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {counters.map((stat) => (
-          <Card key={stat.label}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                {stat.label}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-semibold tracking-tight">{stat.value}</div>
-              <p className="mt-1 text-xs text-muted-foreground">{stat.hint}</p>
-            </CardContent>
-          </Card>
+          <MetricTile key={stat.label} {...stat} />
         ))}
       </section>
 
@@ -101,7 +145,11 @@ export function EvidenceOverview({
                 </TableRow>
               ) : (
                 rows.map((record) => (
-                  <TableRow key={record.code}>
+                  <TableRow
+                    key={record.code}
+                    className="cursor-pointer"
+                    onClick={() => setSelected(record)}
+                  >
                     <TableCell className="text-muted-foreground">
                       <FileTypeIcon type={record.fileType} />
                     </TableCell>
@@ -117,11 +165,14 @@ export function EvidenceOverview({
                       {record.uploadedBy}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={statusVariant(record.status)} className="font-normal">
+                      <Badge className={cn("font-normal", statusBadgeClass(record.rawStatus))}>
                         {record.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell
+                      className="text-right"
+                      onClick={(event) => event.stopPropagation()}
+                    >
                       {record.driveFileId ? (
                         <a
                           href={`https://drive.google.com/file/d/${record.driveFileId}/view`}
@@ -143,6 +194,14 @@ export function EvidenceOverview({
           </Table>
         </CardContent>
       </Card>
+
+      <EvidenceDetailSheet
+        evidence={selected}
+        open={!!selected}
+        onOpenChange={(open) => {
+          if (!open) setSelected(null);
+        }}
+      />
     </div>
   );
 }
@@ -154,10 +213,4 @@ function FileTypeIcon({ type }: { type: string }) {
   if (type === "PDF" || type === "Document") return <FileText className={className} />;
   if (type === "Spreadsheet") return <SheetIcon className={className} />;
   return <File className={className} />;
-}
-
-function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
-  if (status === "Verified") return "default";
-  if (status === "Consent check") return "destructive";
-  return "secondary";
 }

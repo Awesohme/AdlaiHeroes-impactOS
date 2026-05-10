@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useState } from "react";
 import type { ProgrammeRow } from "@/lib/programmes";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { MetricTile, type MetricTone } from "@/components/metric-tile";
+import { FolderKanban, Activity, ClipboardList, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -22,6 +24,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ArrowUpRight, CheckCircle2, Info } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 export function ProgrammesOverview({
   rows,
@@ -67,19 +70,41 @@ export function ProgrammesOverview({
   const donors = uniqueValues(rows.map((row) => row.donor_funder).filter(Boolean));
   const types = uniqueValues(rows.map((row) => row.programme_type));
 
-  const counters = [
-    { label: "Total", value: rows.length, hint: "Saved records" },
+  const counters: Array<{
+    label: string;
+    value: number;
+    detail: string;
+    tone: MetricTone;
+    icon: LucideIcon;
+  }> = [
+    {
+      label: "Total",
+      value: rows.length,
+      detail: "Saved records",
+      tone: "purple",
+      icon: FolderKanban,
+    },
     {
       label: "Active",
       value: totals.active,
-      hint: rows.length ? `${pct(totals.active, rows.length)}%` : "—",
+      detail: rows.length ? `${pct(totals.active, rows.length)}%` : "—",
+      tone: "teal",
+      icon: Activity,
     },
     {
       label: "Planning",
       value: totals.planned,
-      hint: rows.length ? `${pct(totals.planned, rows.length)}%` : "—",
+      detail: rows.length ? `${pct(totals.planned, rows.length)}%` : "—",
+      tone: "blue",
+      icon: ClipboardList,
     },
-    { label: "At risk", value: totals.atRisk, hint: "Flagged" },
+    {
+      label: "At risk",
+      value: totals.atRisk,
+      detail: "Flagged",
+      tone: "red",
+      icon: AlertTriangle,
+    },
   ];
 
   return (
@@ -100,17 +125,7 @@ export function ProgrammesOverview({
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {counters.map((stat) => (
-          <Card key={stat.label}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                {stat.label}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-semibold tracking-tight">{stat.value}</div>
-              <p className="mt-1 text-xs text-muted-foreground">{stat.hint}</p>
-            </CardContent>
-          </Card>
+          <MetricTile key={stat.label} {...stat} />
         ))}
       </section>
 
@@ -177,13 +192,14 @@ export function ProgrammesOverview({
                 <TableHead className="text-right">Reach</TableHead>
                 <TableHead className="text-right">Budget (NGN)</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead className="w-20 text-right">Flyer</TableHead>
                 <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredRows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-10">
+                  <TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-10">
                     No programmes match the current filters.
                   </TableCell>
                 </TableRow>
@@ -211,6 +227,20 @@ export function ProgrammesOverview({
                       <Badge variant={statusVariant(row.status)} className="font-normal">
                         {formatStatus(row.status)}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {row.flyer_drive_file_id ? (
+                        <a
+                          href={`https://drive.google.com/file/d/${row.flyer_drive_file_id}/view`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+                        >
+                          View
+                        </a>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       <Link

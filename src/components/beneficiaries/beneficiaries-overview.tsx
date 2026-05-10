@@ -3,7 +3,10 @@
 import { useState } from "react";
 import type { BeneficiaryRow } from "@/lib/beneficiaries";
 import type { ProgrammeRow } from "@/lib/programmes";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { MetricTile, type MetricTone } from "@/components/metric-tile";
+import { Users, ShieldCheck, AlertTriangle, Activity } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -69,11 +72,35 @@ export function BeneficiariesOverview({
     active: rows.filter((row) => row.current_status === "active").length,
   };
 
-  const counters = [
-    { label: "Total", value: metrics.total, hint: "All records" },
-    { label: "Consent captured", value: metrics.consentCaptured, hint: "Ready for use" },
-    { label: "Safeguarding watch", value: metrics.flagged, hint: "Needs review" },
-    { label: "Active", value: metrics.active, hint: "In programme" },
+  const counters: Array<{
+    label: string;
+    value: number;
+    detail: string;
+    tone: MetricTone;
+    icon: LucideIcon;
+  }> = [
+    { label: "Total", value: metrics.total, detail: "All records", tone: "purple", icon: Users },
+    {
+      label: "Consent captured",
+      value: metrics.consentCaptured,
+      detail: "Ready for use",
+      tone: "green",
+      icon: ShieldCheck,
+    },
+    {
+      label: "Safeguarding watch",
+      value: metrics.flagged,
+      detail: "Needs review",
+      tone: "amber",
+      icon: AlertTriangle,
+    },
+    {
+      label: "Active",
+      value: metrics.active,
+      detail: "In programme",
+      tone: "teal",
+      icon: Activity,
+    },
   ];
 
   return (
@@ -87,17 +114,7 @@ export function BeneficiariesOverview({
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {counters.map((stat) => (
-          <Card key={stat.label}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                {stat.label}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-semibold tracking-tight">{stat.value}</div>
-              <p className="mt-1 text-xs text-muted-foreground">{stat.hint}</p>
-            </CardContent>
-          </Card>
+          <MetricTile key={stat.label} {...stat} />
         ))}
       </section>
 
