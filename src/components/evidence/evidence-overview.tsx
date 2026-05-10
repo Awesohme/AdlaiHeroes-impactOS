@@ -1,66 +1,41 @@
 import Link from "next/link";
+import type { EvidenceRow } from "@/lib/evidence";
 
-type EvidenceRecord = {
-  code: string;
-  title: string;
-  storage: string;
-  status: string;
-  linkedRecord: string;
-  uploadedBy: string;
-  fileType: string;
-  folder: string;
-  blocker: string;
-};
-
-const evidenceRecords: EvidenceRecord[] = [
-  {
-    code: "EVD-2026-0001",
-    title: "School nomination letters",
-    storage: "Google Drive",
-    status: "Verified",
-    linkedRecord: "Education Sponsorship 2026",
-    uploadedBy: "adlaioog@gmail.com",
-    fileType: "PDF bundle",
-    folder: "Programme evidence / Education / Nominations",
-    blocker: "None",
-  },
-  {
-    code: "EVD-2026-0002",
-    title: "Attendance sheet",
-    storage: "Google Drive",
-    status: "In review",
-    linkedRecord: "CBT orientation",
-    uploadedBy: "adlaioog@gmail.com",
-    fileType: "Scanned PDF",
-    folder: "Activities / CBT readiness / Attendance",
-    blocker: "M&E review pending",
-  },
-  {
-    code: "EVD-2026-0003",
-    title: "Distribution photos",
-    storage: "Google Drive",
-    status: "Consent check",
-    linkedRecord: "Girls Dignity Outreach",
-    uploadedBy: "adlaioog@gmail.com",
-    fileType: "JPEG batch",
-    folder: "Programme evidence / Girls Dignity / Photos",
-    blocker: "Photo consent confirmation required",
-  },
-];
-
-export function EvidenceOverview() {
+export function EvidenceOverview({
+  rows,
+  source,
+  error,
+  created,
+}: {
+  rows: EvidenceRow[];
+  source: "supabase" | "mock";
+  error?: string;
+  created?: boolean;
+}) {
   const metrics = {
-    total: evidenceRecords.length,
-    verified: evidenceRecords.filter((item) => item.status === "Verified").length,
-    review: evidenceRecords.filter((item) => item.status === "In review").length,
-    consent: evidenceRecords.filter((item) => item.status === "Consent check").length,
+    total: rows.length,
+    verified: rows.filter((item) => item.status === "Verified").length,
+    review: rows.filter((item) => item.status === "In review").length,
+    consent: rows.filter((item) => item.status === "Consent check").length,
   };
+  const selected = rows[0];
 
   return (
     <>
-      <div className="data-banner">
-        <strong>Metadata workspace active.</strong>
-        <span>The file system stays in Google Drive; this screen is shaping the metadata, verification, and linkage workflow first.</span>
+      {created ? (
+        <div className="data-banner data-banner--live">
+          <strong>Evidence uploaded.</strong>
+          <span>The file reached Google Drive and the metadata record was saved to Supabase.</span>
+        </div>
+      ) : null}
+
+      <div className={`data-banner ${source === "supabase" ? "data-banner--live" : ""}`}>
+        <strong>{source === "supabase" ? "Live metadata active." : "Metadata workspace active."}</strong>
+        <span>
+          {source === "supabase"
+            ? "The register below is loading from Supabase while files remain in Google Drive."
+            : error || "The file system stays in Google Drive; this screen is shaping the metadata, verification, and linkage workflow first."}
+        </span>
       </div>
 
       <section className="metric-grid">
@@ -113,7 +88,7 @@ export function EvidenceOverview() {
           </div>
 
           <div className="evidence-stack">
-            {evidenceRecords.map((record) => (
+            {rows.map((record) => (
               <article className="evidence-card" key={record.code}>
                 <div className="evidence-card__head">
                   <div>
@@ -148,35 +123,41 @@ export function EvidenceOverview() {
         <aside className="workspace-card programmes-sidecard">
           <div>
             <p className="eyebrow">Selected record</p>
-            <h2>{evidenceRecords[2].title}</h2>
+            <h2>{selected?.title || "No evidence yet"}</h2>
           </div>
           <div className="status-stack">
             <div className="status-stack__row">
               <div>
                 <strong>Drive folder</strong>
-                <p>{evidenceRecords[2].folder}</p>
+                <p>{selected?.folder || "No folder yet"}</p>
               </div>
               <span className="status-pill status-pill--active">Stored</span>
             </div>
             <div className="status-stack__row">
               <div>
                 <strong>Current blocker</strong>
-                <p>{evidenceRecords[2].blocker}</p>
+                <p>{selected?.blocker || "Upload the first record"}</p>
               </div>
               <span className="status-pill status-pill--planned">Needs action</span>
             </div>
             <div className="status-stack__row">
               <div>
                 <strong>Recommended next step</strong>
-                <p>Confirm consent status before linking this media into outward-facing reports.</p>
+                <p>
+                  {selected?.status === "Consent check"
+                    ? "Confirm consent status before linking this media into outward-facing reports."
+                    : selected?.status === "In review"
+                      ? "Finish operational review so this evidence can support reporting."
+                      : "Use verified evidence records in donor reports and audit exports."}
+                </p>
               </div>
               <span className="status-pill status-pill--monitoring">Review</span>
             </div>
           </div>
           <div className="workspace-card programmes-note">
             <p className="eyebrow">Next action</p>
-            <h2>Upload metadata shell</h2>
-            <p>Start the metadata entry flow first, then connect it to Drive folder rules and file IDs in the next slice.</p>
+            <h2>Upload next evidence</h2>
+            <p>Add the next file, verification state, and programme linkage without leaving the app.</p>
             <Link className="button button--primary" href="/evidence/new" prefetch={false}>
               Open upload flow
             </Link>
