@@ -13,7 +13,15 @@ const settings = [
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ drive_test?: string; drive_error?: string }>;
+  searchParams?: Promise<{
+    drive_test?: string;
+    drive_error?: string;
+    drive_mode?: string;
+    drive_token_email?: string;
+    drive_user_email?: string;
+    drive_scope?: string;
+    drive_root_status?: string;
+  }>;
 }) {
   const params = (await searchParams) ?? {};
   const drive = getGoogleDriveEnvStatus();
@@ -101,6 +109,46 @@ export default async function SettingsPage({
           </button>
         </form>
       </section>
+
+      {params.drive_mode || params.drive_token_email || params.drive_user_email || params.drive_scope || params.drive_root_status ? (
+        <section className="workspace-card settings-list">
+          <article>
+            <div>
+              <h2>Detected auth mode</h2>
+              <p>{params.drive_mode || "Unknown"}</p>
+            </div>
+            <span>Diagnostic</span>
+          </article>
+          <article>
+            <div>
+              <h2>Token email</h2>
+              <p>{params.drive_token_email || "Not returned"}</p>
+            </div>
+            <span>Diagnostic</span>
+          </article>
+          <article>
+            <div>
+              <h2>Drive user email</h2>
+              <p>{params.drive_user_email || "Not returned"}</p>
+            </div>
+            <span>Diagnostic</span>
+          </article>
+          <article>
+            <div>
+              <h2>Granted scopes</h2>
+              <p>{params.drive_scope || "Not returned"}</p>
+            </div>
+            <span>Diagnostic</span>
+          </article>
+          <article>
+            <div>
+              <h2>Root lookup</h2>
+              <p>{params.drive_root_status || "Not returned"}</p>
+            </div>
+            <span>Diagnostic</span>
+          </article>
+        </section>
+      ) : null}
 
       <section className="workspace-card settings-list">
         {settings.map(([name, detail, status]) => (

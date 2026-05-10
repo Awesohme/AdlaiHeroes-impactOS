@@ -55,6 +55,17 @@ type DriveEnvStatus = {
   hasServiceAccountPrivateKey: boolean;
 };
 
+type DriveDebugSnapshot = {
+  mode: DriveAuthMode | null;
+  rootFolderId: string;
+  tokenEmail: string;
+  driveUserEmail: string;
+  driveUserDisplayName: string;
+  scopes: string[];
+  rootLookupOk: boolean;
+  rootLookupMessage: string;
+};
+
 type ServiceAccountCredentials = {
   email: string;
   privateKey: string;
@@ -117,6 +128,32 @@ export async function testGoogleDriveSetup() {
     rootFolderName: rootFolder.name,
     healthcheckFolderId: healthcheckFolder.id,
     healthcheckFolderName: healthcheckFolder.name,
+  };
+}
+
+export async function getDriveDebugSnapshot(): Promise<DriveDebugSnapshot> {
+  const accessToken = await getAccessToken();
+  const rootFolderId = getRequiredRootFolderId();
+  const [tokenInfo, aboutInfo, rootLookup] = await Promise.all([
+    fetchTokenInfo(accessToken),
+    fetchDriveAbout(accessToken),
+    getDriveFile(rootFolderId)
+      .then((file) => ({ ok: true, message: `${file.name} (${file.id})` }))
+      .catch((error) => ({
+        ok: false,
+        message: error instanceof Error ? error.message : "Unknown root lookup error.",
+      })),
+  ]);
+
+  return {
+    mode: resolveDriveAuthMode(),
+    rootFolderId,
+    tokenEmail: tokenInfo.email,
+    driveUserEmail: aboutInfo.emailAddress,
+    driveUserDisplayName: aboutInfo.displayName,
+    scopes: tokenInfo.scope ? tokenInfo.scope.split(" ").filter(Boolean) : [],
+    rootLookupOk: rootLookup.ok,
+    rootLookupMessage: rootLookup.message,
   };
 }
 
@@ -227,6 +264,61 @@ async function getDriveFile(fileId: string) {
       method: "GET",
     },
   );
+}
+
+async function fetchTokenInfo(accessToken: string) {
+  const response = await fetch(
+    `https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(accessToken)}`,
+    { cache: "no-store" },
+  );
+
+  if (!response.ok) {
+    return {
+      email: "",
+      scope: "",
+    };
+  }
+
+  const payload = (await response.json()) as {
+    email?: string;
+    scope?: string;
+  };
+
+  return {
+    email: payload.email ?? "",
+    scope: payload.scope ?? "",
+  };
+}
+
+async function fetchDriveAbout(accessToken: string) {
+  const response = await fetch(
+    `${GOOGLE_DRIVE_API}/about?fields=user(displayName,emailAddress)&supportsAllDrives=true`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    return {
+      emailAddress: "",
+      displayName: "",
+    };
+  }
+
+  const payload = (await response.json()) as {
+    user?: {
+      emailAddress?: string;
+      displayName?: string;
+    };
+  };
+
+  return {
+    emailAddress: payload.user?.emailAddress ?? "",
+    displayName: payload.user?.displayName ?? "",
+  };
 }
 
 async function findOrCreateFolder({
