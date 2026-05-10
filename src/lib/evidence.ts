@@ -12,6 +12,7 @@ export type EvidenceRow = {
   fileType: string;
   folder: string;
   blocker: string;
+  driveFileId: string | null;
 };
 
 type EvidenceRecord = {
@@ -19,6 +20,7 @@ type EvidenceRecord = {
   title: string;
   verification_status: string;
   mime_type: string | null;
+  drive_file_id: string | null;
   drive_folder_id: string | null;
   uploaded_by: string | null;
   programmes: { name: string | null }[] | null;
@@ -41,7 +43,7 @@ export async function getEvidenceRecords(): Promise<{
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("evidence")
-    .select("evidence_code,title,verification_status,mime_type,drive_folder_id,uploaded_by,programmes(name),profiles!evidence_uploaded_by_fkey(email)")
+    .select("evidence_code,title,verification_status,mime_type,drive_file_id,drive_folder_id,uploaded_by,programmes(name),profiles!evidence_uploaded_by_fkey(email)")
     .order("uploaded_at", { ascending: false })
     .limit(25);
 
@@ -78,6 +80,7 @@ function formatEvidence(record: EvidenceRecord): EvidenceRow {
     fileType: humanizeMimeType(record.mime_type),
     folder: record.drive_folder_id ? `Drive folder ${record.drive_folder_id}` : "Folder cached after upload",
     blocker: blockerFromStatus(record.verification_status),
+    driveFileId: record.drive_file_id,
   };
 }
 
@@ -148,5 +151,6 @@ function mockEvidence(): EvidenceRow[] {
     fileType: "Uploaded file",
     folder: "Drive folder pending",
     blocker: status === "Verified" ? "None" : "Operational review pending",
+    driveFileId: null,
   }));
 }

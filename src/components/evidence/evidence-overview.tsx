@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { CheckCircle2, FileText, Image as ImageIcon, Video, Sheet as SheetIcon, File } from "lucide-react";
+import { CheckCircle2, FileText, Image as ImageIcon, Video, Sheet as SheetIcon, File, ExternalLink } from "lucide-react";
 
 export function EvidenceOverview({
   rows,
@@ -89,12 +89,13 @@ export function EvidenceOverview({
                 <TableHead>Type</TableHead>
                 <TableHead>Uploaded by</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead className="w-16 text-right">Open</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-10 text-sm text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-10 text-sm text-muted-foreground">
                     No evidence yet — upload your first record.
                   </TableCell>
                 </TableRow>
@@ -119,6 +120,21 @@ export function EvidenceOverview({
                       <Badge variant={statusVariant(record.status)} className="font-normal">
                         {record.status}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {record.driveFileId ? (
+                        <a
+                          href={`https://drive.google.com/file/d/${record.driveFileId}/view`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+                          aria-label={`Open ${record.title} in Drive`}
+                        >
+                          Open <ExternalLink className="h-3 w-3" />
+                        </a>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))
