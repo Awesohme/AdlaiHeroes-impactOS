@@ -1,6 +1,5 @@
 import { AppFrame } from "@/components/app-frame";
-import { DataTable } from "@/components/data-table";
-import { evidenceRows } from "@/lib/sample-records";
+import { EvidenceOverview } from "@/components/evidence/evidence-overview";
 
 export const dynamic = "force-dynamic";
 
@@ -10,11 +9,9 @@ export default function EvidencePage() {
       eyebrow="Evidence library"
       title="Evidence"
       description="Google Drive stores the files; Supabase stores the metadata, verification state, and report links."
-      action={<button className="button button--primary">Upload evidence</button>}
+      action={<a className="button button--primary" href="/evidence/new">Upload evidence</a>}
     >
-      <section className="workspace-card">
-        <DataTable columns={["Code", "Title", "Storage", "Status", "Linked record"]} rows={evidenceRows} />
-      </section>
+      <EvidenceOverview />
     </AppFrame>
   );
 }
