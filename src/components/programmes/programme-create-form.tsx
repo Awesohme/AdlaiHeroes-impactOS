@@ -55,7 +55,6 @@ export function ProgrammeCreateForm({
   const availableFields = programmeFieldCatalog.filter(
     (field) => !selectedFields.some((selectedField) => selectedField.field_key === field.field_key),
   );
-  const enabledModuleLabels = moduleOptions.filter((module) => enabledModules.includes(module.key));
   const summaryStatus = mode === "create" && status === "draft" ? "draft" : status;
 
   return (
@@ -245,82 +244,149 @@ export function ProgrammeCreateForm({
           <div className="form-section__header">
             <span className="form-step">2</span>
             <div>
-              <h2>Data fields configuration</h2>
-              <p>Select the beneficiary-level data points this programme needs, then mark which ones are compulsory.</p>
+              <h2>Advanced setup</h2>
+              <p>Keep the core setup light by default. Open this only when the programme truly needs tailored data fields or module access.</p>
             </div>
           </div>
 
-          <div className="field-config">
-            <div className="field-catalog">
-              <div className="field-catalog__header">
-                <strong>Available fields</strong>
-                <span>Pick the data the team should collect for this programme.</span>
-              </div>
-              <div className="field-catalog__list">
-                {availableFields.map((field) => (
-                  <article className="field-card" key={field.field_key}>
-                    <div>
-                      <strong>{field.label}</strong>
-                      <p>{field.description}</p>
-                    </div>
-                    <div className="field-card__meta">
-                      <span className="field-chip">{field.field_type.replace("_", "/")}</span>
-                      <button className="mini-button" onClick={() => addField(field.field_key, setSelectedFields)} type="button">
-                        Add
-                      </button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </div>
+          <details className="advanced-panel">
+            <summary>Open advanced programme setup</summary>
+            <div className="advanced-panel__body">
+              <div className="field-config">
+                <div className="field-catalog">
+                  <div className="field-catalog__header">
+                    <strong>Available fields</strong>
+                    <span>Pick the data the team should collect for this programme.</span>
+                  </div>
+                  <div className="field-catalog__list">
+                    {availableFields.map((field) => (
+                      <article className="field-card" key={field.field_key}>
+                        <div>
+                          <strong>{field.label}</strong>
+                          <p>{field.description}</p>
+                        </div>
+                        <div className="field-card__meta">
+                          <span className="field-chip">{field.field_type.replace("_", "/")}</span>
+                          <button className="mini-button" onClick={() => addField(field.field_key, setSelectedFields)} type="button">
+                            Add
+                          </button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </div>
 
-            <div className="field-selected">
-              <div className="field-catalog__header">
-                <strong>Included fields</strong>
-                <span>Reorder the list and mark the ones that must always be captured.</span>
+                <div className="field-selected">
+                  <div className="field-catalog__header">
+                    <strong>Included fields</strong>
+                    <span>Reorder the list and mark the ones that must always be captured.</span>
+                  </div>
+                  <div className="field-selected__list">
+                    {selectedFields.map((field, index) => (
+                      <article className="field-selected__row" key={field.field_key}>
+                        <div className="field-selected__identity">
+                          <div className="field-drag">
+                            <button className="icon-button" disabled={index === 0} onClick={() => moveField(index, -1, setSelectedFields)} type="button">
+                              ↑
+                            </button>
+                            <button
+                              className="icon-button"
+                              disabled={index === selectedFields.length - 1}
+                              onClick={() => moveField(index, 1, setSelectedFields)}
+                              type="button"
+                            >
+                              ↓
+                            </button>
+                          </div>
+                          <div>
+                            <strong>{field.label}</strong>
+                            <p>{field.field_type.replace("_", "/")}</p>
+                          </div>
+                        </div>
+                        <div className="field-selected__controls">
+                          <label className="toggle-chip">
+                            <input
+                              checked={field.required}
+                              onChange={() => toggleFieldRequired(field.field_key, setSelectedFields)}
+                              type="checkbox"
+                            />
+                            <span>Required</span>
+                          </label>
+                          <button className="mini-button mini-button--ghost" onClick={() => removeField(field.field_key, setSelectedFields)} type="button">
+                            Remove
+                          </button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </div>
               </div>
-              <div className="field-selected__list">
-                {selectedFields.map((field, index) => (
-                  <article className="field-selected__row" key={field.field_key}>
-                    <div className="field-selected__identity">
-                      <div className="field-drag">
-                        <button className="icon-button" disabled={index === 0} onClick={() => moveField(index, -1, setSelectedFields)} type="button">
-                          ↑
-                        </button>
-                        <button
-                          className="icon-button"
-                          disabled={index === selectedFields.length - 1}
-                          onClick={() => moveField(index, 1, setSelectedFields)}
-                          type="button"
-                        >
-                          ↓
-                        </button>
-                      </div>
-                      <div>
-                        <strong>{field.label}</strong>
-                        <p>{field.field_type.replace("_", "/")}</p>
-                      </div>
-                    </div>
-                    <div className="field-selected__controls">
-                      <label className="toggle-chip">
+
+              <article className="workspace-card modules-card modules-card--nested">
+                <div className="modules-card__header">
+                  <strong>Modules enabled</strong>
+                  <p>Only turn on the operational modules this programme genuinely needs from day one.</p>
+                </div>
+                <div className="module-list">
+                  {moduleOptions.map((module) => {
+                    const active = enabledModules.includes(module.key);
+
+                    return (
+                      <label className={`module-toggle${active ? " module-toggle--active" : ""}`} key={module.key}>
+                        <div>
+                          <strong>{module.label}</strong>
+                          <p>{module.description}</p>
+                        </div>
                         <input
-                          checked={field.required}
-                          onChange={() => toggleFieldRequired(field.field_key, setSelectedFields)}
+                          checked={active}
+                          onChange={() => toggleModule(module.key, setEnabledModules)}
                           type="checkbox"
                         />
-                        <span>Required</span>
                       </label>
-                      <button className="mini-button mini-button--ghost" onClick={() => removeField(field.field_key, setSelectedFields)} type="button">
-                        Remove
-                      </button>
-                    </div>
-                  </article>
-                ))}
-              </div>
+                    );
+                  })}
+                </div>
+              </article>
+            </div>
+          </details>
+        </article>
+
+        <article className="workspace-card form-section form-section--compact">
+          <div className="form-section__header">
+            <span className="form-step">3</span>
+            <div>
+              <h2>Programme summary</h2>
+              <p>A quick check before you save or publish.</p>
+            </div>
+          </div>
+          <div className="compact-summary-grid">
+            <div>
+              <span>Name</span>
+              <strong>{name || "Untitled programme"}</strong>
+            </div>
+            <div>
+              <span>Type</span>
+              <strong>{programmeType || "Pending"}</strong>
+            </div>
+            <div>
+              <span>Locations</span>
+              <strong>{selectedLocations.length ? selectedLocations.join(", ") : "Pending"}</strong>
+            </div>
+            <div>
+              <span>Modules</span>
+              <strong>{enabledModules.length}</strong>
+            </div>
+            <div>
+              <span>Beneficiaries</span>
+              <strong>{expectedBeneficiaries || "—"}</strong>
+            </div>
+            <div>
+              <span>Budget</span>
+              <strong>{budgetNgn ? `NGN ${formatBudget(budgetNgn)}` : "—"}</strong>
             </div>
           </div>
         </article>
-
+        
         {state.error ? (
           <div className="data-banner programme-form__full">
             <strong>Save blocked.</strong>
@@ -335,13 +401,13 @@ export function ProgrammeCreateForm({
       </section>
 
       <aside className="programme-builder__side">
-        <article className="workspace-card preview-card">
+        <article className="workspace-card preview-card preview-card--compact">
           <div className="preview-card__header">
             <div>
-              <p className="eyebrow">Programme preview</p>
+              <p className="eyebrow">Preview</p>
               <h2>{name || "Untitled programme"}</h2>
             </div>
-                    <span className={`status-pill status-pill--${mapStatusTone(summaryStatus)}`}>{getProgrammeStatusLabel(summaryStatus)}</span>
+            <span className={`status-pill status-pill--${mapStatusTone(summaryStatus)}`}>{getProgrammeStatusLabel(summaryStatus)}</span>
           </div>
           <div className="preview-card__meta">
             <p>{programmeType || "Programme type pending"}</p>
@@ -362,41 +428,6 @@ export function ProgrammeCreateForm({
               <dd>{donorFunder || "—"}</dd>
             </div>
           </dl>
-          <div className="preview-card__copy">
-            <strong>Objectives</strong>
-            <p>{objectives || "Add the core outcome and operational objective here."}</p>
-          </div>
-        </article>
-
-        <article className="workspace-card modules-card">
-          <div className="modules-card__header">
-            <p className="eyebrow">Modules enabled</p>
-            <h2>Delivery stack</h2>
-            <p>Select which modules this programme should activate from day one.</p>
-          </div>
-          <div className="module-list">
-            {moduleOptions.map((module) => {
-              const active = enabledModules.includes(module.key);
-
-              return (
-                <label className={`module-toggle${active ? " module-toggle--active" : ""}`} key={module.key}>
-                  <div>
-                    <strong>{module.label}</strong>
-                    <p>{module.description}</p>
-                  </div>
-                  <input
-                    checked={active}
-                    onChange={() => toggleModule(module.key, setEnabledModules)}
-                    type="checkbox"
-                  />
-                </label>
-              );
-            })}
-          </div>
-          <div className="preview-card__copy">
-            <strong>Modules selected</strong>
-            <p>{enabledModuleLabels.map((module) => module.label).join(" • ") || "No modules selected yet."}</p>
-          </div>
         </article>
       </aside>
     </form>

@@ -38,130 +38,100 @@ export function EvidenceOverview({
         </span>
       </div>
 
-      <section className="metric-grid">
-        <article className="metric-card">
-          <span>Total evidence records</span>
+      <section className="dashboard-metrics">
+        <article className="dashboard-metric-card">
+          <span>Total evidence</span>
           <strong>{metrics.total}</strong>
-          <p>Structured metadata entries that can be referenced in reports, audits, and programme reviews.</p>
+          <p>Metadata records linked back to Drive.</p>
         </article>
-        <article className="metric-card">
+        <article className="dashboard-metric-card">
           <span>Verified</span>
           <strong>{metrics.verified}</strong>
-          <p>Evidence already cleared for donor-facing outputs and formal reporting.</p>
+          <p>Ready for outward-facing use.</p>
         </article>
-        <article className="metric-card">
-          <span>Needs review</span>
+        <article className="dashboard-metric-card">
+          <span>In review</span>
           <strong>{metrics.review}</strong>
-          <p>Records waiting on operational or M&amp;E review before they are treated as complete.</p>
+          <p>Still waiting on operational review.</p>
         </article>
-        <article className="metric-card">
-          <span>Consent checks</span>
+        <article className="dashboard-metric-card dashboard-metric-card--risk">
+          <span>Consent check</span>
           <strong>{metrics.consent}</strong>
-          <p>Media-linked records that should not move into reports until consent status is fully confirmed.</p>
+          <p>Do not reuse until consent is confirmed.</p>
         </article>
       </section>
 
-      <section className="programmes-grid">
-        <article className="workspace-card">
-          <div className="programmes-toolbar">
-            <div>
-              <p className="eyebrow">Evidence register</p>
-              <h2>Verification queue</h2>
-            </div>
-            <div className="filter-strip" aria-label="Evidence filters">
-              <button className="filter-pill filter-pill--active" type="button">
-                All
-              </button>
-              <button className="filter-pill filter-pill--active" type="button">
-                Verified
-                <span>{metrics.verified}</span>
-              </button>
-              <button className="filter-pill filter-pill--monitoring" type="button">
-                In review
-                <span>{metrics.review}</span>
-              </button>
-              <button className="filter-pill filter-pill--planned" type="button">
-                Consent check
-                <span>{metrics.consent}</span>
-              </button>
-            </div>
+      <section className="portfolio-grid">
+        <article className="workspace-card portfolio-panel">
+          <div className="compact-card__header">
+            <h2>Evidence register</h2>
+            <Link className="row-link" href="/evidence/new" prefetch={false}>
+              Upload next
+            </Link>
           </div>
 
-          <div className="evidence-stack">
+          <div className="portfolio-table">
+            <div className="portfolio-table__head portfolio-table__head--evidence">
+              <span>Evidence</span>
+              <span>Linked record</span>
+              <span>Type</span>
+              <span>Uploaded by</span>
+              <span>Status</span>
+              <span>Storage</span>
+            </div>
             {rows.map((record) => (
-              <article className="evidence-card" key={record.code}>
-                <div className="evidence-card__head">
-                  <div>
-                    <strong>{record.title}</strong>
-                    <p>{record.code}</p>
-                  </div>
+              <article className="portfolio-row portfolio-row--evidence" key={record.code}>
+                <div>
+                  <strong>{record.title}</strong>
+                  <p>{record.code}</p>
+                </div>
+                <div>
+                  <p>{record.linkedRecord}</p>
+                </div>
+                <div>
+                  <span className="type-chip">{record.fileType}</span>
+                </div>
+                <div>
+                  <p>{record.uploadedBy}</p>
+                </div>
+                <div>
                   <span className={`status-pill status-pill--${evidenceTone(record.status)}`}>{record.status}</span>
                 </div>
-                <div className="evidence-card__grid">
-                  <div>
-                    <span>Linked record</span>
-                    <p>{record.linkedRecord}</p>
-                  </div>
-                  <div>
-                    <span>Storage</span>
-                    <p>{record.storage}</p>
-                  </div>
-                  <div>
-                    <span>File type</span>
-                    <p>{record.fileType}</p>
-                  </div>
-                  <div>
-                    <span>Uploaded by</span>
-                    <p>{record.uploadedBy}</p>
-                  </div>
+                <div>
+                  <p>{record.storage}</p>
                 </div>
               </article>
             ))}
           </div>
         </article>
 
-        <aside className="workspace-card programmes-sidecard">
-          <div>
-            <p className="eyebrow">Selected record</p>
-            <h2>{selected?.title || "No evidence yet"}</h2>
-          </div>
-          <div className="status-stack">
-            <div className="status-stack__row">
-              <div>
-                <strong>Drive folder</strong>
-                <p>{selected?.folder || "No folder yet"}</p>
-              </div>
-              <span className="status-pill status-pill--active">Stored</span>
+        <aside className="portfolio-side">
+          <article className="workspace-card insight-card insight-card--compact">
+            <div className="insight-card__header">
+              <h2>Selected record</h2>
             </div>
-            <div className="status-stack__row">
-              <div>
-                <strong>Current blocker</strong>
-                <p>{selected?.blocker || "Upload the first record"}</p>
+            <div className="distribution-list">
+              <div className="distribution-row">
+                <span>Title</span>
+                <strong>{selected?.title || "No evidence yet"}</strong>
               </div>
-              <span className="status-pill status-pill--planned">Needs action</span>
-            </div>
-            <div className="status-stack__row">
-              <div>
-                <strong>Recommended next step</strong>
-                <p>
-                  {selected?.status === "Consent check"
-                    ? "Confirm consent status before linking this media into outward-facing reports."
-                    : selected?.status === "In review"
-                      ? "Finish operational review so this evidence can support reporting."
-                      : "Use verified evidence records in donor reports and audit exports."}
-                </p>
+              <div className="distribution-row">
+                <span>Folder</span>
+                <strong>{selected?.folder || "No folder yet"}</strong>
               </div>
-              <span className="status-pill status-pill--monitoring">Review</span>
+              <div className="distribution-row">
+                <span>Blocker</span>
+                <strong>{selected?.blocker || "Upload the first record"}</strong>
+              </div>
+              <div className="distribution-row">
+                <span>Status</span>
+                <strong>{selected?.status || "Pending"}</strong>
+              </div>
             </div>
-          </div>
-          <div className="workspace-card programmes-note">
-            <p className="eyebrow">Next action</p>
-            <h2>Upload next evidence</h2>
-            <p>Add the next file, verification state, and programme linkage without leaving the app.</p>
-            <Link className="button button--primary" href="/evidence/new" prefetch={false}>
-              Open upload flow
-            </Link>
-          </div>
+            <p className="insight-note">
+              Keep this screen focused on finding files, checking status, and jumping back into the upload flow.
+            </p>
+          </article>
         </aside>
       </section>
     </>

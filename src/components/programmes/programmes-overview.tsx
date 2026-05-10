@@ -173,67 +173,40 @@ export function ProgrammesOverview({
         </article>
 
         <aside className="portfolio-side">
-          <article className="workspace-card insight-card">
+          <article className="workspace-card insight-card insight-card--compact">
             <div className="insight-card__header">
-              <h2>Programme Distribution by Type</h2>
-            </div>
-            <div className="distribution-list">
-              {distribution.map((item) => (
-                <div className="distribution-row" key={item.label}>
-                  <span>{item.label}</span>
-                  <strong>
-                    {item.count} ({Math.round((item.count / Math.max(filteredRows.length, 1)) * 100)}%)
-                  </strong>
-                </div>
-              ))}
-            </div>
-          </article>
-
-          <article className="workspace-card insight-card">
-            <div className="insight-card__header">
-              <h2>Timeline Snapshot</h2>
+              <h2>Portfolio snapshot</h2>
             </div>
             <div className="distribution-list">
               <div className="distribution-row">
+                <span>Top type</span>
+                <strong>{distribution[0] ? `${distribution[0].label} (${distribution[0].count})` : "No data"}</strong>
+              </div>
+              <div className="distribution-row">
                 <span>Starting This Month</span>
-                <strong>{filteredRows.filter((row) => isUpcoming(row.start_date)).length} programmes</strong>
+                <strong>{filteredRows.filter((row) => isUpcoming(row.start_date)).length}</strong>
               </div>
               <div className="distribution-row">
                 <span>Ending This Quarter</span>
-                <strong>{filteredRows.filter((row) => isEndingSoon(row.end_date)).length} programmes</strong>
+                <strong>{filteredRows.filter((row) => isEndingSoon(row.end_date)).length}</strong>
               </div>
               <div className="distribution-row">
-                <span>Ending This Year</span>
-                <strong>{filteredRows.filter((row) => row.end_date?.slice(0, 4) === String(new Date().getFullYear())).length} programmes</strong>
+                <span>At Risk</span>
+                <strong>{filteredRows.filter((row) => row.status === "at_risk").length}</strong>
               </div>
               <div className="distribution-row">
-                <span>Overdue / At Risk</span>
-                <strong>{filteredRows.filter((row) => row.status === "at_risk").length} programmes</strong>
-              </div>
-            </div>
-          </article>
-
-          <article className="workspace-card insight-card">
-            <div className="insight-card__header">
-              <h2>Budget Overview (NGN)</h2>
-            </div>
-            <div className="budget-summary">
-              <div>
                 <span>Total Budget</span>
                 <strong>{budget.toLocaleString("en-NG")}</strong>
               </div>
-              <div>
+              <div className="distribution-row">
                 <span>Committed</span>
-                <strong>{activeBudget.toLocaleString("en-NG")} ({budget ? Math.round((activeBudget / budget) * 100) : 0}%)</strong>
-              </div>
-              <div>
-                <span>Available</span>
-                <strong>{Math.max(budget - activeBudget, 0).toLocaleString("en-NG")} ({budget ? Math.round(((budget - activeBudget) / budget) * 100) : 0}%)</strong>
-              </div>
-              <div className="budget-progress">
-                <span style={{ width: `${budget ? Math.max(Math.round((activeBudget / budget) * 100), 8) : 8}%` }} />
+                <strong>{activeBudget.toLocaleString("en-NG")}</strong>
               </div>
             </div>
+            <div className="budget-progress">
+              <span style={{ width: `${budget ? Math.max(Math.round((activeBudget / budget) * 100), 8) : 8}%` }} />
+            </div>
+            <p className="insight-note">The list is the primary workspace. This panel only keeps the few portfolio signals worth glancing at.</p>
           </article>
         </aside>
       </section>

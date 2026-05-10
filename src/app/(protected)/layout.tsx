@@ -33,7 +33,7 @@ export default async function ProtectedLayout({
         </nav>
         <div className="sidebar-note">
           <div className="sidebar-note__mark">ImpactOps</div>
-          <p>Empowering communities. Creating lasting impact.</p>
+          <p>Record programmes, people, and proof without losing operational clarity.</p>
           <Link href="/auth/sign-out" prefetch={false}>
             Sign out
           </Link>
@@ -45,12 +45,6 @@ export default async function ProtectedLayout({
           <div className="workspace-topbar__actions">
             <button className="topbar-icon" type="button" aria-label="Search">
               ⌕
-            </button>
-            <button className="topbar-icon" type="button" aria-label="Notifications">
-              ◔
-            </button>
-            <button className="topbar-icon" type="button" aria-label="Help">
-              ?
             </button>
             <div className="topbar-profile">
               <div className="topbar-profile__avatar">{(user.email?.[0] ?? "A").toUpperCase()}</div>
