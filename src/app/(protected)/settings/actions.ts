@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { testGoogleDriveSetup } from "@/lib/google-drive/server";
 
 export async function testGoogleDriveConnectionAction() {
@@ -8,6 +9,10 @@ export async function testGoogleDriveConnectionAction() {
     await testGoogleDriveSetup();
     redirect("/settings?drive_test=ok");
   } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+
     console.error("Google Drive readiness test failed", error);
     const message =
       error instanceof Error
