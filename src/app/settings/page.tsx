@@ -1,5 +1,7 @@
 import { AppFrame } from "@/components/app-frame";
 
+export const dynamic = "force-dynamic";
+
 const settings = [
   ["Supabase", "Stores compact structured records and metadata only.", "Pending env setup"],
   ["Google Drive", "Stores evidence files, reports, consent forms, and backup archives.", "Pending Workspace approval"],

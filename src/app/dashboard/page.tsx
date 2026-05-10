@@ -2,6 +2,8 @@ import { AppFrame } from "@/components/app-frame";
 import { MetricCard } from "@/components/metric-card";
 import { recentEvidence, sponsorshipPipeline, stats } from "@/lib/mock-data";
 
+export const dynamic = "force-dynamic";
+
 export default function DashboardPage() {
   return (
     <AppFrame

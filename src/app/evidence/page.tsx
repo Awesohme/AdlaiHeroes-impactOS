@@ -2,6 +2,8 @@ import { AppFrame } from "@/components/app-frame";
 import { DataTable } from "@/components/data-table";
 import { evidenceRows } from "@/lib/sample-records";
 
+export const dynamic = "force-dynamic";
+
 export default function EvidencePage() {
   return (
     <AppFrame

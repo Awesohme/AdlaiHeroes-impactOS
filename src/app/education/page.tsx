@@ -1,6 +1,8 @@
 import { AppFrame } from "@/components/app-frame";
 import { MetricCard } from "@/components/metric-card";
 
+export const dynamic = "force-dynamic";
+
 const educationStats = [
   { label: "Nominated", value: "120", detail: "Students received from schools and referrals." },
   { label: "Validated", value: "84", detail: "Students with completed Adlai validation checklist." },

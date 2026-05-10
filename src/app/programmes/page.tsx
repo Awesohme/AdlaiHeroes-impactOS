@@ -3,6 +3,8 @@ import { DataTable } from "@/components/data-table";
 import { requireUser } from "@/lib/auth";
 import { getProgrammes } from "@/lib/programmes";
 
+export const dynamic = "force-dynamic";
+
 export default async function ProgrammesPage() {
   const user = await requireUser();
   const programmes = await getProgrammes();
