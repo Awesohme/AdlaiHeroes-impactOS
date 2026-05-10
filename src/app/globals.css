@@ -988,6 +988,17 @@ tbody tr:last-child td {
   line-height: 1.5;
 }
 
+.settings-panel {
+  display: grid;
+  gap: 18px;
+  margin: 18px 0;
+}
+
+.settings-panel form {
+  display: flex;
+  justify-content: flex-start;
+}
+
 @media (max-width: 980px) {
   .product-shell {
     grid-template-columns: 1fr;

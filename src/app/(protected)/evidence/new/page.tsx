@@ -6,9 +6,9 @@ import { getProgrammes } from "@/lib/programmes";
 export const dynamic = "force-dynamic";
 
 const uploadSteps = [
-  "Capture the evidence metadata record first.",
-  "Attach the Google Drive file ID and folder path once storage rules are confirmed.",
-  "Set verification and consent status before report linking.",
+  "Choose the linked programme so Drive routing has the right folder anchor.",
+  "Upload the actual evidence file directly inside ImpactOps.",
+  "Let the app create or reuse the programme folder and save metadata automatically.",
 ];
 
 export default async function NewEvidencePage() {
@@ -18,7 +18,7 @@ export default async function NewEvidencePage() {
     <AppFrame
       eyebrow="Evidence library"
       title="Upload evidence"
-      description="Start the evidence metadata record now, then connect the actual Google Drive file and verification workflow in the next step."
+      description="Upload the real evidence file here, route it into the correct Google Drive programme folder, and save the linked metadata record in one step."
       action={
         <Link className="button button--ghost program-action" href="/evidence" prefetch={false}>
           Back to Evidence
@@ -29,8 +29,8 @@ export default async function NewEvidencePage() {
         <article className="workspace-card">
           <div className="programmes-toolbar">
             <div>
-              <p className="eyebrow">Draft record</p>
-              <h2>Create evidence metadata</h2>
+              <p className="eyebrow">Automated upload</p>
+              <h2>Create and route evidence</h2>
             </div>
           </div>
           <EvidenceCreateForm programmes={programmes.rows} />
@@ -54,9 +54,9 @@ export default async function NewEvidencePage() {
           </div>
           <div className="workspace-card programmes-note">
             <p className="eyebrow">Important</p>
-            <h2>Write policy required</h2>
-            <p>Run the evidence write policy SQL before first submission so the signed-in admin can save real metadata records.</p>
-            <p>SQL file: <code>supabase/evidence-write-policies.sql</code></p>
+            <h2>Drive routing rule</h2>
+            <p>ImpactOps now uses the linked programme as the routing anchor, stores files in Google Drive, and keeps only the file metadata in Supabase.</p>
+            <p>Programmes cache their Drive folder ID after the first upload so future evidence lands in the same place automatically.</p>
           </div>
         </aside>
       </section>

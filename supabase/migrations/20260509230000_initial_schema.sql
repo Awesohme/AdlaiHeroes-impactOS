@@ -28,6 +28,7 @@ create table public.programmes (
   starts_on date,
   ends_on date,
   status text not null default 'draft',
+  drive_folder_id text,
   owner_id uuid references public.profiles(id),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

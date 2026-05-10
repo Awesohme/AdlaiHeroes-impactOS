@@ -55,17 +55,14 @@ export function EvidenceCreateForm({
         </select>
       </label>
       <label>
-        <span>Google Drive file ID</span>
-        <input defaultValue={state.fields?.drive_file_id ?? ""} name="drive_file_id" placeholder="1AbCdEFghIJkLmnOPqRstUv" type="text" />
-        <small className="field-hint">Use the Drive file ID from the uploaded document, photo batch, or evidence asset.</small>
+        <span>Evidence file</span>
+        <input accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png,.webp,.mp4,.mov,.zip" name="evidence_file" type="file" />
+        <small className="field-hint">ImpactOps uploads this directly into the correct Google Drive programme folder for you.</small>
       </label>
       <label>
-        <span>Drive folder ID</span>
-        <input defaultValue={state.fields?.drive_folder_id ?? ""} name="drive_folder_id" placeholder="Optional parent folder ID" type="text" />
-      </label>
-      <label>
-        <span>MIME type</span>
-        <input defaultValue={state.fields?.mime_type ?? ""} name="mime_type" placeholder="application/pdf or image/jpeg" type="text" />
+        <span>Upload routing rule</span>
+        <textarea defaultValue="Programme folder -> evidence-type subfolder -> uploaded file" readOnly rows={3} />
+        <small className="field-hint">The selected programme becomes the folder anchor, and ImpactOps creates evidence-type subfolders only when needed.</small>
       </label>
       {state.error ? (
         <div className="data-banner programme-form__full">
@@ -85,7 +82,7 @@ function SubmitButton() {
 
   return (
     <button className="button button--primary" disabled={pending} type="submit">
-      {pending ? "Saving..." : "Save evidence metadata"}
+      {pending ? "Uploading..." : "Upload evidence"}
     </button>
   );
 }

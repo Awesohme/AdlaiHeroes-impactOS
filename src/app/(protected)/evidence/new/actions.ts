@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { uploadEvidenceFileToDrive } from "@/lib/google-drive/server";
 import { createClient } from "@/lib/supabase/server";
 
 export type CreateEvidenceState = {
@@ -11,9 +12,7 @@ export type CreateEvidenceState = {
     evidence_type?: string;
     programme_code?: string;
     verification_status?: string;
-    drive_file_id?: string;
-    drive_folder_id?: string;
-    mime_type?: string;
+    file_name?: string;
   };
 };
 
@@ -29,14 +28,13 @@ export async function createEvidenceAction(
     evidence_type: String(formData.get("evidence_type") ?? "").trim(),
     programme_code: String(formData.get("programme_code") ?? "").trim(),
     verification_status: String(formData.get("verification_status") ?? "in_review").trim().toLowerCase(),
-    drive_file_id: String(formData.get("drive_file_id") ?? "").trim(),
-    drive_folder_id: String(formData.get("drive_folder_id") ?? "").trim(),
-    mime_type: String(formData.get("mime_type") ?? "").trim(),
+    file_name: String((formData.get("evidence_file") as File | null)?.name ?? "").trim(),
   };
+  const evidenceFile = formData.get("evidence_file");
 
-  if (!fields.title || !fields.evidence_type || !fields.programme_code || !fields.drive_file_id) {
+  if (!fields.title || !fields.evidence_type || !fields.programme_code || !(evidenceFile instanceof File) || !evidenceFile.size) {
     return {
-      error: "Evidence title, linked programme, evidence type, and Google Drive file ID are required.",
+      error: "Evidence title, linked programme, evidence type, and a file upload are required.",
       fields,
     };
   }
@@ -62,9 +60,16 @@ export async function createEvidenceAction(
 
   const { data: programme, error: programmeError } = await supabase
     .from("programmes")
-    .select("id")
+    .select("id,programme_code,name,drive_folder_id")
     .eq("programme_code", fields.programme_code)
     .maybeSingle();
+
+  if (programmeError?.message.includes("drive_folder_id")) {
+    return {
+      error: "The programme Drive folder cache column is not live yet. Run supabase/programmes-drive-folder-column.sql, then try again.",
+      fields,
+    };
+  }
 
   if (programmeError || !programme) {
     return {
@@ -77,24 +82,64 @@ export async function createEvidenceAction(
     fields.evidence_code = await generateEvidenceCode(supabase);
   }
 
+  let uploadedFile;
+
+  try {
+    uploadedFile = await uploadEvidenceFileToDrive({
+      file: evidenceFile,
+      evidenceType: fields.evidence_type,
+      programme,
+    });
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Google Drive upload failed.",
+      fields,
+    };
+  }
+
+  if (!programme.drive_folder_id && uploadedFile.programmeFolderId) {
+    const { error: cacheError } = await supabase
+      .from("programmes")
+      .update({ drive_folder_id: uploadedFile.programmeFolderId })
+      .eq("id", programme.id);
+
+    if (cacheError) {
+      console.error("Failed to cache programme drive folder", {
+        programmeId: programme.id,
+        programmeCode: programme.programme_code,
+        driveFolderId: uploadedFile.programmeFolderId,
+        error: cacheError.message,
+      });
+    }
+  }
+
   const { error } = await supabase.from("evidence").insert({
     evidence_code: fields.evidence_code,
     programme_id: programme.id,
     title: fields.title,
     evidence_type: fields.evidence_type,
-    drive_file_id: fields.drive_file_id,
-    drive_folder_id: fields.drive_folder_id || null,
-    mime_type: fields.mime_type || null,
+    drive_file_id: uploadedFile.fileId,
+    drive_folder_id: uploadedFile.driveFolderId,
+    mime_type: uploadedFile.mimeType || null,
+    file_size_bytes: uploadedFile.fileSizeBytes || null,
     verification_status: fields.verification_status,
     uploaded_by: user.id,
   });
 
   if (error) {
+    console.error("Evidence upload partially succeeded but metadata insert failed", {
+      evidenceCode: fields.evidence_code,
+      programmeCode: programme.programme_code,
+      driveFileId: uploadedFile.fileId,
+      driveFolderId: uploadedFile.driveFolderId,
+      error: error.message,
+    });
+
     return {
       error:
         error.message.includes("row-level security") || error.message.includes("permission denied")
           ? "Database write access is not enabled yet for evidence. Run the evidence write policy SQL, then try again."
-          : error.message,
+          : `Drive upload succeeded, but saving the evidence record failed. Please note this file may need cleanup: ${uploadedFile.fileName}.`,
       fields,
     };
   }

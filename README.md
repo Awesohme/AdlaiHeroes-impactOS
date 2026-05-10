@@ -40,7 +40,12 @@ Required environment variables:
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 NEXT_PUBLIC_SITE_URL=
+GOOGLE_SERVICE_ACCOUNT_EMAIL=
+GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=
+GOOGLE_DRIVE_ROOT_FOLDER_ID=
 ```
+
+`GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY` must stay server-side only. In Vercel, add it as a normal server env var and preserve line breaks with `\n`.
 
 Do not add `SUPABASE_SECRET_KEY` until a server-only route or scheduled job requires it.
 
@@ -58,8 +63,30 @@ Before real beneficiary data enters the system:
 - Remove the temporary `dev_read_programmes` policy from `supabase/seed-dev.sql`.
 - Add authenticated, role-aware RLS policies.
 - Configure Google OAuth in Supabase.
+- Configure the Google Drive service account and share the chosen root folder or Shared Drive with that service account email.
 - Confirm no secret key is exposed to the client bundle.
 - Run and document a backup/restore test.
+
+## Google Drive Evidence Automation
+
+ImpactOps uploads evidence files directly into Google Drive from the backend. Staff should not enter raw Drive file IDs manually in normal operation.
+
+Required setup:
+
+1. Enable the Google Drive API in the Adlai Google Cloud project.
+2. Create a service account.
+3. Set:
+   - `GOOGLE_SERVICE_ACCOUNT_EMAIL`
+   - `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY`
+   - `GOOGLE_DRIVE_ROOT_FOLDER_ID`
+4. Share the chosen root folder or Shared Drive with the service account email.
+5. Use the Settings page to run the Drive root test.
+
+Routing rules:
+
+- Each programme gets a cached Drive folder named `${programme_code} - ${programme_name}`.
+- Evidence uploads are routed into evidence-type subfolders such as `Documents`, `Photos`, `Videos`, and `Attendance`.
+- Supabase stores the returned Drive metadata only.
 
 ## Phase 1 Rule
 

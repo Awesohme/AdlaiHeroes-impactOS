@@ -1,0 +1,348 @@
+import { createSign } from "node:crypto";
+
+const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive";
+const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
+const GOOGLE_DRIVE_API = "https://www.googleapis.com/drive/v3";
+const GOOGLE_DRIVE_UPLOAD_API = "https://www.googleapis.com/upload/drive/v3/files";
+const FOLDER_MIME_TYPE = "application/vnd.google-apps.folder";
+
+type AccessTokenCache = {
+  accessToken: string;
+  expiresAt: number;
+};
+
+type DriveFileSummary = {
+  id: string;
+  name: string;
+  mimeType?: string;
+  size?: string;
+  parents?: string[];
+  webViewLink?: string;
+};
+
+type ProgrammeFolderRecord = {
+  id: string;
+  programme_code: string;
+  name: string;
+  drive_folder_id: string | null;
+};
+
+type UploadEvidenceInput = {
+  file: File;
+  evidenceType: string;
+  programme: ProgrammeFolderRecord;
+};
+
+type UploadEvidenceResult = {
+  fileId: string;
+  fileName: string;
+  fileSizeBytes: number;
+  mimeType: string;
+  driveFolderId: string;
+  programmeFolderId: string;
+  webViewLink: string | null;
+};
+
+let tokenCache: AccessTokenCache | null = null;
+
+export function getGoogleDriveEnvStatus() {
+  return {
+    email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim() ?? "",
+    hasPrivateKey: Boolean(process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.trim()),
+    rootFolderId: process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID?.trim() ?? "",
+  };
+}
+
+export function hasGoogleDriveServerEnv() {
+  const status = getGoogleDriveEnvStatus();
+  return Boolean(status.email && status.hasPrivateKey && status.rootFolderId);
+}
+
+export async function testGoogleDriveSetup() {
+  const rootFolderId = getRequiredEnv("GOOGLE_DRIVE_ROOT_FOLDER_ID");
+  const rootFolder = await getDriveFile(rootFolderId);
+
+  if (rootFolder.mimeType !== FOLDER_MIME_TYPE) {
+    throw new Error("The configured Google Drive root ID is reachable, but it is not a folder.");
+  }
+
+  const healthcheckFolder = await findOrCreateFolder({
+    folderName: "ImpactOps Healthcheck",
+    parentId: rootFolderId,
+  });
+
+  return {
+    rootFolderId: rootFolder.id,
+    rootFolderName: rootFolder.name,
+    healthcheckFolderId: healthcheckFolder.id,
+    healthcheckFolderName: healthcheckFolder.name,
+  };
+}
+
+export async function uploadEvidenceFileToDrive({
+  file,
+  evidenceType,
+  programme,
+}: UploadEvidenceInput): Promise<UploadEvidenceResult> {
+  const mimeType = file.type || "application/octet-stream";
+  const programmeFolderId =
+    programme.drive_folder_id ||
+    (
+      await findOrCreateFolder({
+        folderName: formatProgrammeFolderName(programme.programme_code, programme.name),
+        parentId: getRequiredEnv("GOOGLE_DRIVE_ROOT_FOLDER_ID"),
+      })
+    ).id;
+
+  const destinationFolderId = await resolveEvidenceTypeFolder(programmeFolderId, evidenceType);
+  const uploaded = await uploadFile({
+    file,
+    parentId: destinationFolderId,
+    mimeType,
+  });
+
+  return {
+    fileId: uploaded.id,
+    fileName: uploaded.name,
+    fileSizeBytes: Number(uploaded.size ?? file.size ?? 0),
+    mimeType: uploaded.mimeType || mimeType,
+    driveFolderId: destinationFolderId,
+    programmeFolderId,
+    webViewLink: uploaded.webViewLink ?? null,
+  };
+}
+
+async function resolveEvidenceTypeFolder(programmeFolderId: string, evidenceType: string) {
+  const subfolder = evidenceTypeFolderName(evidenceType);
+
+  if (!subfolder) {
+    return programmeFolderId;
+  }
+
+  const folder = await findOrCreateFolder({
+    folderName: subfolder,
+    parentId: programmeFolderId,
+  });
+
+  return folder.id;
+}
+
+function evidenceTypeFolderName(evidenceType: string) {
+  switch (evidenceType.trim()) {
+    case "Document":
+      return "Documents";
+    case "Photo":
+      return "Photos";
+    case "Video":
+      return "Videos";
+    case "Attendance":
+      return "Attendance";
+    default:
+      return "Other";
+  }
+}
+
+async function uploadFile({
+  file,
+  parentId,
+  mimeType,
+}: {
+  file: File;
+  parentId: string;
+  mimeType: string;
+}) {
+  const boundary = `impactops-${Date.now().toString(36)}`;
+  const metadata = {
+    name: file.name,
+    parents: [parentId],
+  };
+  const encoder = new TextEncoder();
+  const prefix = encoder.encode(
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: ${mimeType}\r\n\r\n`,
+  );
+  const fileBytes = new Uint8Array(await file.arrayBuffer());
+  const suffix = encoder.encode(`\r\n--${boundary}--`);
+  const body = new Uint8Array(prefix.length + fileBytes.length + suffix.length);
+  body.set(prefix, 0);
+  body.set(fileBytes, prefix.length);
+  body.set(suffix, prefix.length + fileBytes.length);
+
+  return driveRequest<DriveFileSummary>(
+    `${GOOGLE_DRIVE_UPLOAD_API}?uploadType=multipart&supportsAllDrives=true&fields=id,name,mimeType,size,parents,webViewLink`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": `multipart/related; boundary=${boundary}`,
+      },
+      body,
+    },
+  );
+}
+
+async function getDriveFile(fileId: string) {
+  return driveRequest<DriveFileSummary>(
+    `${GOOGLE_DRIVE_API}/files/${encodeURIComponent(fileId)}?fields=id,name,mimeType,parents&supportsAllDrives=true`,
+    {
+      method: "GET",
+    },
+  );
+}
+
+async function findOrCreateFolder({
+  folderName,
+  parentId,
+}: {
+  folderName: string;
+  parentId: string;
+}) {
+  const existing = await listFiles(
+    `mimeType='${FOLDER_MIME_TYPE}' and trashed=false and name=${toDriveLiteral(folderName)} and '${parentId}' in parents`,
+  );
+
+  if (existing[0]) {
+    return existing[0];
+  }
+
+  return driveRequest<DriveFileSummary>(`${GOOGLE_DRIVE_API}/files?supportsAllDrives=true&fields=id,name,mimeType,parents`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      name: folderName,
+      mimeType: FOLDER_MIME_TYPE,
+      parents: [parentId],
+    }),
+  });
+}
+
+async function listFiles(query: string) {
+  const params = new URLSearchParams({
+    q: query,
+    fields: "files(id,name,mimeType,parents)",
+    pageSize: "5",
+    includeItemsFromAllDrives: "true",
+    supportsAllDrives: "true",
+    corpora: "allDrives",
+  });
+  const response = await driveRequest<{ files?: DriveFileSummary[] }>(`${GOOGLE_DRIVE_API}/files?${params.toString()}`, {
+    method: "GET",
+  });
+
+  return response.files ?? [];
+}
+
+async function driveRequest<T>(url: string, init: RequestInit): Promise<T> {
+  const accessToken = await getAccessToken();
+  const response = await fetch(url, {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      ...init.headers,
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    let detail = response.statusText;
+
+    try {
+      const payload = (await response.json()) as { error?: { message?: string } };
+      detail = payload.error?.message || detail;
+    } catch {
+      // Keep status text fallback.
+    }
+
+    throw new Error(`Google Drive request failed: ${detail}`);
+  }
+
+  return (await response.json()) as T;
+}
+
+async function getAccessToken() {
+  if (tokenCache && Date.now() < tokenCache.expiresAt) {
+    return tokenCache.accessToken;
+  }
+
+  const assertion = createSignedAssertion();
+  const body = new URLSearchParams({
+    grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+    assertion,
+  });
+  const response = await fetch(GOOGLE_TOKEN_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body,
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    let detail = response.statusText;
+
+    try {
+      const payload = (await response.json()) as { error_description?: string; error?: string };
+      detail = payload.error_description || payload.error || detail;
+    } catch {
+      // Keep status text fallback.
+    }
+
+    throw new Error(`Google token exchange failed: ${detail}`);
+  }
+
+  const payload = (await response.json()) as { access_token: string; expires_in: number };
+  tokenCache = {
+    accessToken: payload.access_token,
+    expiresAt: Date.now() + Math.max(payload.expires_in - 60, 30) * 1000,
+  };
+
+  return tokenCache.accessToken;
+}
+
+function createSignedAssertion() {
+  const email = getRequiredEnv("GOOGLE_SERVICE_ACCOUNT_EMAIL");
+  const privateKey = normalizePrivateKey(getRequiredEnv("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY"));
+  const now = Math.floor(Date.now() / 1000);
+  const header = encodeJwtPart({ alg: "RS256", typ: "JWT" });
+  const claimSet = encodeJwtPart({
+    iss: email,
+    scope: DRIVE_SCOPE,
+    aud: GOOGLE_TOKEN_URL,
+    exp: now + 3600,
+    iat: now,
+  });
+  const unsigned = `${header}.${claimSet}`;
+  const signer = createSign("RSA-SHA256");
+  signer.update(unsigned);
+  signer.end();
+  const signature = signer.sign(privateKey);
+
+  return `${unsigned}.${signature.toString("base64url")}`;
+}
+
+function encodeJwtPart(value: object) {
+  return Buffer.from(JSON.stringify(value)).toString("base64url");
+}
+
+function normalizePrivateKey(value: string) {
+  return value.replace(/\\n/g, "\n");
+}
+
+function getRequiredEnv(name: "GOOGLE_SERVICE_ACCOUNT_EMAIL" | "GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY" | "GOOGLE_DRIVE_ROOT_FOLDER_ID") {
+  const value = process.env[name]?.trim();
+
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+
+  return value;
+}
+
+function formatProgrammeFolderName(programmeCode: string, programmeName: string) {
+  return `${programmeCode} - ${programmeName}`.replace(/[\\/:*?"<>|]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function toDriveLiteral(value: string) {
+  return `'${value.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`;
+}

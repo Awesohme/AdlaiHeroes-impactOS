@@ -2,21 +2,20 @@
 
 ## Now
 
-- Verify live Programme rows load for the signed-in admin after the RLS handoff.
-- Confirm the Programmes page stays on live Supabase data across refresh and direct URL access.
-- Remove temporary `/auth/debug` after one clean verification pass.
-- Start the polished Programmes screen and Create Programme flow.
+- Run the new Drive folder cache SQL in Supabase.
+- Configure service account env vars in Vercel and local development.
+- Share the Drive root folder or Shared Drive with the service account email.
+- Verify a real evidence upload lands in the correct programme folder.
 
 ## Next
 
-- Build reference-aligned Programmes list screen.
-- Add Create Programme flow.
-- Add Beneficiaries list and detail panel.
-- Add Evidence metadata flow with Google Drive storage plan.
+- Remove temporary `/auth/debug` after one final auth verification pass.
+- Add Evidence list click-through and detail drilldown.
+- Add Activities workflow and programme linkage.
+- Add Beneficiaries create/edit flow.
 
 ## Later
 
-- Google Workspace Shared Drive integration.
 - Google Sheets backup/export job.
 - Education sponsorship workflow.
 - Donor report generation.
