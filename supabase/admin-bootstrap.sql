@@ -30,10 +30,8 @@ set
   role = 'admin'::public.app_role,
   is_active = true;
 
--- 3. Replace role helper with an explicit app helper.
-drop function if exists public.current_app_role();
-
-create function public.current_app_role()
+-- 3. Ensure the role helper is present and safe to rerun.
+create or replace function public.current_app_role()
 returns public.app_role
 language sql
 security definer
