@@ -37,6 +37,7 @@ import {
 import { Search, Info, Plus } from "lucide-react";
 import { BeneficiaryDetailSheet } from "@/components/beneficiaries/beneficiary-detail-sheet";
 import { BeneficiaryCreateSheet } from "@/components/beneficiaries/beneficiary-create-sheet";
+import { BeneficiaryAvatar } from "@/components/beneficiaries/beneficiary-avatar";
 import { useRouter } from "next/navigation";
 
 export function BeneficiariesOverview({
@@ -213,7 +214,16 @@ export function BeneficiariesOverview({
                     <TableCell className="text-xs text-muted-foreground font-mono">
                       {row.beneficiary_code}
                     </TableCell>
-                    <TableCell className="font-medium">{row.full_name}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2.5">
+                        <BeneficiaryAvatar
+                          name={row.full_name}
+                          driveFileId={row.profile_image_drive_file_id}
+                          className="h-8 w-8 text-[10px]"
+                        />
+                        <span className="truncate">{row.full_name}</span>
+                      </div>
+                    </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {row.programme_name}
                     </TableCell>

@@ -86,6 +86,11 @@ create table public.beneficiaries (
   consent_status text not null default 'not_recorded',
   photo_video_consent text not null default 'not_recorded',
   safeguarding_flag text not null default 'none',
+  profile_image_drive_file_id text,
+  profile_image_folder_id text,
+  profile_image_mime_type text,
+  profile_image_size_bytes bigint,
+  profile_image_uploaded_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

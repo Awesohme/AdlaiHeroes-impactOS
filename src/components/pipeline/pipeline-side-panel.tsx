@@ -21,6 +21,7 @@ import {
   upsertScorecardAction,
 } from "@/app/(protected)/beneficiaries/actions";
 import { BeneficiaryNotesSection } from "@/components/beneficiaries/beneficiary-notes-section";
+import { BeneficiaryAvatar } from "@/components/beneficiaries/beneficiary-avatar";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 
@@ -144,9 +145,20 @@ export function PipelineSidePanel({
 
   return (
     <div className="space-y-5">
-      <header className="space-y-1">
-        <p className="text-xs font-mono text-muted-foreground">{enrolment.beneficiary_code}</p>
-        <h3 className="text-base font-semibold tracking-tight">{enrolment.beneficiary_name}</h3>
+      <header className="space-y-2">
+        <div className="flex items-center gap-3">
+          <BeneficiaryAvatar
+            name={enrolment.beneficiary_name}
+            driveFileId={enrolment.profile_image_drive_file_id}
+            className="h-10 w-10"
+          />
+          <div className="min-w-0 space-y-0.5">
+            <p className="text-xs font-mono text-muted-foreground">{enrolment.beneficiary_code}</p>
+            <h3 className="text-base font-semibold tracking-tight truncate">
+              {enrolment.beneficiary_name}
+            </h3>
+          </div>
+        </div>
         <div className="flex flex-wrap gap-1.5">
           {enrolment.stage_label ? (
             <Badge variant="outline" className="font-normal">

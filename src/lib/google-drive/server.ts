@@ -252,6 +252,21 @@ type UploadFlyerResult = {
   webViewLink: string | null;
 };
 
+type UploadBeneficiaryPhotoInput = {
+  file: File;
+  beneficiaryCode: string;
+  beneficiaryName: string;
+};
+
+type UploadBeneficiaryPhotoResult = {
+  fileId: string;
+  fileName: string;
+  fileSizeBytes: number;
+  mimeType: string;
+  driveFolderId: string;
+  webViewLink: string | null;
+};
+
 export async function uploadProgrammeFlyerToDrive({
   file,
   programme,
@@ -284,6 +299,36 @@ export async function uploadProgrammeFlyerToDrive({
     mimeType: uploaded.mimeType || mimeType,
     driveFolderId: flyersFolder.id,
     programmeFolderId,
+    webViewLink: uploaded.webViewLink ?? null,
+  };
+}
+
+export async function uploadBeneficiaryPhotoToDrive({
+  file,
+  beneficiaryCode,
+  beneficiaryName,
+}: UploadBeneficiaryPhotoInput): Promise<UploadBeneficiaryPhotoResult> {
+  const mimeType = file.type || "application/octet-stream";
+  const rootFolder = await findOrCreateFolder({
+    folderName: "Beneficiary Photos",
+    parentId: getRequiredRootFolderId(),
+  });
+  const beneficiaryFolder = await findOrCreateFolder({
+    folderName: formatBeneficiaryFolderName(beneficiaryCode, beneficiaryName),
+    parentId: rootFolder.id,
+  });
+  const uploaded = await uploadFile({
+    file,
+    parentId: beneficiaryFolder.id,
+    mimeType,
+  });
+
+  return {
+    fileId: uploaded.id,
+    fileName: uploaded.name,
+    fileSizeBytes: Number(uploaded.size ?? file.size ?? 0),
+    mimeType: uploaded.mimeType || mimeType,
+    driveFolderId: beneficiaryFolder.id,
     webViewLink: uploaded.webViewLink ?? null,
   };
 }
@@ -677,6 +722,10 @@ function getServiceAccountCredentials(): ServiceAccountCredentials {
 
 function formatProgrammeFolderName(programmeCode: string, programmeName: string) {
   return `${programmeCode} - ${programmeName}`.replace(/[\\/:*?"<>|]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function formatBeneficiaryFolderName(beneficiaryCode: string, beneficiaryName: string) {
+  return `${beneficiaryCode} - ${beneficiaryName}`.replace(/[\\/:*?"<>|]/g, " ").replace(/\s+/g, " ").trim();
 }
 
 function toDriveLiteral(value: string) {

@@ -338,6 +338,7 @@ export type EnrolmentSummary = {
   consent_received: boolean;
   consent_drive_file_id: string | null;
   consent_recorded_at: string | null;
+  profile_image_drive_file_id: string | null;
   scorecard: {
     financial_need: number;
     academic_record: number;
@@ -354,7 +355,7 @@ export async function listEnrolmentsByProgrammeAction(
   const { data, error } = await supabase
     .from("enrolments")
     .select(
-      "id,stage_id,decision,beneficiaries(id,beneficiary_code,full_name,consent_received,consent_evidence_drive_file_id,consent_recorded_at),programme_stages:stage_id(label),enrolment_scorecards(financial_need,academic_record,attendance_score,cbt_readiness,commitment)",
+      "id,stage_id,decision,beneficiaries(id,beneficiary_code,full_name,consent_received,consent_evidence_drive_file_id,consent_recorded_at,profile_image_drive_file_id),programme_stages:stage_id(label),enrolment_scorecards(financial_need,academic_record,attendance_score,cbt_readiness,commitment)",
     )
     .eq("programme_id", programmeId)
     .order("enrolled_at", { ascending: false });
@@ -366,6 +367,7 @@ export async function listEnrolmentsByProgrammeAction(
     consent_received: boolean | null;
     consent_evidence_drive_file_id: string | null;
     consent_recorded_at: string | null;
+    profile_image_drive_file_id: string | null;
   };
   type StageRel = { label: string };
   type ScoreRel = {
@@ -411,6 +413,7 @@ export async function listEnrolmentsByProgrammeAction(
       consent_received: beneficiary?.consent_received ?? false,
       consent_drive_file_id: beneficiary?.consent_evidence_drive_file_id ?? null,
       consent_recorded_at: beneficiary?.consent_recorded_at ?? null,
+      profile_image_drive_file_id: beneficiary?.profile_image_drive_file_id ?? null,
       scorecard: score
         ? {
             financial_need: score.financial_need,

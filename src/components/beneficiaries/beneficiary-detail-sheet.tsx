@@ -41,6 +41,10 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { InfoTooltip } from "@/components/info-tooltip";
 import { BeneficiaryNotesSection } from "@/components/beneficiaries/beneficiary-notes-section";
+import { BeneficiaryAvatar } from "@/components/beneficiaries/beneficiary-avatar";
+import {
+  uploadBeneficiaryProfileImageAction,
+} from "@/app/(protected)/beneficiaries/actions";
 
 type StageOption = { id: string; label: string; position: number };
 
@@ -85,6 +89,8 @@ export function BeneficiaryDetailSheet({
   const [consentReceived, setConsentReceived] = useState(false);
   const [consentFile, setConsentFile] = useState<File | null>(null);
   const [consentFeedback, setConsentFeedback] = useState<string | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoFeedback, setPhotoFeedback] = useState<string | null>(null);
   const [consentDriveFileId, setConsentDriveFileId] = useState<string | null>(null);
   const [consentRecordedAt, setConsentRecordedAt] = useState<string | null>(null);
   const [scorecard, setScorecard] = useState({
@@ -110,6 +116,8 @@ export function BeneficiaryDetailSheet({
     setConsentRecordedAt(beneficiary.consent_recorded_at);
     setConsentFile(null);
     setConsentFeedback(null);
+    setPhotoFile(null);
+    setPhotoFeedback(null);
     setScorecard({
       financial_need: beneficiary.scorecard?.financial_need ?? 0,
       academic_record: beneficiary.scorecard?.academic_record ?? 0,
@@ -215,6 +223,23 @@ export function BeneficiaryDetailSheet({
     });
   }
 
+  function uploadPhoto() {
+    if (!beneficiary?.id || !photoFile) return;
+    setPhotoFeedback(null);
+    const fd = new FormData();
+    fd.set("profile_image", photoFile);
+    startTransition(async () => {
+      const result = await uploadBeneficiaryProfileImageAction(beneficiary.id!, fd);
+      if (result.ok) {
+        setPhotoFile(null);
+        setPhotoFeedback("Profile image saved.");
+        router.refresh();
+      } else {
+        setPhotoFeedback(result.error);
+      }
+    });
+  }
+
   function saveScorecard() {
     if (!beneficiary?.enrolment_id) return;
     setFeedback(null);
@@ -230,9 +255,11 @@ export function BeneficiaryDetailSheet({
       <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
         <SheetHeader>
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary">
-              {beneficiary.full_name.slice(0, 2).toUpperCase()}
-            </div>
+            <BeneficiaryAvatar
+              name={beneficiary.full_name}
+              driveFileId={beneficiary.profile_image_drive_file_id}
+              className="h-12 w-12"
+            />
             <div className="min-w-0">
               <SheetTitle className="text-base">{beneficiary.full_name}</SheetTitle>
               <SheetDescription className="font-mono text-xs">
@@ -264,6 +291,51 @@ export function BeneficiaryDetailSheet({
             </Badge>
           ) : null}
         </div>
+
+        <DetailSection title="Profile image">
+          {beneficiary.profile_image_drive_file_id ? (
+            <div className="flex items-center gap-3">
+              <BeneficiaryAvatar
+                name={beneficiary.full_name}
+                driveFileId={beneficiary.profile_image_drive_file_id}
+                className="h-16 w-16"
+              />
+              <div className="text-xs text-muted-foreground space-y-1 min-w-0">
+                <p>JPG/PNG/WebP, up to 8 MB.</p>
+                <p>Uploading a new file replaces the current one.</p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              No photo yet. Upload a JPG/PNG/WebP up to 8 MB.
+            </p>
+          )}
+          <Input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={(event) => setPhotoFile(event.target.files?.[0] ?? null)}
+          />
+          <Button
+            type="button"
+            size="sm"
+            disabled={pending || !photoFile}
+            onClick={uploadPhoto}
+          >
+            {beneficiary.profile_image_drive_file_id ? "Replace photo" : "Upload photo"}
+          </Button>
+          {photoFeedback ? (
+            <p
+              className={cn(
+                "text-xs",
+                photoFeedback === "Profile image saved."
+                  ? "text-emerald-700"
+                  : "text-destructive",
+              )}
+            >
+              {photoFeedback}
+            </p>
+          ) : null}
+        </DetailSection>
 
         <DetailSection title="Personal & contact">
           <DetailItem label="Guardian" value={beneficiary.guardian_name} />

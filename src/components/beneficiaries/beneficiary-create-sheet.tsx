@@ -97,6 +97,14 @@ export function BeneficiaryCreateSheet({
             <Input name="beneficiary_code" placeholder="BEN-2026-000001" />
           </Field>
 
+          <Field label="Profile image" hint="Optional. JPG, PNG, or WebP up to 8 MB.">
+            <Input
+              type="file"
+              name="profile_image"
+              accept="image/jpeg,image/png,image/webp"
+            />
+          </Field>
+
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Date of birth">
               <Input name="date_of_birth" type="date" />

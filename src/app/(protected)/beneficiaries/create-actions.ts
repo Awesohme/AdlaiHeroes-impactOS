@@ -2,14 +2,17 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { uploadBeneficiaryPhotoToDrive } from "@/lib/google-drive/server";
 
 export type CreateBeneficiaryResult =
-  | { ok: true; beneficiaryId: string; beneficiaryCode: string }
+  | { ok: true; beneficiaryId: string; beneficiaryCode: string; warning?: string }
   | { ok: false; error: string };
 
 const validConsent = new Set(["not_recorded", "consent_captured", "photo_consent_pending", "declined"]);
 const validSafeguarding = new Set(["none", "reviewed", "follow_up_needed"]);
 const validGender = new Set(["", "female", "male", "non_binary", "prefer_not_to_say"]);
+const validImageTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const maxProfileImageBytes = 8 * 1024 * 1024;
 
 function mapDbError(message: string | undefined, fallback: string) {
   if (!message) return fallback;
@@ -27,6 +30,16 @@ export async function createBeneficiaryAction(
 ): Promise<CreateBeneficiaryResult> {
   const fullName = String(formData.get("full_name") ?? "").trim();
   if (!fullName) return { ok: false, error: "Full name is required." };
+  const profileImage = formData.get("profile_image");
+  const profileImageFile = profileImage instanceof File && profileImage.size > 0 ? profileImage : null;
+  if (profileImageFile) {
+    if (!validImageTypes.has(profileImageFile.type)) {
+      return { ok: false, error: "Profile image must be JPG, PNG, or WebP." };
+    }
+    if (profileImageFile.size > maxProfileImageBytes) {
+      return { ok: false, error: "Profile image must be 8MB or smaller." };
+    }
+  }
 
   const codeOverride = String(formData.get("beneficiary_code") ?? "").trim().toUpperCase();
   const gender = String(formData.get("gender") ?? "").trim();
@@ -75,8 +88,37 @@ export async function createBeneficiaryAction(
       .select("id, beneficiary_code")
       .single();
     if (data) {
+      let warning: string | undefined;
+      if (profileImageFile) {
+        try {
+          const uploaded = await uploadBeneficiaryPhotoToDrive({
+            file: profileImageFile,
+            beneficiaryCode: data.beneficiary_code,
+            beneficiaryName: fullName,
+          });
+          const { error: photoError } = await supabase
+            .from("beneficiaries")
+            .update({
+              profile_image_drive_file_id: uploaded.fileId,
+              profile_image_folder_id: uploaded.driveFolderId,
+              profile_image_mime_type: uploaded.mimeType,
+              profile_image_size_bytes: uploaded.fileSizeBytes,
+              profile_image_uploaded_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", data.id);
+          if (photoError) {
+            warning = "Beneficiary created, but the profile image metadata could not be saved.";
+          }
+        } catch (error) {
+          warning =
+            error instanceof Error
+              ? `Beneficiary created, but profile image upload failed: ${error.message}`
+              : "Beneficiary created, but profile image upload failed.";
+        }
+      }
       revalidatePath("/beneficiaries");
-      return { ok: true, beneficiaryId: data.id, beneficiaryCode: data.beneficiary_code };
+      return { ok: true, beneficiaryId: data.id, beneficiaryCode: data.beneficiary_code, warning };
     }
     lastError = error ?? null;
     const isUniqueViolation =

@@ -2,10 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { uploadConsentFileToDrive } from "@/lib/google-drive/server";
+import {
+  uploadBeneficiaryPhotoToDrive,
+  uploadConsentFileToDrive,
+} from "@/lib/google-drive/server";
 import { generateEvidenceCode } from "@/lib/evidence-codes";
 
 const validSafeguarding = new Set(["none", "reviewed", "follow_up_needed"]);
+const validImageTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const maxProfileImageBytes = 8 * 1024 * 1024;
 
 export type BeneficiaryNote = {
   id: string;
@@ -84,6 +89,62 @@ export async function setBeneficiarySafeguardingAction(
   if (error) return { ok: false, error: mapDbError(error.message, "Could not update safeguarding.") };
   revalidatePath("/beneficiaries");
   return { ok: true };
+}
+
+export async function uploadBeneficiaryProfileImageAction(
+  beneficiaryId: string,
+  formData: FormData,
+): Promise<ActionResult<{ driveFileId: string; uploadedAt: string }>> {
+  const profileImage = formData.get("profile_image");
+  if (!(profileImage instanceof File) || profileImage.size === 0) {
+    return { ok: false, error: "Pick a profile image to upload." };
+  }
+  if (!validImageTypes.has(profileImage.type)) {
+    return { ok: false, error: "Profile image must be JPG, PNG, or WebP." };
+  }
+  if (profileImage.size > maxProfileImageBytes) {
+    return { ok: false, error: "Profile image must be 8MB or smaller." };
+  }
+
+  const supabase = await createClient();
+  const { data: beneficiary } = await supabase
+    .from("beneficiaries")
+    .select("id,beneficiary_code,full_name")
+    .eq("id", beneficiaryId)
+    .maybeSingle();
+  if (!beneficiary) return { ok: false, error: "Beneficiary not found." };
+
+  let uploaded: Awaited<ReturnType<typeof uploadBeneficiaryPhotoToDrive>>;
+  try {
+    uploaded = await uploadBeneficiaryPhotoToDrive({
+      file: profileImage,
+      beneficiaryCode: beneficiary.beneficiary_code,
+      beneficiaryName: beneficiary.full_name,
+    });
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Drive upload failed.",
+    };
+  }
+
+  const uploadedAt = new Date().toISOString();
+  const { error } = await supabase
+    .from("beneficiaries")
+    .update({
+      profile_image_drive_file_id: uploaded.fileId,
+      profile_image_folder_id: uploaded.driveFolderId,
+      profile_image_mime_type: uploaded.mimeType,
+      profile_image_size_bytes: uploaded.fileSizeBytes,
+      profile_image_uploaded_at: uploadedAt,
+      updated_at: uploadedAt,
+    })
+    .eq("id", beneficiaryId);
+  if (error) return { ok: false, error: mapDbError(error.message, "Could not save profile image.") };
+
+  revalidatePath("/beneficiaries");
+  revalidatePath("/pipeline");
+  return { ok: true, data: { driveFileId: uploaded.fileId, uploadedAt } };
 }
 
 export async function uploadConsentEvidenceAction(

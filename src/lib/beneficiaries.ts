@@ -50,6 +50,11 @@ export type BeneficiaryRow = {
   consent_received: boolean;
   consent_evidence_drive_file_id: string | null;
   consent_recorded_at: string | null;
+  profile_image_drive_file_id: string | null;
+  profile_image_folder_id: string | null;
+  profile_image_mime_type: string | null;
+  profile_image_size_bytes: number | null;
+  profile_image_uploaded_at: string | null;
 };
 
 type BeneficiaryRecord = {
@@ -66,6 +71,11 @@ type BeneficiaryRecord = {
   consent_received: boolean | null;
   consent_evidence_drive_file_id: string | null;
   consent_recorded_at: string | null;
+  profile_image_drive_file_id: string | null;
+  profile_image_folder_id: string | null;
+  profile_image_mime_type: string | null;
+  profile_image_size_bytes: number | null;
+  profile_image_uploaded_at: string | null;
 };
 
 type ProgrammeRel = {
@@ -114,7 +124,7 @@ export async function getBeneficiaries(programmes: ProgrammeRow[]) {
       supabase
         .from("beneficiaries")
         .select(
-          "id,beneficiary_code,full_name,guardian_name,guardian_phone,community,state,school_name,consent_status,safeguarding_flag,consent_received,consent_evidence_drive_file_id,consent_recorded_at",
+          "id,beneficiary_code,full_name,guardian_name,guardian_phone,community,state,school_name,consent_status,safeguarding_flag,consent_received,consent_evidence_drive_file_id,consent_recorded_at,profile_image_drive_file_id,profile_image_folder_id,profile_image_mime_type,profile_image_size_bytes,profile_image_uploaded_at",
         )
         .order("created_at", { ascending: false })
         .limit(40),
@@ -198,6 +208,11 @@ function formatBeneficiary(
     consent_received: beneficiary.consent_received ?? false,
     consent_evidence_drive_file_id: beneficiary.consent_evidence_drive_file_id ?? null,
     consent_recorded_at: beneficiary.consent_recorded_at ?? null,
+    profile_image_drive_file_id: beneficiary.profile_image_drive_file_id ?? null,
+    profile_image_folder_id: beneficiary.profile_image_folder_id ?? null,
+    profile_image_mime_type: beneficiary.profile_image_mime_type ?? null,
+    profile_image_size_bytes: beneficiary.profile_image_size_bytes ?? null,
+    profile_image_uploaded_at: beneficiary.profile_image_uploaded_at ?? null,
   };
 }
 
@@ -217,6 +232,11 @@ function buildMockBeneficiaries(programmes: ProgrammeRow[]): BeneficiaryRow[] {
     | "consent_received"
     | "consent_evidence_drive_file_id"
     | "consent_recorded_at"
+    | "profile_image_drive_file_id"
+    | "profile_image_folder_id"
+    | "profile_image_mime_type"
+    | "profile_image_size_bytes"
+    | "profile_image_uploaded_at"
   > => ({
     id: null,
     enrolment_id: null,
@@ -229,6 +249,11 @@ function buildMockBeneficiaries(programmes: ProgrammeRow[]): BeneficiaryRow[] {
     consent_received: false,
     consent_evidence_drive_file_id: null,
     consent_recorded_at: null,
+    profile_image_drive_file_id: null,
+    profile_image_folder_id: null,
+    profile_image_mime_type: null,
+    profile_image_size_bytes: null,
+    profile_image_uploaded_at: null,
   });
 
   return [
