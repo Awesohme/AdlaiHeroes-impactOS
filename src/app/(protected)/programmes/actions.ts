@@ -289,6 +289,16 @@ export type EnrolmentSummary = {
   stage_label: string | null;
   decision: string | null;
   scorecard_total: number | null;
+  consent_received: boolean;
+  consent_drive_file_id: string | null;
+  consent_recorded_at: string | null;
+  scorecard: {
+    financial_need: number;
+    academic_record: number;
+    attendance_score: number;
+    cbt_readiness: number;
+    commitment: number;
+  } | null;
 };
 
 export async function listEnrolmentsByProgrammeAction(
@@ -298,12 +308,19 @@ export async function listEnrolmentsByProgrammeAction(
   const { data, error } = await supabase
     .from("enrolments")
     .select(
-      "id,stage_id,decision,beneficiaries(id,beneficiary_code,full_name),programme_stages:stage_id(label),enrolment_scorecards(financial_need,academic_record,attendance_score,cbt_readiness,commitment)",
+      "id,stage_id,decision,beneficiaries(id,beneficiary_code,full_name,consent_received,consent_evidence_drive_file_id,consent_recorded_at),programme_stages:stage_id(label),enrolment_scorecards(financial_need,academic_record,attendance_score,cbt_readiness,commitment)",
     )
     .eq("programme_id", programmeId)
     .order("enrolled_at", { ascending: false });
   if (error || !data) return [];
-  type BeneficiaryRel = { id: string; beneficiary_code: string; full_name: string };
+  type BeneficiaryRel = {
+    id: string;
+    beneficiary_code: string;
+    full_name: string;
+    consent_received: boolean | null;
+    consent_evidence_drive_file_id: string | null;
+    consent_recorded_at: string | null;
+  };
   type StageRel = { label: string };
   type ScoreRel = {
     financial_need: number;
@@ -345,6 +362,18 @@ export async function listEnrolmentsByProgrammeAction(
       stage_label: stage?.label ?? null,
       decision: row.decision ?? null,
       scorecard_total: total,
+      consent_received: beneficiary?.consent_received ?? false,
+      consent_drive_file_id: beneficiary?.consent_evidence_drive_file_id ?? null,
+      consent_recorded_at: beneficiary?.consent_recorded_at ?? null,
+      scorecard: score
+        ? {
+            financial_need: score.financial_need,
+            academic_record: score.academic_record,
+            attendance_score: score.attendance_score,
+            cbt_readiness: score.cbt_readiness,
+            commitment: score.commitment,
+          }
+        : null,
     };
   });
 }

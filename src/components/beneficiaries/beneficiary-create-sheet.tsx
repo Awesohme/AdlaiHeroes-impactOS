@@ -48,7 +48,6 @@ export function BeneficiaryCreateSheet({
 }) {
   const [gender, setGender] = useState("");
   const [stateValue, setStateValue] = useState("");
-  const [consentReceived, setConsentReceived] = useState(false);
   const [safeguarding, setSafeguarding] = useState("none");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -56,7 +55,6 @@ export function BeneficiaryCreateSheet({
   function reset() {
     setGender("");
     setStateValue("");
-    setConsentReceived(false);
     setSafeguarding("none");
     setError(null);
   }
@@ -64,8 +62,7 @@ export function BeneficiaryCreateSheet({
   function handleSubmit(formData: FormData) {
     formData.set("gender", gender);
     formData.set("state", stateValue);
-    formData.set("consent_status", consentReceived ? "consent_captured" : "not_recorded");
-    formData.set("consent_received", consentReceived ? "true" : "false");
+    formData.set("consent_status", "not_recorded");
     formData.set("photo_video_consent", "not_recorded");
     formData.set("safeguarding_flag", safeguarding);
     setError(null);
@@ -153,17 +150,10 @@ export function BeneficiaryCreateSheet({
             <Input name="school_name" placeholder="Government Secondary School, Karu" />
           </Field>
 
-          <Field label="Consent" hint="Tick if a signed consent form is in hand. You can attach the file later from the detail panel.">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={consentReceived}
-                onChange={(event) => setConsentReceived(event.target.checked)}
-                className="h-4 w-4 rounded border-input"
-              />
-              Consent received
-            </label>
-          </Field>
+          <p className="text-xs text-muted-foreground">
+            Consent is added later by uploading the signed form from the beneficiary&apos;s detail panel
+            after they&apos;re enrolled in a programme.
+          </p>
 
           <Field label="Safeguarding flag">
             <Select value={safeguarding} onValueChange={setSafeguarding}>

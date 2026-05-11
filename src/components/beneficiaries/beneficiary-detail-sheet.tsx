@@ -29,11 +29,12 @@ import {
   scorecardSuggestion,
 } from "@/lib/programme-pipeline";
 import {
+  clearBeneficiaryConsentAction,
   enrolBeneficiaryAction,
   listProgrammeStagesAction,
   moveEnrolmentStageAction,
-  setBeneficiaryConsentAction,
   setBeneficiarySafeguardingAction,
+  uploadConsentEvidenceAction,
   upsertScorecardAction,
 } from "@/app/(protected)/beneficiaries/actions";
 import { useRouter } from "next/navigation";
@@ -175,19 +176,39 @@ export function BeneficiaryDetailSheet({
     });
   }
 
-  function saveConsent(received: boolean) {
-    if (!beneficiary?.id) return;
+  function uploadConsent() {
+    if (!beneficiary?.id || !consentFile) return;
     setConsentFeedback(null);
-    const fd = received && consentFile ? new FormData() : null;
-    if (fd && consentFile) fd.set("consent_file", consentFile);
+    const fd = new FormData();
+    fd.set("consent_file", consentFile);
     startTransition(async () => {
-      const result = await setBeneficiaryConsentAction(beneficiary.id!, received, fd);
+      const result = await uploadConsentEvidenceAction(beneficiary.id!, fd);
       if (result.ok) {
-        setConsentReceived(received);
+        setConsentReceived(true);
         setConsentDriveFileId(result.data?.driveFileId ?? null);
-        setConsentRecordedAt(received ? new Date().toISOString() : null);
+        setConsentRecordedAt(new Date().toISOString());
         setConsentFile(null);
-        setConsentFeedback(received ? "Consent recorded." : "Consent cleared.");
+        setConsentFeedback(result.data?.warning ?? "Consent uploaded.");
+      } else {
+        setConsentFeedback(result.error);
+      }
+    });
+  }
+
+  function clearConsent() {
+    if (!beneficiary?.id) return;
+    if (typeof window !== "undefined" && !window.confirm("Clear consent for this beneficiary? The evidence record stays as history.")) {
+      return;
+    }
+    setConsentFeedback(null);
+    startTransition(async () => {
+      const result = await clearBeneficiaryConsentAction(beneficiary.id!);
+      if (result.ok) {
+        setConsentReceived(false);
+        setConsentDriveFileId(null);
+        setConsentRecordedAt(null);
+        setConsentFile(null);
+        setConsentFeedback("Consent cleared.");
       } else {
         setConsentFeedback(result.error);
       }
@@ -426,53 +447,29 @@ export function BeneficiaryDetailSheet({
         </DetailSection>
 
         <DetailSection title="Consent">
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant={consentReceived ? "default" : "outline"}
-              onClick={() => saveConsent(true)}
-              disabled={pending}
-            >
-              Received
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant={!consentReceived ? "default" : "outline"}
-              onClick={() => saveConsent(false)}
-              disabled={pending}
-            >
-              Not received
-            </Button>
-          </div>
-
           {consentReceived ? (
             <>
-              {consentRecordedAt ? (
-                <p className="text-xs text-muted-foreground">
-                  Received on {formatDate(consentRecordedAt)}
-                </p>
-              ) : null}
-              {consentDriveFileId ? (
-                <a
-                  href={`https://drive.google.com/file/d/${consentDriveFileId}/view`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-                >
-                  View consent file <ExternalLink className="h-3 w-3" />
-                </a>
-              ) : null}
-              {!consentEnrolmentReady ? (
-                <p className="text-xs text-muted-foreground">
-                  Enrol this beneficiary in a programme to attach the consent form to Drive.
-                </p>
-              ) : (
+              <div className="rounded-md border bg-emerald-50/60 p-3 space-y-1 text-sm">
+                <p className="font-medium text-emerald-700">Consent received</p>
+                {consentRecordedAt ? (
+                  <p className="text-xs text-muted-foreground">
+                    On {formatDate(consentRecordedAt)}
+                  </p>
+                ) : null}
+                {consentDriveFileId ? (
+                  <a
+                    href={`https://drive.google.com/file/d/${consentDriveFileId}/view`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                  >
+                    View consent file <ExternalLink className="h-3 w-3" />
+                  </a>
+                ) : null}
+              </div>
+              {consentEnrolmentReady ? (
                 <div className="space-y-2">
-                  <Label className="text-xs">
-                    {consentDriveFileId ? "Replace consent file" : "Attach consent file"}
-                  </Label>
+                  <Label className="text-xs">Replace file</Label>
                   <Input
                     type="file"
                     accept=".pdf,.jpg,.jpeg,.png,.webp"
@@ -482,19 +479,55 @@ export function BeneficiaryDetailSheet({
                     type="button"
                     size="sm"
                     disabled={pending || !consentFile}
-                    onClick={() => saveConsent(true)}
+                    onClick={uploadConsent}
                   >
-                    Upload to Drive
+                    Replace consent file
                   </Button>
                 </div>
+              ) : null}
+              <button
+                type="button"
+                onClick={clearConsent}
+                disabled={pending}
+                className="text-xs text-muted-foreground hover:text-destructive hover:underline"
+              >
+                Clear consent
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-xs text-muted-foreground">
+                No consent on file yet. Upload the signed form &mdash; that&apos;s what records it.
+              </p>
+              {consentEnrolmentReady ? (
+                <div className="space-y-2">
+                  <Input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png,.webp"
+                    onChange={(event) => setConsentFile(event.target.files?.[0] ?? null)}
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={pending || !consentFile}
+                    onClick={uploadConsent}
+                  >
+                    Upload consent
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Enrol this beneficiary in a programme first — the consent file needs a
+                  programme to anchor to in Drive.
+                </p>
               )}
             </>
-          ) : null}
+          )}
           {consentFeedback ? (
             <p
               className={cn(
                 "text-xs",
-                consentFeedback.endsWith("recorded.") || consentFeedback.endsWith("cleared.")
+                consentFeedback.endsWith("uploaded.") || consentFeedback.endsWith("cleared.")
                   ? "text-emerald-700"
                   : "text-destructive",
               )}

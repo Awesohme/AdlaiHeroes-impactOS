@@ -201,6 +201,8 @@ export async function uploadConsentFileToDrive({
 }: UploadConsentInput): Promise<{
   fileId: string;
   fileName: string;
+  fileSizeBytes: number;
+  mimeType: string;
   programmeFolderId: string;
   driveFolderId: string;
 }> {
@@ -228,6 +230,8 @@ export async function uploadConsentFileToDrive({
   return {
     fileId: uploaded.id,
     fileName: uploaded.name,
+    fileSizeBytes: Number(uploaded.size ?? file.size ?? 0),
+    mimeType: uploaded.mimeType || mimeType,
     programmeFolderId,
     driveFolderId: consentFolder.id,
   };

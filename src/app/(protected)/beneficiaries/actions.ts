@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { uploadConsentFileToDrive } from "@/lib/google-drive/server";
+import { generateEvidenceCode } from "@/lib/evidence-codes";
 
 const validSafeguarding = new Set(["none", "reviewed", "follow_up_needed"]);
 
@@ -85,81 +86,133 @@ export async function setBeneficiarySafeguardingAction(
   return { ok: true };
 }
 
-export async function setBeneficiaryConsentAction(
+export async function uploadConsentEvidenceAction(
   beneficiaryId: string,
-  received: boolean,
-  formData: FormData | null,
-): Promise<ActionResult<{ driveFileId: string | null }>> {
+  formData: FormData,
+): Promise<ActionResult<{ driveFileId: string; warning?: string }>> {
   const supabase = await createClient();
-  if (!received) {
-    const { error } = await supabase
-      .from("beneficiaries")
-      .update({
-        consent_received: false,
-        consent_evidence_drive_file_id: null,
-        consent_recorded_at: null,
-        consent_status: "not_recorded",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", beneficiaryId);
-    if (error) return { ok: false, error: mapDbError(error.message, "Could not clear consent.") };
-    revalidatePath("/beneficiaries");
-    return { ok: true, data: { driveFileId: null } };
+  const consentFile = formData.get("consent_file");
+  if (!(consentFile instanceof File) || consentFile.size === 0) {
+    return { ok: false, error: "Pick a consent file to upload." };
   }
 
-  const consentFile = formData?.get("consent_file");
-  const hasFile = consentFile instanceof File && consentFile.size > 0;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Your session expired. Sign in again." };
 
-  // Pick the most recent enrolment's programme for Drive routing
+  // Load beneficiary name (used in evidence title)
+  const { data: beneficiaryRow } = await supabase
+    .from("beneficiaries")
+    .select("id, full_name")
+    .eq("id", beneficiaryId)
+    .maybeSingle();
+  if (!beneficiaryRow) return { ok: false, error: "Beneficiary not found." };
+
+  // Pick the most recent enrolment for Drive routing + evidence linkage
   const { data: enrolments } = await supabase
     .from("enrolments")
-    .select("programmes(id,programme_code,name,drive_folder_id)")
+    .select("id,programmes(id,programme_code,name,drive_folder_id)")
     .eq("beneficiary_id", beneficiaryId)
     .order("enrolled_at", { ascending: false })
     .limit(1);
-  const programmeRel = enrolments?.[0]?.programmes;
+  const enrolment = enrolments?.[0];
+  const programmeRel = enrolment?.programmes;
   const programme = Array.isArray(programmeRel) ? programmeRel[0] : programmeRel;
-
-  let driveFileId: string | null = null;
-  if (hasFile) {
-    if (!programme) {
-      return {
-        ok: false,
-        error: "Enrol this beneficiary in a programme before uploading a consent file.",
-      };
-    }
-    try {
-      const uploaded = await uploadConsentFileToDrive({
-        file: consentFile as File,
-        programme: programme as {
-          id: string;
-          programme_code: string;
-          name: string;
-          drive_folder_id: string | null;
-        },
-      });
-      driveFileId = uploaded.fileId;
-    } catch (error) {
-      return {
-        ok: false,
-        error: error instanceof Error ? error.message : "Drive upload failed.",
-      };
-    }
+  if (!programme || !enrolment) {
+    return {
+      ok: false,
+      error: "Enrol this beneficiary in a programme before uploading a consent file.",
+    };
   }
 
-  const { error } = await supabase
+  let uploaded: Awaited<ReturnType<typeof uploadConsentFileToDrive>>;
+  try {
+    uploaded = await uploadConsentFileToDrive({
+      file: consentFile,
+      programme: programme as {
+        id: string;
+        programme_code: string;
+        name: string;
+        drive_folder_id: string | null;
+      },
+    });
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Drive upload failed.",
+    };
+  }
+
+  // Insert evidence row (verified by default for consent docs)
+  let evidenceWarning: string | undefined;
+  try {
+    const evidenceCode = await generateEvidenceCode(supabase);
+    const { error: evidenceError } = await supabase.from("evidence").insert({
+      evidence_code: evidenceCode,
+      programme_id: programme.id,
+      beneficiary_id: beneficiaryId,
+      title: `Consent — ${beneficiaryRow.full_name}`,
+      evidence_type: "Consent",
+      drive_file_id: uploaded.fileId,
+      drive_folder_id: uploaded.driveFolderId,
+      mime_type: uploaded.mimeType || null,
+      file_size_bytes: uploaded.fileSizeBytes || null,
+      verification_status: "verified",
+      uploaded_by: user.id,
+    });
+    if (evidenceError) {
+      console.error("Consent uploaded but evidence row insert failed", {
+        beneficiaryId,
+        driveFileId: uploaded.fileId,
+        error: evidenceError.message,
+      });
+      evidenceWarning =
+        "Consent saved, but couldn't index it in the evidence library. Check evidence write policy.";
+    }
+  } catch (error) {
+    console.error("Evidence indexing failed for consent upload", error);
+    evidenceWarning =
+      "Consent saved, but couldn't index it in the evidence library.";
+  }
+
+  // Update beneficiary's consent fields
+  const { error: updateError } = await supabase
     .from("beneficiaries")
     .update({
       consent_received: true,
-      consent_evidence_drive_file_id: driveFileId,
+      consent_evidence_drive_file_id: uploaded.fileId,
       consent_recorded_at: new Date().toISOString(),
       consent_status: "consent_captured",
       updated_at: new Date().toISOString(),
     })
     .eq("id", beneficiaryId);
-  if (error) return { ok: false, error: mapDbError(error.message, "Could not save consent.") };
+  if (updateError) {
+    return { ok: false, error: mapDbError(updateError.message, "Could not save consent.") };
+  }
+
   revalidatePath("/beneficiaries");
-  return { ok: true, data: { driveFileId } };
+  revalidatePath("/evidence");
+  return { ok: true, data: { driveFileId: uploaded.fileId, warning: evidenceWarning } };
+}
+
+export async function clearBeneficiaryConsentAction(
+  beneficiaryId: string,
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("beneficiaries")
+    .update({
+      consent_received: false,
+      consent_evidence_drive_file_id: null,
+      consent_recorded_at: null,
+      consent_status: "not_recorded",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", beneficiaryId);
+  if (error) return { ok: false, error: mapDbError(error.message, "Could not clear consent.") };
+  revalidatePath("/beneficiaries");
+  return { ok: true };
 }
 
 export type ActionResult<T = unknown> = { ok: true; data?: T } | { ok: false; error: string };
