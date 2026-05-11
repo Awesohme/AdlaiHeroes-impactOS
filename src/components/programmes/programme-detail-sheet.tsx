@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   Sheet,
   SheetContent,
@@ -42,7 +41,6 @@ import {
   addFundsEntryAction,
   addMilestoneAction,
   addStageAction,
-  archiveProgrammeAction,
   deleteMilestoneAction,
   deleteStageAction,
   listEnrolmentsByProgrammeAction,
@@ -50,7 +48,6 @@ import {
   listMilestonesAction,
   listStagesAction,
   moveStageAction,
-  restoreProgrammeAction,
   seedEducationStagesAction,
   toggleMilestoneAction,
   updateProgrammeStatusAction,
@@ -70,7 +67,6 @@ export function ProgrammeDetailSheet({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const router = useRouter();
   const [status, setStatus] = useState(programme?.status ?? "draft");
   const [statusFeedback, setStatusFeedback] = useState<string | null>(null);
   const [statusPending, startStatusTransition] = useTransition();
@@ -93,11 +89,6 @@ export function ProgrammeDetailSheet({
 
   const [enrolments, setEnrolments] = useState<EnrolmentSummary[]>([]);
   const [loading, setLoading] = useState(false);
-  const [archiveReason, setArchiveReason] = useState("");
-  const [archiveCode, setArchiveCode] = useState("");
-  const [archiveConfirmed, setArchiveConfirmed] = useState(false);
-  const [archiveFeedback, setArchiveFeedback] = useState<string | null>(null);
-  const [archivePending, startArchiveTransition] = useTransition();
   const isMock = !programme?.id;
 
   useEffect(() => {
@@ -107,10 +98,6 @@ export function ProgrammeDetailSheet({
     setMilestoneFeedback(null);
     setFundsFeedback(null);
     setStageFeedback(null);
-    setArchiveFeedback(null);
-    setArchiveReason("");
-    setArchiveCode("");
-    setArchiveConfirmed(false);
     setLoading(true);
     Promise.all([
       listMilestonesAction(programme.id),
@@ -282,97 +269,10 @@ export function ProgrammeDetailSheet({
             </Button>
 
             {isArchived ? (
-              <div className="rounded-md border p-3 space-y-3">
-                <p className="text-sm font-medium">Restore programme</p>
-                <p className="text-xs text-muted-foreground">
-                  Restoring moves this programme back into active lists and re-enables operational updates.
-                </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={isMock || archivePending}
-                  onClick={() => {
-                    if (!programme?.id) return;
-                    setArchiveFeedback(null);
-                    startArchiveTransition(async () => {
-                      const result = await restoreProgrammeAction(programme.id!);
-                      if (result.ok) {
-                        router.refresh();
-                        onOpenChange(false);
-                      } else {
-                        setArchiveFeedback(result.error);
-                      }
-                    });
-                  }}
-                >
-                  {archivePending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Restore programme"}
-                </Button>
-                {archiveFeedback ? <p className="text-xs text-destructive">{archiveFeedback}</p> : null}
+              <div className="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
+                Archived. Restore from the full editor.
               </div>
-            ) : (
-              <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 space-y-3">
-                <div>
-                  <p className="text-sm font-medium text-destructive">Delete programme</p>
-                  <p className="text-xs text-muted-foreground">
-                    This safely archives the programme. Linked beneficiaries, evidence, funds, milestones, stages, and Drive files stay intact.
-                  </p>
-                </div>
-                <Input
-                  value={archiveReason}
-                  onChange={(event) => setArchiveReason(event.target.value)}
-                  placeholder="Archive reason"
-                  disabled={isMock || archivePending}
-                />
-                <Input
-                  value={archiveCode}
-                  onChange={(event) => setArchiveCode(event.target.value)}
-                  placeholder={`Type ${programme.programme_code} to confirm`}
-                  disabled={isMock || archivePending}
-                />
-                <label className="flex items-start gap-2 text-xs text-muted-foreground">
-                  <input
-                    type="checkbox"
-                    checked={archiveConfirmed}
-                    onChange={(event) => setArchiveConfirmed(event.target.checked)}
-                    disabled={isMock || archivePending}
-                    className="mt-0.5 h-4 w-4 rounded border-input"
-                  />
-                  I understand this programme will disappear from active lists but can be restored from Archived.
-                </label>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  disabled={
-                    isMock ||
-                    archivePending ||
-                    !archiveReason.trim() ||
-                    archiveCode.trim().toUpperCase() !== programme.programme_code ||
-                    !archiveConfirmed
-                  }
-                  onClick={() => {
-                    if (!programme?.id) return;
-                    setArchiveFeedback(null);
-                    startArchiveTransition(async () => {
-                      const result = await archiveProgrammeAction(programme.id!, {
-                        programmeCode: programme.programme_code,
-                        confirmationCode: archiveCode,
-                        reason: archiveReason,
-                        confirmed: archiveConfirmed,
-                      });
-                      if (result.ok) {
-                        router.refresh();
-                        onOpenChange(false);
-                      } else {
-                        setArchiveFeedback(result.error);
-                      }
-                    });
-                  }}
-                >
-                  {archivePending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Archive programme"}
-                </Button>
-                {archiveFeedback ? <p className="text-xs text-destructive">{archiveFeedback}</p> : null}
-              </div>
-            )}
+            ) : null}
           </TabsContent>
 
           {/* MILESTONES */}

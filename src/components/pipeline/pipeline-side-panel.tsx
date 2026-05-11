@@ -22,6 +22,7 @@ import {
 } from "@/app/(protected)/beneficiaries/actions";
 import { BeneficiaryNotesSection } from "@/components/beneficiaries/beneficiary-notes-section";
 import { BeneficiaryAvatar } from "@/components/beneficiaries/beneficiary-avatar";
+import { EnrolmentFieldsSection } from "@/components/beneficiaries/enrolment-fields-section";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 
@@ -210,6 +211,10 @@ export function PipelineSidePanel({
             Define stages on the programme first.
           </p>
         ) : null}
+      </Section>
+
+      <Section title="Programme data">
+        <EnrolmentFieldsSection enrolmentId={enrolment.enrolment_id} />
       </Section>
 
       <Section title="Consent">

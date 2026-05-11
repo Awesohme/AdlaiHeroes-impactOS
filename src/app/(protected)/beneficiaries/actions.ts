@@ -369,6 +369,88 @@ export async function enrolBeneficiaryAction(
   return { ok: true, data: { enrolmentId: data.id } };
 }
 
+export type EnrolmentFieldRow = {
+  field_key: string;
+  label: string;
+  field_type: string;
+  required: boolean;
+  position: number;
+  value: string | null;
+};
+
+export async function listEnrolmentFieldsAction(
+  enrolmentId: string,
+): Promise<EnrolmentFieldRow[]> {
+  const supabase = await createClient();
+  const { data: enrolment } = await supabase
+    .from("enrolments")
+    .select("programme_id")
+    .eq("id", enrolmentId)
+    .maybeSingle();
+  if (!enrolment?.programme_id) return [];
+
+  const [{ data: fieldsRaw }, { data: valuesRaw }] = await Promise.all([
+    supabase
+      .from("programme_data_fields")
+      .select("field_key,label,field_type,required,position,enabled")
+      .eq("programme_id", enrolment.programme_id)
+      .order("position", { ascending: true }),
+    supabase
+      .from("enrolment_field_values")
+      .select("field_key,value")
+      .eq("enrolment_id", enrolmentId),
+  ]);
+  const fields = (fieldsRaw ?? []).filter((f) => f.enabled !== false);
+  const valueMap = new Map<string, string | null>();
+  for (const row of valuesRaw ?? []) {
+    valueMap.set(row.field_key, row.value);
+  }
+  return fields.map((field) => ({
+    field_key: field.field_key,
+    label: field.label,
+    field_type: field.field_type,
+    required: Boolean(field.required),
+    position: Number(field.position ?? 0),
+    value: valueMap.get(field.field_key) ?? null,
+  }));
+}
+
+export async function saveEnrolmentFieldValueAction(
+  enrolmentId: string,
+  fieldKey: string,
+  value: string,
+): Promise<ActionResult> {
+  if (!enrolmentId || !fieldKey) return { ok: false, error: "Missing enrolment or field." };
+  const supabase = await createClient();
+  const trimmed = value.trim();
+  if (!trimmed) {
+    const { error } = await supabase
+      .from("enrolment_field_values")
+      .delete()
+      .eq("enrolment_id", enrolmentId)
+      .eq("field_key", fieldKey);
+    if (error) return { ok: false, error: mapDbError(error.message, "Could not clear field.") };
+    revalidatePath("/beneficiaries");
+    revalidatePath("/pipeline");
+    return { ok: true };
+  }
+  const { error } = await supabase
+    .from("enrolment_field_values")
+    .upsert(
+      {
+        enrolment_id: enrolmentId,
+        field_key: fieldKey,
+        value: trimmed,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "enrolment_id,field_key" },
+    );
+  if (error) return { ok: false, error: mapDbError(error.message, "Could not save field.") };
+  revalidatePath("/beneficiaries");
+  revalidatePath("/pipeline");
+  return { ok: true };
+}
+
 export async function upsertScorecardAction(
   enrolmentId: string,
   scores: {

@@ -41,6 +41,7 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { InfoTooltip } from "@/components/info-tooltip";
 import { BeneficiaryNotesSection } from "@/components/beneficiaries/beneficiary-notes-section";
+import { EnrolmentFieldsSection } from "@/components/beneficiaries/enrolment-fields-section";
 import { BeneficiaryAvatar } from "@/components/beneficiaries/beneficiary-avatar";
 import {
   uploadBeneficiaryProfileImageAction,
@@ -459,6 +460,12 @@ export function BeneficiaryDetailSheet({
                 Define stages on the programme first.
               </p>
             ) : null}
+          </DetailSection>
+        ) : null}
+
+        {isLive && beneficiary.enrolment_id ? (
+          <DetailSection title="Programme data">
+            <EnrolmentFieldsSection enrolmentId={beneficiary.enrolment_id} />
           </DetailSection>
         ) : null}
 
