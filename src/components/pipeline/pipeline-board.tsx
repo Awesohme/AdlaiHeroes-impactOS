@@ -133,7 +133,12 @@ export function PipelineBoard({
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-[1fr_22rem]">
+        <div
+          className="grid gap-4 lg:grid-cols-[1fr_22rem]"
+          onClick={() => {
+            if (isDesktop) setSelectedEnrolment(null);
+          }}
+        >
           <div className="overflow-x-auto pb-3">
             <div className="flex gap-3 min-w-fit">
               {(byStage.get("_unstaged")?.length ?? 0) > 0 ? (
@@ -157,7 +162,10 @@ export function PipelineBoard({
             </div>
           </div>
 
-          <Card className="hidden lg:block sticky top-20 self-start max-h-[calc(100vh-7rem)] overflow-y-auto">
+          <Card
+            className="hidden lg:block sticky top-20 self-start max-h-[calc(100vh-7rem)] overflow-y-auto"
+            onClick={(event) => event.stopPropagation()}
+          >
             <CardContent className="p-4">
               <PipelineSidePanel
                 enrolment={selected}

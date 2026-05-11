@@ -17,7 +17,10 @@ export function PipelineCard({
   return (
     <button
       type="button"
-      onClick={onSelect}
+      onClick={(event) => {
+        event.stopPropagation();
+        onSelect();
+      }}
       className={cn(
         "w-full text-left rounded-md border bg-background p-2.5 hover:border-primary/40 transition-colors space-y-1.5",
         selected && "border-primary bg-primary/5",

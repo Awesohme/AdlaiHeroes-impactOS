@@ -75,6 +75,7 @@ export function PipelineSidePanel({
   const canMoveForward = currentIndex >= 0 && currentIndex < stages.length - 1;
   const prevStage = canMoveBack ? stages[currentIndex - 1] : null;
   const nextStage = canMoveForward ? stages[currentIndex + 1] : null;
+  const currentStage = currentIndex >= 0 ? stages[currentIndex] : null;
 
   function moveStage(stageId: string | null) {
     setFeedback(null);
@@ -166,6 +167,11 @@ export function PipelineSidePanel({
       </header>
 
       <Section title="Move stage">
+        <div className="grid gap-2 text-xs sm:grid-cols-3">
+          <StageContext label="Previous" value={prevStage?.label ?? "None"} />
+          <StageContext label="Current" value={currentStage?.label ?? "Unstaged"} active />
+          <StageContext label="Next" value={nextStage?.label ?? "None"} />
+        </div>
         <div className="flex gap-2">
           <Button
             type="button"
@@ -175,7 +181,7 @@ export function PipelineSidePanel({
             onClick={() => prevStage && moveStage(prevStage.id)}
             className="flex-1"
           >
-            ← {prevStage?.label ?? "Back"}
+            Previous: {prevStage?.label ?? "None"}
           </Button>
           <Button
             type="button"
@@ -184,7 +190,7 @@ export function PipelineSidePanel({
             onClick={() => nextStage && moveStage(nextStage.id)}
             className="flex-1"
           >
-            {nextStage?.label ?? "Next"} →
+            Next: {nextStage?.label ?? "None"}
           </Button>
         </div>
         {!stages.length ? (
@@ -336,6 +342,23 @@ export function PipelineSidePanel({
           {feedback}
         </p>
       ) : null}
+    </div>
+  );
+}
+
+function StageContext({
+  label,
+  value,
+  active = false,
+}: {
+  label: string;
+  value: string;
+  active?: boolean;
+}) {
+  return (
+    <div className={cn("rounded-md border p-2", active && "border-primary/40 bg-primary/5")}>
+      <p className="uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="mt-1 font-medium text-foreground">{value}</p>
     </div>
   );
 }

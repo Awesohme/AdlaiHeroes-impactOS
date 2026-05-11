@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { useActionState, useMemo, useState, useTransition, type Dispatch, type SetStateAction } from "react";
 import { useFormStatus } from "react-dom";
+import { useRouter } from "next/navigation";
 import {
   getProgrammeStatusLabel,
   moduleOptions,
@@ -12,6 +13,10 @@ import {
 import type { FieldTemplate } from "@/lib/field-templates";
 import type { ProgrammeDataFieldRow, ProgrammeRow } from "@/lib/programmes";
 import { saveProgrammeAction, type SaveProgrammeState } from "@/app/(protected)/programmes/new/actions";
+import {
+  archiveProgrammeAction,
+  restoreProgrammeAction,
+} from "@/app/(protected)/programmes/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,7 +36,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { ArrowDown, ArrowUp, Plus, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Loader2, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const initialState: SaveProgrammeState = {};
@@ -49,6 +54,7 @@ export function ProgrammeCreateForm({
   fieldCatalog,
   programmeTypes,
 }: ProgrammeCreateFormProps) {
+  const router = useRouter();
   const [state, formAction] = useActionState(saveProgrammeAction, initialState);
 
   const initialLocations =
@@ -95,6 +101,11 @@ export function ProgrammeCreateForm({
     state.fields?.start_date ?? initialProgramme?.start_date ?? "",
   );
   const [endDate, setEndDate] = useState(state.fields?.end_date ?? initialProgramme?.end_date ?? "");
+  const [archiveReason, setArchiveReason] = useState("");
+  const [archiveCode, setArchiveCode] = useState("");
+  const [archiveConfirmed, setArchiveConfirmed] = useState(false);
+  const [archiveFeedback, setArchiveFeedback] = useState<string | null>(null);
+  const [archivePending, startArchiveTransition] = useTransition();
   const programmeTypeChoices = useMemo(
     () => [...new Set([programmeType, ...programmeTypes].filter(Boolean))],
     [programmeType, programmeTypes],
@@ -104,6 +115,7 @@ export function ProgrammeCreateForm({
     (field) => !selectedFields.some((selectedField) => selectedField.field_key === field.field_key),
   );
   const summaryStatus = mode === "create" && status === "draft" ? "draft" : status;
+  const isArchived = Boolean(initialProgramme?.archived_at);
 
   return (
     <form
@@ -438,6 +450,107 @@ export function ProgrammeCreateForm({
             </Accordion>
           </CardContent>
         </Card>
+
+        {mode === "edit" && initialProgramme?.id ? (
+          <Card className={isArchived ? "border-muted" : "border-destructive/30"}>
+            <CardHeader>
+              <CardTitle className={isArchived ? "text-base" : "text-base text-destructive"}>
+                {isArchived ? "Restore programme" : "Delete programme"}
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                {isArchived
+                  ? "This programme is archived. Restore it to bring it back into active operational lists."
+                  : "This safely archives the programme. Beneficiaries, evidence, funds, milestones, stages, and Drive files stay intact."}
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {isArchived ? (
+                <>
+                  {initialProgramme.archive_reason ? (
+                    <div className="rounded-md border bg-muted/30 p-3 text-sm">
+                      <p className="font-medium">Archive reason</p>
+                      <p className="mt-1 text-muted-foreground">{initialProgramme.archive_reason}</p>
+                    </div>
+                  ) : null}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={archivePending}
+                    onClick={() => {
+                      setArchiveFeedback(null);
+                      startArchiveTransition(async () => {
+                        const result = await restoreProgrammeAction(initialProgramme.id!);
+                        if (result.ok) {
+                          router.push("/programmes?view=all");
+                          router.refresh();
+                        } else {
+                          setArchiveFeedback(result.error);
+                        }
+                      });
+                    }}
+                  >
+                    {archivePending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Restore programme"}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Input
+                    value={archiveReason}
+                    onChange={(event) => setArchiveReason(event.target.value)}
+                    placeholder="Archive reason"
+                    disabled={archivePending}
+                  />
+                  <Input
+                    value={archiveCode}
+                    onChange={(event) => setArchiveCode(event.target.value)}
+                    placeholder={`Type ${initialProgramme.programme_code} to confirm`}
+                    disabled={archivePending}
+                  />
+                  <label className="flex items-start gap-2 text-xs text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={archiveConfirmed}
+                      onChange={(event) => setArchiveConfirmed(event.target.checked)}
+                      disabled={archivePending}
+                      className="mt-0.5 h-4 w-4 rounded border-input"
+                    />
+                    I understand this programme will disappear from active lists but can be restored from Archived.
+                  </label>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    disabled={
+                      archivePending ||
+                      !archiveReason.trim() ||
+                      archiveCode.trim().toUpperCase() !== initialProgramme.programme_code ||
+                      !archiveConfirmed
+                    }
+                    onClick={() => {
+                      setArchiveFeedback(null);
+                      startArchiveTransition(async () => {
+                        const result = await archiveProgrammeAction(initialProgramme.id!, {
+                          programmeCode: initialProgramme.programme_code,
+                          confirmationCode: archiveCode,
+                          reason: archiveReason,
+                          confirmed: archiveConfirmed,
+                        });
+                        if (result.ok) {
+                          router.push("/programmes?view=archived");
+                          router.refresh();
+                        } else {
+                          setArchiveFeedback(result.error);
+                        }
+                      });
+                    }}
+                  >
+                    {archivePending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Archive programme"}
+                  </Button>
+                </>
+              )}
+              {archiveFeedback ? <p className="text-xs text-destructive">{archiveFeedback}</p> : null}
+            </CardContent>
+          </Card>
+        ) : null}
 
         {state.error ? (
           <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
