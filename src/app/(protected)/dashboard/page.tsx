@@ -71,25 +71,6 @@ export default async function DashboardPage() {
     },
   ];
 
-  const attentionRows = [
-    ...beneficiaries.rows
-      .filter((item) => item.risk_flag === "review")
-      .slice(0, 3)
-      .map((item) => ({
-        label: item.full_name,
-        meta: `${item.programme_name} • ${formatLabel(item.current_status)}`,
-        action: item.safeguarding_flag === "none" ? "Review record" : "Safeguarding follow-up",
-      })),
-    ...evidence.rows
-      .filter((item) => item.status !== "Confirmed")
-      .slice(0, 3)
-      .map((item) => ({
-        label: item.title,
-        meta: `${item.linkedRecord} • ${item.status}`,
-        action: item.blocker,
-      })),
-  ].slice(0, 5);
-
   const recentRecords = [
     ...programmes.rows.slice(0, 2).map((item) => ({
       type: "Programme",
@@ -206,33 +187,33 @@ export default async function DashboardPage() {
       <section className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-base">Needs attention</CardTitle>
+            <CardTitle className="text-base">Recent records</CardTitle>
             <Link
-              href="/evidence"
+              href="/programmes"
               prefetch={false}
               className="text-xs font-medium text-primary hover:underline inline-flex items-center gap-1"
             >
-              Open evidence <ArrowUpRight className="h-3 w-3" />
+              Open programmes <ArrowUpRight className="h-3 w-3" />
             </Link>
           </CardHeader>
           <CardContent className="divide-y">
-            {attentionRows.length === 0 ? (
+            {recentRecords.length === 0 ? (
               <p className="py-6 text-center text-sm text-muted-foreground">
-                No urgent blockers right now.
+                Nothing yet — start by creating a programme.
               </p>
             ) : (
-              attentionRows.map((item) => (
+              recentRecords.map((item) => (
                 <div
-                  key={`${item.label}-${item.meta}`}
+                  key={`${item.type}-${item.title}`}
                   className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0"
                 >
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium truncate">{item.label}</p>
-                    <p className="text-xs text-muted-foreground truncate">{item.meta}</p>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Badge variant="outline" className="font-normal shrink-0">
+                      {item.type}
+                    </Badge>
+                    <p className="text-sm font-medium truncate">{item.title}</p>
                   </div>
-                  <Badge variant="secondary" className="font-normal">
-                    {item.action}
-                  </Badge>
+                  <p className="text-xs text-muted-foreground truncate">{item.detail}</p>
                 </div>
               ))
             )}
@@ -265,35 +246,6 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       </section>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <CardTitle className="text-base">Recent records</CardTitle>
-          <Link
-            href="/programmes"
-            prefetch={false}
-            className="text-xs font-medium text-primary hover:underline inline-flex items-center gap-1"
-          >
-            Open programmes <ArrowUpRight className="h-3 w-3" />
-          </Link>
-        </CardHeader>
-        <CardContent className="divide-y">
-          {recentRecords.map((item) => (
-            <div
-              key={`${item.type}-${item.title}`}
-              className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <Badge variant="outline" className="font-normal shrink-0">
-                  {item.type}
-                </Badge>
-                <p className="text-sm font-medium truncate">{item.title}</p>
-              </div>
-              <p className="text-xs text-muted-foreground truncate">{item.detail}</p>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
     </AppFrame>
   );
 }
