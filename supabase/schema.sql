@@ -39,7 +39,21 @@ create table public.programmes (
   status text not null default 'draft',
   enabled_modules text[] not null default '{}'::text[],
   drive_folder_id text,
+  archived_at timestamptz,
+  archived_by uuid references public.profiles(id),
+  archive_reason text,
   owner_id uuid references public.profiles(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.programme_types (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  description text,
+  color text,
+  position integer not null default 0,
+  is_active boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -142,6 +156,7 @@ create table public.audit_log (
 
 alter table public.profiles enable row level security;
 alter table public.programmes enable row level security;
+alter table public.programme_types enable row level security;
 alter table public.programme_data_fields enable row level security;
 alter table public.beneficiaries enable row level security;
 alter table public.enrolments enable row level security;

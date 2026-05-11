@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -42,6 +42,18 @@ export function PipelineBoard({
   const [query, setQuery] = useState("");
   const [selectedEnrolment, setSelectedEnrolment] = useState<string | null>(null);
   const [panelOpenMobile, setPanelOpenMobile] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    const query = window.matchMedia("(min-width: 1024px)");
+    const update = () => {
+      setIsDesktop(query.matches);
+      if (query.matches) setPanelOpenMobile(false);
+    };
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
 
   const filteredEnrolments = useMemo(() => {
     const lower = query.toLowerCase();
@@ -73,6 +85,11 @@ export function PipelineBoard({
     params.set("programme", code);
     setSelectedEnrolment(null);
     router.push(`/pipeline?${params.toString()}`);
+  }
+
+  function selectEnrolment(id: string) {
+    setSelectedEnrolment(id);
+    if (!isDesktop) setPanelOpenMobile(true);
   }
 
   return (
@@ -125,10 +142,7 @@ export function PipelineBoard({
                   label="Unstaged"
                   enrolments={byStage.get("_unstaged") ?? []}
                   selectedId={selected?.enrolment_id ?? null}
-                  onSelect={(id) => {
-                    setSelectedEnrolment(id);
-                    setPanelOpenMobile(true);
-                  }}
+                  onSelect={selectEnrolment}
                 />
               ) : null}
               {stages.map((stage) => (
@@ -137,10 +151,7 @@ export function PipelineBoard({
                   label={stage.label}
                   enrolments={byStage.get(stage.id) ?? []}
                   selectedId={selected?.enrolment_id ?? null}
-                  onSelect={(id) => {
-                    setSelectedEnrolment(id);
-                    setPanelOpenMobile(true);
-                  }}
+                  onSelect={selectEnrolment}
                 />
               ))}
             </div>
@@ -157,7 +168,7 @@ export function PipelineBoard({
           </Card>
 
           <Sheet
-            open={panelOpenMobile && !!selected}
+            open={!isDesktop && panelOpenMobile && !!selected}
             onOpenChange={(open) => {
               setPanelOpenMobile(open);
               if (!open) setSelectedEnrolment(null);

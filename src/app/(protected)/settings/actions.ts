@@ -19,18 +19,70 @@ export type FieldTemplateActionResult =
   | { ok: true }
   | { ok: false; error: string };
 
+export type ProgrammeTypeActionResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
 function mapDbError(message: string | undefined, fallback: string) {
   if (!message) return fallback;
   if (message.includes("row-level security") || message.includes("permission denied")) {
     return "Database write access is not enabled. Run the latest SQL block in Supabase.";
   }
   if (message.includes("does not exist") || message.includes("relation \"public.")) {
-    return "field_templates table is not live yet. Run the latest SQL block, then retry.";
+    return "Required settings table is not live yet. Run the latest SQL block in Supabase, then retry.";
   }
   if (message.includes("duplicate key")) {
     return "A field with that key already exists.";
   }
   return message;
+}
+
+export async function createProgrammeTypeAction(formData: FormData): Promise<ProgrammeTypeActionResult> {
+  const name = String(formData.get("name") ?? "").trim();
+  const description = String(formData.get("description") ?? "").trim();
+  if (!name) return { ok: false, error: "Programme type name is required." };
+
+  const supabase = await createClient();
+  const { data: existing } = await supabase
+    .from("programme_types")
+    .select("position")
+    .order("position", { ascending: false })
+    .limit(1);
+  const position = (existing?.[0]?.position ?? -1) + 1;
+
+  const { error } = await supabase.from("programme_types").insert({
+    name,
+    description: description || null,
+    position,
+    is_active: true,
+  });
+  if (error) return { ok: false, error: mapDbError(error.message, "Could not create programme type.") };
+  revalidatePath("/settings");
+  revalidatePath("/programmes");
+  revalidatePath("/programmes/new");
+  return { ok: true };
+}
+
+export async function updateProgrammeTypeAction(
+  id: string,
+  payload: { name: string; description: string; is_active: boolean },
+): Promise<ProgrammeTypeActionResult> {
+  if (!payload.name.trim()) return { ok: false, error: "Programme type name is required." };
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("programme_types")
+    .update({
+      name: payload.name.trim(),
+      description: payload.description.trim() || null,
+      is_active: payload.is_active,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+  if (error) return { ok: false, error: mapDbError(error.message, "Could not update programme type.") };
+  revalidatePath("/settings");
+  revalidatePath("/programmes");
+  revalidatePath("/programmes/new");
+  return { ok: true };
 }
 
 export async function createFieldTemplateAction(formData: FormData): Promise<FieldTemplateActionResult> {

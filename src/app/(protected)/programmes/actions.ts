@@ -41,6 +41,52 @@ export async function updateProgrammeStatusAction(
   return { ok: true };
 }
 
+export async function archiveProgrammeAction(
+  programmeId: string,
+  payload: { programmeCode: string; confirmationCode: string; reason: string; confirmed: boolean },
+): Promise<ActionResult> {
+  if (!payload.confirmed) return { ok: false, error: "Confirm that you understand this archive action." };
+  if (!payload.reason.trim()) return { ok: false, error: "Archive reason is required." };
+  if (payload.confirmationCode.trim().toUpperCase() !== payload.programmeCode.trim().toUpperCase()) {
+    return { ok: false, error: "Programme code confirmation does not match." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Your session expired. Sign in again." };
+
+  const { error } = await supabase
+    .from("programmes")
+    .update({
+      archived_at: new Date().toISOString(),
+      archived_by: user.id,
+      archive_reason: payload.reason.trim(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", programmeId);
+  if (error) return { ok: false, error: mapRlsError(error.message, "Could not archive programme.") };
+  revalidatePath("/programmes");
+  return { ok: true };
+}
+
+export async function restoreProgrammeAction(programmeId: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("programmes")
+    .update({
+      archived_at: null,
+      archived_by: null,
+      archive_reason: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", programmeId);
+  if (error) return { ok: false, error: mapRlsError(error.message, "Could not restore programme.") };
+  revalidatePath("/programmes");
+  return { ok: true };
+}
+
 // ---------------- Milestones ----------------
 
 export type MilestoneRow = {

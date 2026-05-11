@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Sheet,
   SheetContent,
@@ -41,6 +42,7 @@ import {
   addFundsEntryAction,
   addMilestoneAction,
   addStageAction,
+  archiveProgrammeAction,
   deleteMilestoneAction,
   deleteStageAction,
   listEnrolmentsByProgrammeAction,
@@ -48,6 +50,7 @@ import {
   listMilestonesAction,
   listStagesAction,
   moveStageAction,
+  restoreProgrammeAction,
   seedEducationStagesAction,
   toggleMilestoneAction,
   updateProgrammeStatusAction,
@@ -67,6 +70,7 @@ export function ProgrammeDetailSheet({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const router = useRouter();
   const [status, setStatus] = useState(programme?.status ?? "draft");
   const [statusFeedback, setStatusFeedback] = useState<string | null>(null);
   const [statusPending, startStatusTransition] = useTransition();
@@ -89,6 +93,11 @@ export function ProgrammeDetailSheet({
 
   const [enrolments, setEnrolments] = useState<EnrolmentSummary[]>([]);
   const [loading, setLoading] = useState(false);
+  const [archiveReason, setArchiveReason] = useState("");
+  const [archiveCode, setArchiveCode] = useState("");
+  const [archiveConfirmed, setArchiveConfirmed] = useState(false);
+  const [archiveFeedback, setArchiveFeedback] = useState<string | null>(null);
+  const [archivePending, startArchiveTransition] = useTransition();
   const isMock = !programme?.id;
 
   useEffect(() => {
@@ -98,6 +107,10 @@ export function ProgrammeDetailSheet({
     setMilestoneFeedback(null);
     setFundsFeedback(null);
     setStageFeedback(null);
+    setArchiveFeedback(null);
+    setArchiveReason("");
+    setArchiveCode("");
+    setArchiveConfirmed(false);
     setLoading(true);
     Promise.all([
       listMilestonesAction(programme.id),
@@ -126,6 +139,8 @@ export function ProgrammeDetailSheet({
   }
 
   const fundsTotal = funds.reduce((sum, row) => sum + row.amount_ngn, 0);
+  const fundsRemaining = Math.max((programme.budget_ngn ?? 0) - fundsTotal, 0);
+  const isArchived = Boolean(programme.archived_at);
   const milestoneProgress = milestones.length
     ? Math.round((milestones.filter((m) => m.done).length / milestones.length) * 100)
     : 0;
@@ -144,6 +159,20 @@ export function ProgrammeDetailSheet({
             <ProgrammeStatusBadge status={programme.status} />
           </div>
         </SheetHeader>
+
+        {isArchived ? (
+          <div className="mt-4 rounded-md border bg-muted/40 p-3 text-sm">
+            <p className="font-medium">Archived programme</p>
+            <p className="mt-1 text-muted-foreground">
+              {programme.archive_reason || "No archive reason recorded."}
+            </p>
+            {programme.archived_at ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Archived {formatDate(programme.archived_at)}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
 
         <Tabs defaultValue="overview" className="mt-6">
           <TabsList className="w-full overflow-x-auto whitespace-nowrap justify-start sm:justify-stretch">
@@ -172,6 +201,12 @@ export function ProgrammeDetailSheet({
               label="Raised so far"
               value={`NGN ${fundsTotal.toLocaleString("en-NG")}`}
             />
+            {programme.budget_ngn ? (
+              <DetailRow
+                label="Amount left"
+                value={`NGN ${fundsRemaining.toLocaleString("en-NG")}`}
+              />
+            ) : null}
             {programme.budget_ngn && programme.budget_ngn > 0 ? (
               (() => {
                 const rawPercent = Math.min(100, (fundsTotal / programme.budget_ngn) * 100);
@@ -200,7 +235,7 @@ export function ProgrammeDetailSheet({
             <div className="border-t pt-4 space-y-2">
               <Label htmlFor="programme-status">Update status</Label>
               <div className="flex gap-2">
-                <Select value={status} onValueChange={setStatus} disabled={isMock}>
+                <Select value={status} onValueChange={setStatus} disabled={isMock || isArchived}>
                   <SelectTrigger id="programme-status" className="flex-1">
                     <SelectValue />
                   </SelectTrigger>
@@ -223,7 +258,7 @@ export function ProgrammeDetailSheet({
                 <Button
                   type="button"
                   onClick={saveStatus}
-                  disabled={isMock || statusPending || status === programme.status}
+                  disabled={isMock || isArchived || statusPending || status === programme.status}
                 >
                   {statusPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
                 </Button>
@@ -245,6 +280,99 @@ export function ProgrammeDetailSheet({
                 Open full editor
               </Link>
             </Button>
+
+            {isArchived ? (
+              <div className="rounded-md border p-3 space-y-3">
+                <p className="text-sm font-medium">Restore programme</p>
+                <p className="text-xs text-muted-foreground">
+                  Restoring moves this programme back into active lists and re-enables operational updates.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isMock || archivePending}
+                  onClick={() => {
+                    if (!programme?.id) return;
+                    setArchiveFeedback(null);
+                    startArchiveTransition(async () => {
+                      const result = await restoreProgrammeAction(programme.id!);
+                      if (result.ok) {
+                        router.refresh();
+                        onOpenChange(false);
+                      } else {
+                        setArchiveFeedback(result.error);
+                      }
+                    });
+                  }}
+                >
+                  {archivePending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Restore programme"}
+                </Button>
+                {archiveFeedback ? <p className="text-xs text-destructive">{archiveFeedback}</p> : null}
+              </div>
+            ) : (
+              <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 space-y-3">
+                <div>
+                  <p className="text-sm font-medium text-destructive">Delete programme</p>
+                  <p className="text-xs text-muted-foreground">
+                    This safely archives the programme. Linked beneficiaries, evidence, funds, milestones, stages, and Drive files stay intact.
+                  </p>
+                </div>
+                <Input
+                  value={archiveReason}
+                  onChange={(event) => setArchiveReason(event.target.value)}
+                  placeholder="Archive reason"
+                  disabled={isMock || archivePending}
+                />
+                <Input
+                  value={archiveCode}
+                  onChange={(event) => setArchiveCode(event.target.value)}
+                  placeholder={`Type ${programme.programme_code} to confirm`}
+                  disabled={isMock || archivePending}
+                />
+                <label className="flex items-start gap-2 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={archiveConfirmed}
+                    onChange={(event) => setArchiveConfirmed(event.target.checked)}
+                    disabled={isMock || archivePending}
+                    className="mt-0.5 h-4 w-4 rounded border-input"
+                  />
+                  I understand this programme will disappear from active lists but can be restored from Archived.
+                </label>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  disabled={
+                    isMock ||
+                    archivePending ||
+                    !archiveReason.trim() ||
+                    archiveCode.trim().toUpperCase() !== programme.programme_code ||
+                    !archiveConfirmed
+                  }
+                  onClick={() => {
+                    if (!programme?.id) return;
+                    setArchiveFeedback(null);
+                    startArchiveTransition(async () => {
+                      const result = await archiveProgrammeAction(programme.id!, {
+                        programmeCode: programme.programme_code,
+                        confirmationCode: archiveCode,
+                        reason: archiveReason,
+                        confirmed: archiveConfirmed,
+                      });
+                      if (result.ok) {
+                        router.refresh();
+                        onOpenChange(false);
+                      } else {
+                        setArchiveFeedback(result.error);
+                      }
+                    });
+                  }}
+                >
+                  {archivePending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Archive programme"}
+                </Button>
+                {archiveFeedback ? <p className="text-xs text-destructive">{archiveFeedback}</p> : null}
+              </div>
+            )}
           </TabsContent>
 
           {/* MILESTONES */}
@@ -254,17 +382,17 @@ export function ProgrammeDetailSheet({
                 placeholder="Milestone title (e.g., Nominations close)"
                 value={milestoneTitle}
                 onChange={(event) => setMilestoneTitle(event.target.value)}
-                disabled={isMock}
+                disabled={isMock || isArchived}
               />
               <Input
                 type="date"
                 value={milestoneDue}
                 onChange={(event) => setMilestoneDue(event.target.value)}
-                disabled={isMock}
+                disabled={isMock || isArchived}
               />
               <Button
                 type="button"
-                disabled={isMock || !milestoneTitle.trim()}
+                disabled={isMock || isArchived || !milestoneTitle.trim()}
                 onClick={() => {
                   if (!programme?.id) return;
                   setMilestoneFeedback(null);
@@ -308,7 +436,7 @@ export function ProgrammeDetailSheet({
                     <input
                       type="checkbox"
                       checked={milestone.done}
-                      disabled={isMock}
+                      disabled={isMock || isArchived}
                       onChange={(event) => {
                         if (!programme?.id) return;
                         toggleMilestoneAction(programme.id, milestone.id, event.target.checked).then(
@@ -338,7 +466,7 @@ export function ProgrammeDetailSheet({
                       type="button"
                       size="sm"
                       variant="ghost"
-                      disabled={isMock}
+                      disabled={isMock || isArchived}
                       onClick={() => {
                         if (!programme?.id) return;
                         deleteMilestoneAction(programme.id, milestone.id).then((result) => {
@@ -364,6 +492,18 @@ export function ProgrammeDetailSheet({
                 NGN {fundsTotal.toLocaleString("en-NG")}
               </span>
             </div>
+            {programme.budget_ngn ? (
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="rounded-md border bg-muted/20 p-3">
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground">Budget</p>
+                  <p className="text-lg font-semibold">NGN {programme.budget_ngn.toLocaleString("en-NG")}</p>
+                </div>
+                <div className="rounded-md border bg-muted/20 p-3">
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground">Amount left</p>
+                  <p className="text-lg font-semibold">NGN {fundsRemaining.toLocaleString("en-NG")}</p>
+                </div>
+              </div>
+            ) : null}
 
             <div className="rounded-md border p-3 space-y-3">
               <p className="text-sm font-medium">Add entry</p>
@@ -373,32 +513,32 @@ export function ProgrammeDetailSheet({
                   inputMode="decimal"
                   value={fundsAmount}
                   onChange={(event) => setFundsAmount(formatThousands(event.target.value))}
-                  disabled={isMock}
+                  disabled={isMock || isArchived}
                 />
                 <Input
                   placeholder="Source (e.g., Donor A)"
                   value={fundsSource}
                   onChange={(event) => setFundsSource(event.target.value)}
-                  disabled={isMock}
+                  disabled={isMock || isArchived}
                 />
                 <Input
                   type="date"
                   value={fundsDate}
                   onChange={(event) => setFundsDate(event.target.value)}
-                  disabled={isMock}
+                  disabled={isMock || isArchived}
                 />
                 <Input
                   placeholder="Note (optional)"
                   value={fundsNote}
                   onChange={(event) => setFundsNote(event.target.value)}
-                  disabled={isMock}
+                  disabled={isMock || isArchived}
                 />
               </div>
               <div className="flex justify-end">
                 <Button
                   type="button"
                   size="sm"
-                  disabled={isMock || !fundsAmount.trim() || !fundsSource.trim()}
+                  disabled={isMock || isArchived || !fundsAmount.trim() || !fundsSource.trim()}
                   onClick={() => {
                     if (!programme?.id) return;
                     setFundsFeedback(null);
@@ -463,7 +603,7 @@ export function ProgrammeDetailSheet({
                 <Button
                   type="button"
                   variant="outline"
-                  disabled={isMock}
+                  disabled={isMock || isArchived}
                   onClick={() => {
                     if (!programme?.id) return;
                     seedEducationStagesAction(programme.id).then((result) => {
@@ -487,11 +627,11 @@ export function ProgrammeDetailSheet({
                 placeholder="New stage label (e.g., Awaiting Documents)"
                 value={newStage}
                 onChange={(event) => setNewStage(event.target.value)}
-                disabled={isMock}
+                disabled={isMock || isArchived}
               />
               <Button
                 type="button"
-                disabled={isMock || !newStage.trim()}
+                disabled={isMock || isArchived || !newStage.trim()}
                 onClick={() => {
                   if (!programme?.id) return;
                   setStageFeedback(null);
@@ -519,7 +659,7 @@ export function ProgrammeDetailSheet({
                   <div className="flex flex-col">
                     <button
                       type="button"
-                      disabled={isMock || index === 0}
+                      disabled={isMock || isArchived || index === 0}
                       onClick={() => {
                         if (!programme?.id) return;
                         moveStageAction(programme.id, stage.id, -1).then((result) => {
@@ -532,7 +672,7 @@ export function ProgrammeDetailSheet({
                     </button>
                     <button
                       type="button"
-                      disabled={isMock || index === stages.length - 1}
+                      disabled={isMock || isArchived || index === stages.length - 1}
                       onClick={() => {
                         if (!programme?.id) return;
                         moveStageAction(programme.id, stage.id, 1).then((result) => {
@@ -557,7 +697,7 @@ export function ProgrammeDetailSheet({
                     type="button"
                     size="sm"
                     variant="ghost"
-                    disabled={isMock}
+                    disabled={isMock || isArchived}
                     onClick={() => {
                       if (!programme?.id) return;
                       deleteStageAction(programme.id, stage.id).then((result) => {

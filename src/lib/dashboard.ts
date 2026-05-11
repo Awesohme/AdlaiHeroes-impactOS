@@ -1,5 +1,6 @@
 import { hasSupabaseBrowserEnv } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
+import { addDays, lagosToday, toIsoDate } from "@/lib/dates";
 
 export type DashboardSignals = {
   approvalsPending: number;
@@ -19,10 +20,8 @@ export async function getDashboardSignals(): Promise<DashboardSignals> {
   }
   try {
     const supabase = await createClient();
-    const today = new Date();
-    const sevenDaysLater = new Date(today);
-    sevenDaysLater.setDate(today.getDate() + 7);
-    const toIsoDate = (date: Date) => date.toISOString().slice(0, 10);
+    const today = lagosToday();
+    const sevenDaysLater = addDays(today, 7);
 
     const [pendingRes, milestonesRes, pipelineRes] = await Promise.all([
       supabase

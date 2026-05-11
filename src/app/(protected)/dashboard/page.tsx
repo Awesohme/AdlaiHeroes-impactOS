@@ -56,7 +56,7 @@ export default async function DashboardPage() {
     {
       label: "Evidence",
       value: evidence.rows.length,
-      detail: `${evidence.rows.filter((item) => item.status === "Verified").length} verified`,
+      detail: `${evidence.rows.filter((item) => item.status === "Confirmed").length} confirmed`,
       tone: "blue",
       icon: FileCheck2,
     },
@@ -64,7 +64,7 @@ export default async function DashboardPage() {
       label: "Needs attention",
       value:
         beneficiaries.rows.filter((item) => item.risk_flag === "review").length +
-        evidence.rows.filter((item) => item.status !== "Verified").length,
+        evidence.rows.filter((item) => item.status !== "Confirmed").length,
       detail: "Review and follow-up",
       tone: "amber",
       icon: AlertCircle,
@@ -81,7 +81,7 @@ export default async function DashboardPage() {
         action: item.safeguarding_flag === "none" ? "Review record" : "Safeguarding follow-up",
       })),
     ...evidence.rows
-      .filter((item) => item.status !== "Verified")
+      .filter((item) => item.status !== "Confirmed")
       .slice(0, 3)
       .map((item) => ({
         label: item.title,

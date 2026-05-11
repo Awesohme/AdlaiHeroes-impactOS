@@ -36,7 +36,7 @@ type EvidenceRecord = {
   uploaded_by: string | null;
   uploaded_at: string | null;
   programmes: { name: string | null }[] | null;
-  profiles: { email: string | null }[] | null;
+  profiles: { full_name: string | null; email: string | null }[] | null;
 };
 
 export async function getEvidenceRecords(): Promise<{
@@ -53,10 +53,13 @@ export async function getEvidenceRecords(): Promise<{
   }
 
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   const { data, error } = await supabase
     .from("evidence")
     .select(
-      "id,evidence_code,title,verification_status,mime_type,drive_file_id,drive_folder_id,uploaded_by,uploaded_at,programmes(name),profiles!evidence_uploaded_by_fkey(email)",
+      "id,evidence_code,title,verification_status,mime_type,drive_file_id,drive_folder_id,uploaded_by,uploaded_at,programmes(name),profiles!evidence_uploaded_by_fkey(full_name,email)",
     )
     .order("uploaded_at", { ascending: false })
     .limit(25);
@@ -78,7 +81,7 @@ export async function getEvidenceRecords(): Promise<{
   }
 
   return {
-    rows: data.map(formatEvidence),
+    rows: data.map((record) => formatEvidence(record, user?.id ?? null, user?.email ?? null)),
     source: "supabase",
   };
 }
@@ -106,8 +109,10 @@ export async function getEvidenceNotes(evidenceId: string): Promise<EvidenceNote
   });
 }
 
-function formatEvidence(record: EvidenceRecord): EvidenceRow {
-  const uploaderEmail = record.profiles?.[0]?.email;
+function formatEvidence(record: EvidenceRecord, currentUserId: string | null, currentUserEmail: string | null): EvidenceRow {
+  const uploader = record.profiles?.[0];
+  const uploaderName = uploader?.full_name || uploader?.email;
+  const fallbackUploader = record.uploaded_by === currentUserId ? currentUserEmail : null;
   return {
     id: record.id,
     code: record.evidence_code,
@@ -116,7 +121,7 @@ function formatEvidence(record: EvidenceRecord): EvidenceRow {
     status: formatStatus(record.verification_status),
     rawStatus: record.verification_status,
     linkedRecord: record.programmes?.[0]?.name || "Programme link pending",
-    uploadedBy: uploaderEmail || "Unknown uploader",
+    uploadedBy: uploaderName || fallbackUploader || "Unknown uploader",
     fileType: humanizeMimeType(record.mime_type),
     folder: record.drive_folder_id
       ? `Drive folder ${record.drive_folder_id}`
@@ -129,14 +134,14 @@ function formatEvidence(record: EvidenceRecord): EvidenceRow {
 
 function formatStatus(value: string) {
   if (value === "in_review") return "In review";
-  if (value === "consent_check") return "Consent check";
-  if (value === "verified") return "Verified";
+  if (value === "consent_check") return "Pending";
+  if (value === "verified") return "Confirmed";
   return value;
 }
 
 function blockerFromStatus(status: string) {
   if (status === "verified") return "None";
-  if (status === "consent_check") return "Consent confirmation required";
+  if (status === "consent_check") return "Pending confirmation";
   return "Operational review pending";
 }
 
@@ -158,16 +163,16 @@ function mockEvidence(): EvidenceRow[] {
     storage: String(storage),
     status: String(status),
     rawStatus:
-      String(status) === "Verified"
+      String(status) === "Confirmed" || String(status) === "Verified"
         ? "verified"
-        : String(status) === "Consent check"
+        : String(status) === "Pending" || String(status) === "Consent check"
           ? "consent_check"
           : "in_review",
     linkedRecord: String(linkedRecord),
     uploadedBy: "adlaioog@gmail.com",
     fileType: "Uploaded file",
     folder: "Drive folder pending",
-    blocker: status === "Verified" ? "None" : "Operational review pending",
+    blocker: status === "Verified" || status === "Confirmed" ? "None" : "Operational review pending",
     driveFileId: null,
     uploadedAt: null,
   }));

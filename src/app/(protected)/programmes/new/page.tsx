@@ -4,11 +4,15 @@ import { Button } from "@/components/ui/button";
 import { ProgrammeCreateForm } from "@/components/programmes/programme-create-form";
 import { ChevronLeft } from "lucide-react";
 import { getFieldTemplates } from "@/lib/field-templates";
+import { getProgrammeTypes } from "@/lib/programme-types";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewProgrammePage() {
-  const fieldCatalog = await getFieldTemplates();
+  const [fieldCatalog, programmeTypes] = await Promise.all([
+    getFieldTemplates(),
+    getProgrammeTypes(),
+  ]);
   return (
     <AppFrame
       eyebrow="Programmes"
@@ -22,7 +26,11 @@ export default async function NewProgrammePage() {
         </Button>
       }
     >
-      <ProgrammeCreateForm mode="create" fieldCatalog={fieldCatalog} />
+      <ProgrammeCreateForm
+        mode="create"
+        fieldCatalog={fieldCatalog}
+        programmeTypes={programmeTypes.map((type) => type.name)}
+      />
     </AppFrame>
   );
 }

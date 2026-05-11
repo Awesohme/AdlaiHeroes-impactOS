@@ -3,7 +3,6 @@ import Image from "next/image";
 import { requireUser } from "@/lib/auth";
 import { SidebarNav } from "@/components/sidebar-nav";
 import { MobileNav } from "@/components/mobile-nav";
-import { Button } from "@/components/ui/button";
 import { LogOut, Search } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -73,9 +72,6 @@ export default async function ProtectedLayout({
               className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </div>
-          <Button variant="ghost" size="sm" className="ml-auto sm:ml-0" asChild>
-            <Link href="/auth/sign-out" prefetch={false}>Sign out</Link>
-          </Button>
         </header>
         <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:py-10">{children}</main>
       </div>

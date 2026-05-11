@@ -2,7 +2,7 @@ import Link from "next/link";
 import { AppFrame } from "@/components/app-frame";
 import { Button } from "@/components/ui/button";
 import { ProgrammesOverview } from "@/components/programmes/programmes-overview";
-import { getProgrammesWithFunding } from "@/lib/programmes";
+import { getProgrammesWithFunding, type ProgrammeArchiveScope } from "@/lib/programmes";
 import { Plus } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +13,8 @@ export default async function ProgrammesPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  const programmes = await getProgrammesWithFunding();
+  const view = parseArchiveScope(params.view);
+  const programmes = await getProgrammesWithFunding({ archiveScope: view });
   const created = params.created === "1";
   const updated = params.updated === "1";
 
@@ -40,8 +41,15 @@ export default async function ProgrammesPage({
               : undefined
         }
         rows={programmes.rows}
+        archiveScope={view}
         source={programmes.source}
       />
     </AppFrame>
   );
+}
+
+function parseArchiveScope(value: string | string[] | undefined): ProgrammeArchiveScope {
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (raw === "archived" || raw === "all") return raw;
+  return "active";
 }

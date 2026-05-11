@@ -49,9 +49,9 @@ export function EvidenceOverview({
 
   const metrics = {
     total: rows.length,
-    verified: rows.filter((item) => item.status === "Verified").length,
+    verified: rows.filter((item) => item.status === "Confirmed").length,
     review: rows.filter((item) => item.status === "In review").length,
-    consent: rows.filter((item) => item.status === "Consent check").length,
+    consent: rows.filter((item) => item.status === "Pending").length,
   };
 
   const counters: Array<{
@@ -69,7 +69,7 @@ export function EvidenceOverview({
       icon: FolderOpen,
     },
     {
-      label: "Verified",
+      label: "Confirmed",
       value: metrics.verified,
       detail: "Ready for use",
       tone: "green",
@@ -83,9 +83,9 @@ export function EvidenceOverview({
       icon: Clock,
     },
     {
-      label: "Consent check",
+      label: "Pending",
       value: metrics.consent,
-      detail: "Hold until confirmed",
+      detail: "Waiting on confirmation",
       tone: "red",
       icon: AlertOctagon,
     },

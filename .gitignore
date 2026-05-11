@@ -8,4 +8,5 @@ dist
 coverage
 *.log
 tsconfig.tsbuildinfo
+.DS_Store
 reference-images

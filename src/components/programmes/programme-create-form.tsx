@@ -1,13 +1,12 @@
 "use client";
 
-import { useActionState, useState, type Dispatch, type SetStateAction } from "react";
+import { useActionState, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { useFormStatus } from "react-dom";
 import {
   getProgrammeStatusLabel,
   moduleOptions,
   nigeriaLocationOptions,
   programmeStatusOptions,
-  programmeTypeOptions,
   type ProgrammeModuleKey,
 } from "@/lib/programme-config";
 import type { FieldTemplate } from "@/lib/field-templates";
@@ -41,12 +40,14 @@ type ProgrammeCreateFormProps = {
   mode?: "create" | "edit";
   initialProgramme?: ProgrammeRow | null;
   fieldCatalog: FieldTemplate[];
+  programmeTypes: string[];
 };
 
 export function ProgrammeCreateForm({
   mode = "create",
   initialProgramme,
   fieldCatalog,
+  programmeTypes,
 }: ProgrammeCreateFormProps) {
   const [state, formAction] = useActionState(saveProgrammeAction, initialState);
 
@@ -68,7 +69,7 @@ export function ProgrammeCreateForm({
   const [selectedFields, setSelectedFields] = useState<ProgrammeDataFieldRow[]>(initialFields);
   const [name, setName] = useState(state.fields?.name ?? initialProgramme?.name ?? "");
   const [programmeType, setProgrammeType] = useState(
-    state.fields?.programme_type ?? initialProgramme?.programme_type ?? "Education Support",
+    state.fields?.programme_type ?? initialProgramme?.programme_type ?? programmeTypes[0] ?? "Education Support",
   );
   const [status, setStatus] = useState(state.fields?.status ?? initialProgramme?.status ?? "draft");
   const [donorFunder, setDonorFunder] = useState(
@@ -94,6 +95,10 @@ export function ProgrammeCreateForm({
     state.fields?.start_date ?? initialProgramme?.start_date ?? "",
   );
   const [endDate, setEndDate] = useState(state.fields?.end_date ?? initialProgramme?.end_date ?? "");
+  const programmeTypeChoices = useMemo(
+    () => [...new Set([programmeType, ...programmeTypes].filter(Boolean))],
+    [programmeType, programmeTypes],
+  );
 
   const availableFields = fieldCatalog.filter(
     (field) => !selectedFields.some((selectedField) => selectedField.field_key === field.field_key),
@@ -135,7 +140,7 @@ export function ProgrammeCreateForm({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {programmeTypeOptions.map((option) => (
+                  {programmeTypeChoices.map((option) => (
                     <SelectItem key={option} value={option}>
                       {option}
                     </SelectItem>
@@ -253,47 +258,10 @@ export function ProgrammeCreateForm({
 
             <div className="sm:col-span-2 space-y-2">
               <Label>Operating locations</Label>
-              <div className="rounded-md border bg-muted/30 p-3 space-y-3">
-                <div className="flex flex-wrap gap-1.5 min-h-[28px]">
-                  {selectedLocations.length ? (
-                    selectedLocations.map((location) => (
-                      <button
-                        key={location}
-                        type="button"
-                        onClick={() => removeLocation(location, setSelectedLocations)}
-                        className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary hover:bg-primary/15"
-                      >
-                        {location}
-                        <X className="h-3 w-3" />
-                      </button>
-                    ))
-                  ) : (
-                    <p className="text-xs text-muted-foreground">
-                      Pick one or more locations from the list below.
-                    </p>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 gap-1 sm:grid-cols-3 md:grid-cols-4 max-h-48 overflow-y-auto">
-                  {nigeriaLocationOptions.map((location) => {
-                    const active = selectedLocations.includes(location);
-                    return (
-                      <button
-                        key={location}
-                        type="button"
-                        onClick={() => toggleLocation(location, setSelectedLocations)}
-                        className={cn(
-                          "rounded px-2 py-1 text-left text-xs transition-colors",
-                          active
-                            ? "bg-primary text-primary-foreground"
-                            : "hover:bg-background",
-                        )}
-                      >
-                        {location}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              <LocationMultiSelect
+                selected={selectedLocations}
+                onChange={setSelectedLocations}
+              />
             </div>
 
             <Field label="Objectives" className="sm:col-span-2">
@@ -541,6 +509,83 @@ function Field({
   );
 }
 
+function LocationMultiSelect({
+  selected,
+  onChange,
+}: {
+  selected: string[];
+  onChange: Dispatch<SetStateAction<string[]>>;
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const filtered = useMemo(() => {
+    const normalised = query.trim().toLowerCase();
+    return nigeriaLocationOptions.filter((location) => {
+      if (selected.includes(location)) return false;
+      if (!normalised) return true;
+      return location.toLowerCase().includes(normalised);
+    });
+  }, [query, selected]);
+
+  function addLocation(location: string) {
+    onChange((current) => [...current, location]);
+    setQuery("");
+    setOpen(false);
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex min-h-10 flex-wrap items-center gap-1.5 rounded-md border bg-background p-2">
+        {selected.length ? (
+          selected.map((location) => (
+            <button
+              key={location}
+              type="button"
+              onClick={() => removeLocation(location, onChange)}
+              className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-1 text-xs font-medium text-primary hover:bg-primary/15"
+            >
+              {location}
+              <X className="h-3 w-3" />
+            </button>
+          ))
+        ) : (
+          <p className="px-1 text-xs text-muted-foreground">No states selected yet.</p>
+        )}
+      </div>
+      <div className="relative">
+        <Input
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          placeholder="Search and add states..."
+        />
+        {open ? (
+          <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-md border bg-popover p-1 shadow-md">
+            {filtered.length ? (
+              filtered.map((location) => (
+                <button
+                  key={location}
+                  type="button"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => addLocation(location)}
+                  className="block w-full rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
+                >
+                  {location}
+                </button>
+              ))
+            ) : (
+              <p className="px-2 py-2 text-sm text-muted-foreground">No matching states.</p>
+            )}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="flex justify-between text-xs">
@@ -610,17 +655,6 @@ function parseDataFields(raw?: string) {
   } catch {
     return null;
   }
-}
-
-function toggleLocation(
-  location: string,
-  setSelectedLocations: Dispatch<SetStateAction<string[]>>,
-) {
-  setSelectedLocations((current) =>
-    current.includes(location)
-      ? current.filter((item) => item !== location)
-      : [...current, location],
-  );
 }
 
 function removeLocation(

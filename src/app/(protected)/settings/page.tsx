@@ -8,6 +8,8 @@ import { testGoogleDriveConnectionAction } from "./actions";
 import { CheckCircle2, AlertCircle } from "lucide-react";
 import { getFieldTemplates } from "@/lib/field-templates";
 import { FieldTemplatesTab } from "@/components/settings/field-templates-tab";
+import { getProgrammeTypes } from "@/lib/programme-types";
+import { ProgrammeTypesTab } from "@/components/settings/programme-types-tab";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +49,10 @@ export default async function SettingsPage({
 }) {
   const params = (await searchParams) ?? {};
   const drive = getGoogleDriveEnvStatus();
-  const fieldTemplates = await getFieldTemplates();
+  const [fieldTemplates, programmeTypes] = await Promise.all([
+    getFieldTemplates(),
+    getProgrammeTypes({ includeInactive: true }),
+  ]);
   const driveReady = hasGoogleDriveServerEnv();
   const driveOk = params.drive_test === "ok";
   const driveError = params.drive_test === "error";
@@ -143,10 +148,10 @@ export default async function SettingsPage({
         </div>
       ) : null}
 
-      <Tabs defaultValue="drive" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="drive">Google Drive</TabsTrigger>
+      <Tabs defaultValue="fields" className="space-y-4">
+        <TabsList className="max-w-full overflow-x-auto">
           <TabsTrigger value="fields">Field templates</TabsTrigger>
+          <TabsTrigger value="programme-types">Programme types</TabsTrigger>
           <TabsTrigger value="platform">Platform</TabsTrigger>
           {diagnostics ? <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger> : null}
         </TabsList>
@@ -155,7 +160,11 @@ export default async function SettingsPage({
           <FieldTemplatesTab initial={fieldTemplates} />
         </TabsContent>
 
-        <TabsContent value="drive" className="space-y-4">
+        <TabsContent value="programme-types">
+          <ProgrammeTypesTab initial={programmeTypes} />
+        </TabsContent>
+
+        <TabsContent value="platform" className="space-y-4">
           <Card>
             <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
               <div>
@@ -173,17 +182,7 @@ export default async function SettingsPage({
           </Card>
           <Card>
             <CardContent className="p-0 divide-y">
-              {driveItems.map((item) => (
-                <SettingRow key={item.name} {...item} />
-              ))}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="platform">
-          <Card>
-            <CardContent className="p-0 divide-y">
-              {platformItems.map((item) => (
+              {[...platformItems, ...driveItems].map((item) => (
                 <SettingRow key={item.name} {...item} />
               ))}
             </CardContent>
@@ -197,10 +196,10 @@ export default async function SettingsPage({
                 {diagnostics.map((row) => (
                   <div
                     key={row.label}
-                    className="flex items-center justify-between gap-4 p-4"
+                    className="flex flex-col gap-1 p-4 sm:flex-row sm:items-start sm:justify-between"
                   >
                     <span className="text-sm text-muted-foreground">{row.label}</span>
-                    <span className="text-sm font-medium font-mono truncate">{row.value}</span>
+                    <span className="min-w-0 break-all text-sm font-medium font-mono sm:text-right">{row.value}</span>
                   </div>
                 ))}
               </CardContent>
@@ -224,12 +223,12 @@ function SettingRow({
   ok: boolean;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 p-4">
+    <div className="flex flex-col gap-2 p-4 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0 flex-1 space-y-0.5">
-        <p className="text-sm font-medium">{name}</p>
-        <p className="text-sm text-muted-foreground">{detail}</p>
+        <p className="break-words text-sm font-medium">{name}</p>
+        <p className="break-all text-sm text-muted-foreground sm:break-words">{detail}</p>
       </div>
-      <Badge variant={ok ? "default" : "secondary"} className="font-normal shrink-0">
+      <Badge variant={ok ? "default" : "secondary"} className="w-fit shrink-0 font-normal">
         {status}
       </Badge>
     </div>

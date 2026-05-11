@@ -29,9 +29,9 @@ import {
 import { cn } from "@/lib/utils";
 
 const statusOptions = [
+  { value: "consent_check", label: "Pending" },
   { value: "in_review", label: "In review" },
-  { value: "verified", label: "Verified" },
-  { value: "consent_check", label: "Consent check" },
+  { value: "verified", label: "Confirmed" },
 ];
 
 export function EvidenceDetailSheet({
@@ -261,7 +261,7 @@ function StatusDot({ status }: { status: string }) {
         status === "verified"
           ? "bg-emerald-500"
           : status === "consent_check"
-            ? "bg-rose-500"
+            ? "bg-slate-400"
             : "bg-amber-500",
       )}
     />
@@ -272,7 +272,7 @@ export function statusBadgeClass(rawStatus: string) {
   if (rawStatus === "verified")
     return "bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100";
   if (rawStatus === "consent_check")
-    return "bg-rose-100 text-rose-700 border-rose-200 hover:bg-rose-100";
+    return "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-100";
   return "bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-100";
 }
 

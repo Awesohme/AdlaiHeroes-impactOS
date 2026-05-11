@@ -94,9 +94,9 @@ export function EvidenceCreateForm({ programmes }: { programmes: ProgrammeRow[] 
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="consent_check">Pending</SelectItem>
                 <SelectItem value="in_review">In review</SelectItem>
-                <SelectItem value="verified">Verified</SelectItem>
-                <SelectItem value="consent_check">Consent check</SelectItem>
+                <SelectItem value="verified">Confirmed</SelectItem>
               </SelectContent>
             </Select>
             <input type="hidden" name="verification_status" value={verificationStatus} />

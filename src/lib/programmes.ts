@@ -40,6 +40,9 @@ export type ProgrammeRow = {
   reach: string;
   flyer_drive_file_id: string | null;
   funds_raised: number;
+  archived_at: string | null;
+  archived_by: string | null;
+  archive_reason: string | null;
 };
 
 type ProgrammeRecord = {
@@ -63,10 +66,80 @@ type ProgrammeRecord = {
   status: ProgrammeStatus | string;
   enabled_modules: ProgrammeModuleKey[] | null;
   flyer_drive_file_id?: string | null;
+  archived_at?: string | null;
+  archived_by?: string | null;
+  archive_reason?: string | null;
   programme_data_fields?: ProgrammeDataFieldRow[] | null;
 };
 
-export async function getProgrammes(): Promise<{
+export type ProgrammeArchiveScope = "active" | "archived" | "all";
+
+const programmeSelect = `
+  id,
+  programme_code,
+  name,
+  programme_type,
+  donor,
+  donor_funder,
+  location,
+  location_areas,
+  target_group,
+  expected_beneficiaries,
+  budget_ngn,
+  objectives,
+  programme_description,
+  starts_on,
+  start_date,
+  ends_on,
+  end_date,
+  status,
+  enabled_modules,
+  flyer_drive_file_id,
+  archived_at,
+  archived_by,
+  archive_reason,
+  programme_data_fields (
+    field_key,
+    label,
+    field_type,
+    required,
+    position,
+    enabled
+  )
+`;
+
+const legacyProgrammeSelect = `
+  id,
+  programme_code,
+  name,
+  programme_type,
+  donor,
+  donor_funder,
+  location,
+  location_areas,
+  target_group,
+  expected_beneficiaries,
+  budget_ngn,
+  objectives,
+  programme_description,
+  starts_on,
+  start_date,
+  ends_on,
+  end_date,
+  status,
+  enabled_modules,
+  flyer_drive_file_id,
+  programme_data_fields (
+    field_key,
+    label,
+    field_type,
+    required,
+    position,
+    enabled
+  )
+`;
+
+export async function getProgrammes(options?: { archiveScope?: ProgrammeArchiveScope }): Promise<{
   rows: ProgrammeRow[];
   source: "supabase" | "mock";
   error?: string;
@@ -80,47 +153,38 @@ export async function getProgrammes(): Promise<{
   }
 
   const supabase = await createClient();
+  const archiveScope = options?.archiveScope ?? "active";
 
-  const { data, error } = await supabase
-    .from("programmes")
-    .select(`
-      id,
-      programme_code,
-      name,
-      programme_type,
-      donor,
-      donor_funder,
-      location,
-      location_areas,
-      target_group,
-      expected_beneficiaries,
-      budget_ngn,
-      objectives,
-      programme_description,
-      starts_on,
-      start_date,
-      ends_on,
-      end_date,
-      status,
-      enabled_modules,
-      flyer_drive_file_id,
-      programme_data_fields (
-        field_key,
-        label,
-        field_type,
-        required,
-        position,
-        enabled
-      )
-    `)
-    .order("created_at", { ascending: false })
-    .limit(40);
+  let query = supabase.from("programmes").select(programmeSelect);
+  if (archiveScope === "active") query = query.is("archived_at", null);
+  if (archiveScope === "archived") query = query.not("archived_at", "is", null);
+
+  const initial = await query.order("created_at", { ascending: false }).limit(80);
+  let data = initial.data as ProgrammeRecord[] | null;
+  let error = initial.error;
+
+  if (error?.message.includes("archived_at")) {
+    const fallback = await supabase
+      .from("programmes")
+      .select(legacyProgrammeSelect)
+      .order("created_at", { ascending: false })
+      .limit(80);
+    data = fallback.data as ProgrammeRecord[] | null;
+    error = fallback.error;
+  }
 
   if (error) {
     return {
       rows: mockProgrammes(),
       source: "mock",
       error: error.message,
+    };
+  }
+
+  if (!data?.length && archiveScope !== "active") {
+    return {
+      rows: [],
+      source: "supabase",
     };
   }
 
@@ -149,40 +213,23 @@ export async function getProgrammeByCode(programmeCode: string) {
   }
 
   const supabase = await createClient();
-  const { data, error } = await supabase
+  const initial = await supabase
     .from("programmes")
-    .select(`
-      id,
-      programme_code,
-      name,
-      programme_type,
-      donor,
-      donor_funder,
-      location,
-      location_areas,
-      target_group,
-      expected_beneficiaries,
-      budget_ngn,
-      objectives,
-      programme_description,
-      starts_on,
-      start_date,
-      ends_on,
-      end_date,
-      status,
-      enabled_modules,
-      flyer_drive_file_id,
-      programme_data_fields (
-        field_key,
-        label,
-        field_type,
-        required,
-        position,
-        enabled
-      )
-    `)
+    .select(programmeSelect)
     .eq("programme_code", programmeCode)
     .maybeSingle();
+  let data = initial.data as ProgrammeRecord | null;
+  let error = initial.error;
+
+  if (error?.message.includes("archived_at")) {
+    const fallback = await supabase
+      .from("programmes")
+      .select(legacyProgrammeSelect)
+      .eq("programme_code", programmeCode)
+      .maybeSingle();
+    data = fallback.data as ProgrammeRecord | null;
+    error = fallback.error;
+  }
 
   if (error) {
     return { programme: null, source: "supabase" as const, error: error.message };
@@ -237,15 +284,18 @@ function formatProgramme(programme: ProgrammeRecord): ProgrammeRow {
     reach: expectedBeneficiaries ? `${expectedBeneficiaries.toLocaleString()} beneficiaries` : "Not set",
     flyer_drive_file_id: programme.flyer_drive_file_id ?? null,
     funds_raised: 0,
+    archived_at: programme.archived_at ?? null,
+    archived_by: programme.archived_by ?? null,
+    archive_reason: programme.archive_reason ?? null,
   };
 }
 
-export async function getProgrammesWithFunding(): Promise<{
+export async function getProgrammesWithFunding(options?: { archiveScope?: ProgrammeArchiveScope }): Promise<{
   rows: ProgrammeRow[];
   source: "supabase" | "mock";
   error?: string;
 }> {
-  const result = await getProgrammes();
+  const result = await getProgrammes(options);
   if (result.source !== "supabase" || result.rows.length === 0) return result;
   try {
     const supabase = await createClient();
@@ -388,5 +438,8 @@ function mockProgrammes(): ProgrammeRow[] {
     reach: String(reach),
     flyer_drive_file_id: null,
     funds_raised: 0,
+    archived_at: null,
+    archived_by: null,
+    archive_reason: null,
   }));
 }

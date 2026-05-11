@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import type { ProgrammeRow } from "@/lib/programmes";
+import type { ProgrammeArchiveScope, ProgrammeRow } from "@/lib/programmes";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { MetricTile, type MetricTone } from "@/components/metric-tile";
 import { FolderKanban, Activity, ClipboardList, AlertTriangle } from "lucide-react";
@@ -32,11 +32,13 @@ export function ProgrammesOverview({
   source,
   error,
   notice,
+  archiveScope,
 }: {
   rows: ProgrammeRow[];
   source: "supabase" | "mock";
   error?: string;
   notice?: string;
+  archiveScope: ProgrammeArchiveScope;
 }) {
   const [yearFilter, setYearFilter] = useState("all");
   const [locationFilter, setLocationFilter] = useState("all");
@@ -165,6 +167,21 @@ export function ProgrammesOverview({
               options={["draft", "planned", "active", "monitoring", "completed", "at_risk"]}
               formatter={formatStatus}
             />
+            <div className="flex items-center gap-1 rounded-md bg-muted p-1">
+              {(["active", "archived", "all"] as const).map((scope) => (
+                <Button
+                  key={scope}
+                  asChild
+                  size="sm"
+                  variant={archiveScope === scope ? "secondary" : "ghost"}
+                  className="h-7 px-2 text-xs"
+                >
+                  <Link href={scope === "active" ? "/programmes" : `/programmes?view=${scope}`} prefetch={false}>
+                    {formatStatus(scope)}
+                  </Link>
+                </Button>
+              ))}
+            </div>
             <Button
               variant="ghost"
               size="sm"
@@ -213,7 +230,12 @@ export function ProgrammesOverview({
                   >
                     <TableCell>
                       <div className="font-medium">{row.name}</div>
-                      <div className="text-xs text-muted-foreground">{row.programme_code}</div>
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <span>{row.programme_code}</span>
+                        {row.archived_at ? (
+                          <span className="rounded-full bg-muted px-1.5 py-0.5">Archived</span>
+                        ) : null}
+                      </div>
                     </TableCell>
                     <TableCell className="text-sm">{row.programme_type}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">
@@ -268,6 +290,7 @@ function BudgetCell({ budget, raised }: { budget: number | null; raised: number 
   }
   const percent = raised > 0 ? Math.min(100, (raised / budget) * 100) : 0;
   const barWidth = raised > 0 ? Math.max(2, percent) : 0;
+  const remaining = Math.max(budget - raised, 0);
   return (
     <div className="space-y-1">
       <div className="font-medium">{formatNgnCompact(budget)}</div>
@@ -282,6 +305,9 @@ function BudgetCell({ budget, raised }: { budget: number | null; raised: number 
         {raised > 0
           ? `${formatNgnCompact(raised)} of ${formatNgnCompact(budget)} (${formatPercent(percent)})`
           : `0 raised`}
+      </div>
+      <div className="text-xs text-muted-foreground">
+        {formatNgnCompact(remaining)} left
       </div>
     </div>
   );
@@ -376,4 +402,3 @@ function formatStatus(value: string) {
   if (value === "all") return "All";
   return value.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
-

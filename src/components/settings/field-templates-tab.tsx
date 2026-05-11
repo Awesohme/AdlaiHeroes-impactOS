@@ -197,8 +197,8 @@ function FieldTemplateRow({
     return (
       <div className="flex items-start justify-between gap-3 p-4">
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium">{template.label}</p>
-          <p className="text-xs text-muted-foreground">{template.description || "—"}</p>
+          <p className="break-words text-sm font-medium">{template.label}</p>
+          <p className="break-words text-xs text-muted-foreground">{template.description || "—"}</p>
           <div className="mt-1 flex gap-2">
             <Badge variant="outline" className="font-normal text-xs">
               {template.field_type}
@@ -279,9 +279,9 @@ function FieldTemplateRow({
             </div>
           ) : (
             <>
-              <p className="text-sm font-medium">{template.label}</p>
+          <p className="break-words text-sm font-medium">{template.label}</p>
               {template.description ? (
-                <p className="text-xs text-muted-foreground">{template.description}</p>
+                <p className="break-words text-xs text-muted-foreground">{template.description}</p>
               ) : null}
               <div className="flex gap-2 flex-wrap">
                 <Badge variant="outline" className="font-normal text-xs">
