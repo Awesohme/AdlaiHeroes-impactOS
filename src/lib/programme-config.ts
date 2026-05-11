@@ -7,7 +7,14 @@ export type ProgrammeModuleKey =
   | "reporting"
   | "education_support";
 
-export type ProgrammeFieldType = "text" | "number" | "select" | "yes_no" | "location";
+export type ProgrammeFieldType =
+  | "text"
+  | "number"
+  | "select"
+  | "yes_no"
+  | "location"
+  | "image"
+  | "signature";
 
 export type ProgrammeFieldDefinition = {
   field_key: string;

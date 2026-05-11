@@ -13,6 +13,8 @@ const validFieldTypes = new Set<ProgrammeFieldType>([
   "select",
   "yes_no",
   "location",
+  "image",
+  "signature",
 ]);
 
 export type FieldTemplateActionResult =

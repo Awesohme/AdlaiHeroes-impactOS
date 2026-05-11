@@ -28,6 +28,8 @@ const fieldTypes = [
   { value: "select", label: "Select" },
   { value: "yes_no", label: "Yes / No" },
   { value: "location", label: "Location" },
+  { value: "image", label: "Image" },
+  { value: "signature", label: "Signature" },
 ];
 
 export function FieldTemplatesTab({ initial }: { initial: FieldTemplate[] }) {

@@ -37,7 +37,15 @@ export type SaveProgrammeState = {
 };
 
 const validStatuses = new Set<ProgrammeStatus>(["draft", "planned", "active", "monitoring", "completed", "at_risk"]);
-const validFieldTypes = new Set<ProgrammeFieldType>(["text", "number", "select", "yes_no", "location"]);
+const validFieldTypes = new Set<ProgrammeFieldType>([
+  "text",
+  "number",
+  "select",
+  "yes_no",
+  "location",
+  "image",
+  "signature",
+]);
 
 export async function saveProgrammeAction(
   _previousState: SaveProgrammeState,
