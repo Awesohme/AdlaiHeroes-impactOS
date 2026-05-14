@@ -25,7 +25,6 @@ import {
   ArrowDown,
   ArrowUp,
   CheckCircle2,
-  ExternalLink,
   Loader2,
   Plus,
   Sparkles,
@@ -57,6 +56,7 @@ import {
   type StageRow,
 } from "@/app/(protected)/programmes/actions";
 import { cn } from "@/lib/utils";
+import { MediaPreview } from "@/components/media-preview";
 
 export function ProgrammeDetailSheet({
   programme,
@@ -209,14 +209,10 @@ export function ProgrammeDetailSheet({
             />
 
             {programme.flyer_drive_file_id ? (
-              <a
-                href={`https://drive.google.com/file/d/${programme.flyer_drive_file_id}/view`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
-              >
-                View flyer <ExternalLink className="h-3 w-3" />
-              </a>
+              <MediaPreview
+                driveFileId={programme.flyer_drive_file_id}
+                label="Flyer"
+              />
             ) : null}
 
             <div className="border-t pt-4 space-y-2">

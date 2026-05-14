@@ -11,6 +11,7 @@ export type ProgrammeFieldType =
   | "text"
   | "number"
   | "select"
+  | "multi_select"
   | "yes_no"
   | "location"
   | "image"

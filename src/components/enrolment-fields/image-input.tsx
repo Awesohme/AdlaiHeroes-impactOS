@@ -3,9 +3,10 @@
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ExternalLink, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { uploadEnrolmentImageFieldAction } from "@/app/(protected)/beneficiaries/actions";
 import { cn } from "@/lib/utils";
+import { MediaPreview } from "@/components/media-preview";
 
 export function ImageInput({
   enrolmentId,
@@ -47,21 +48,7 @@ export function ImageInput({
   return (
     <div className="space-y-2">
       {existingId ? (
-        <div className="flex items-center gap-3">
-          <img
-            src={`https://drive.google.com/thumbnail?id=${encodeURIComponent(existingId)}&sz=w200`}
-            alt="Current"
-            className="h-16 w-16 rounded-md object-cover ring-1 ring-border"
-          />
-          <a
-            href={`https://drive.google.com/file/d/${existingId}/view`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-          >
-            View in Drive <ExternalLink className="h-3 w-3" />
-          </a>
-        </div>
+        <MediaPreview driveFileId={existingId} label="Current image" size="sm" />
       ) : null}
       <Input
         type="file"

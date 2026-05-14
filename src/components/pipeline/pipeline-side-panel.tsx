@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { ExternalLink, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import type { EnrolmentSummary } from "@/app/(protected)/programmes/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ import { BeneficiaryNotesSection } from "@/components/beneficiaries/beneficiary-
 import { BeneficiaryAvatar } from "@/components/beneficiaries/beneficiary-avatar";
 import { StagePicker } from "@/components/pipeline/stage-picker";
 import { EnrolmentFieldsSection } from "@/components/beneficiaries/enrolment-fields-section";
+import { MediaPreview } from "@/components/media-preview";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 
@@ -182,14 +183,12 @@ export function PipelineSidePanel({
               </p>
             ) : null}
             {enrolment.consent_drive_file_id ? (
-              <a
-                href={`https://drive.google.com/file/d/${enrolment.consent_drive_file_id}/view`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-              >
-                View file <ExternalLink className="h-3 w-3" />
-              </a>
+              <MediaPreview
+                driveFileId={enrolment.consent_drive_file_id}
+                label="Consent file"
+                size="sm"
+                className="mt-1"
+              />
             ) : null}
           </div>
         ) : (

@@ -20,13 +20,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, Loader2, MessageSquarePlus } from "lucide-react";
+import { Loader2, MessageSquarePlus } from "lucide-react";
 import {
   addEvidenceNoteAction,
   loadEvidenceNotesAction,
   updateEvidenceStatusAction,
 } from "@/app/(protected)/evidence/actions";
 import { cn } from "@/lib/utils";
+import { MediaPreview } from "@/components/media-preview";
 
 const statusOptions = [
   { value: "consent_check", label: "Pending" },
@@ -67,9 +68,6 @@ export function EvidenceDetailSheet({
 
   if (!evidence) return null;
 
-  const driveLink = evidence.driveFileId
-    ? `https://drive.google.com/file/d/${evidence.driveFileId}/view`
-    : null;
   const isMock = !evidence.id;
   const dirtyStatus = status !== evidence.rawStatus;
 
@@ -110,15 +108,14 @@ export function EvidenceDetailSheet({
         </SheetHeader>
 
         <div className="mt-6 space-y-5">
-          <DetailGrid evidence={evidence} />
-
-          {driveLink ? (
-            <Button asChild variant="outline" className="w-full">
-              <a href={driveLink} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="h-4 w-4" /> Open in Drive
-              </a>
-            </Button>
+          {evidence.driveFileId ? (
+            <MediaPreview
+              driveFileId={evidence.driveFileId}
+              label={evidence.title}
+            />
           ) : null}
+
+          <DetailGrid evidence={evidence} />
 
           <section className="space-y-2 border-t pt-5">
             <Label htmlFor="evidence-status">Verification status</Label>

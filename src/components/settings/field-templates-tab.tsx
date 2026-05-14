@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import type { FieldTemplate } from "@/lib/field-templates";
+import type { ProgrammeFieldType } from "@/lib/programme-config";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,23 +23,40 @@ import {
 } from "@/app/(protected)/settings/actions";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 
-const fieldTypes = [
+const fieldTypes: Array<{ value: ProgrammeFieldType; label: string }> = [
   { value: "text", label: "Text" },
   { value: "number", label: "Number" },
   { value: "select", label: "Select" },
+  { value: "multi_select", label: "Multi-select" },
   { value: "yes_no", label: "Yes / No" },
   { value: "location", label: "Location" },
   { value: "image", label: "Image" },
   { value: "signature", label: "Signature" },
 ];
 
+function typeAcceptsOptions(type: ProgrammeFieldType) {
+  return type === "select" || type === "multi_select";
+}
+
+function optionsToText(options: string[]): string {
+  return options.join("\n");
+}
+
+function textToOptions(text: string): string[] {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
 export function FieldTemplatesTab({ initial }: { initial: FieldTemplate[] }) {
   const [templates, setTemplates] = useState(initial);
   const [newLabel, setNewLabel] = useState("");
   const [newKey, setNewKey] = useState("");
-  const [newType, setNewType] = useState<"text" | "number" | "select" | "yes_no" | "location">("text");
+  const [newType, setNewType] = useState<ProgrammeFieldType>("text");
   const [newDescription, setNewDescription] = useState("");
   const [newRequired, setNewRequired] = useState(false);
+  const [newOptionsText, setNewOptionsText] = useState("");
   const [feedback, setFeedback] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -53,13 +71,15 @@ export function FieldTemplatesTab({ initial }: { initial: FieldTemplate[] }) {
       formData.set("field_type", newType);
       formData.set("description", newDescription);
       if (newRequired) formData.set("default_required", "on");
+      if (typeAcceptsOptions(newType)) formData.set("options", newOptionsText);
       const result = await createFieldTemplateAction(formData);
       if (result.ok) {
+        const options = typeAcceptsOptions(newType) ? textToOptions(newOptionsText) : [];
         setNewLabel("");
         setNewKey("");
         setNewDescription("");
         setNewRequired(false);
-        // optimistic: append at the end with an id placeholder; full data comes on refresh
+        setNewOptionsText("");
         setTemplates((current) => [
           ...current,
           {
@@ -70,6 +90,7 @@ export function FieldTemplatesTab({ initial }: { initial: FieldTemplate[] }) {
             description: newDescription,
             default_required: newRequired,
             position: current.length,
+            options,
           },
         ]);
         setFeedback("Field added.");
@@ -110,7 +131,10 @@ export function FieldTemplatesTab({ initial }: { initial: FieldTemplate[] }) {
             </div>
             <div className="space-y-1.5">
               <Label>Type</Label>
-              <Select value={newType} onValueChange={(value) => setNewType(value as typeof newType)}>
+              <Select
+                value={newType}
+                onValueChange={(value) => setNewType(value as ProgrammeFieldType)}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -139,6 +163,21 @@ export function FieldTemplatesTab({ initial }: { initial: FieldTemplate[] }) {
               placeholder="Short description of when to capture this field"
               rows={2}
             />
+            {typeAcceptsOptions(newType) ? (
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>Options (one per line)</Label>
+                <Textarea
+                  value={newOptionsText}
+                  onChange={(event) => setNewOptionsText(event.target.value)}
+                  placeholder={"Received\nPending\nDeclined"}
+                  rows={4}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Each line becomes a selectable option. Avoid commas in option labels — they collide
+                  with the multi-select value separator.
+                </p>
+              </div>
+            ) : null}
           </div>
           <div className="flex items-center gap-3 justify-end">
             {feedback ? (
@@ -189,9 +228,10 @@ function FieldTemplateRow({
 }) {
   const [editing, setEditing] = useState(false);
   const [label, setLabel] = useState(template.label);
-  const [fieldType, setFieldType] = useState(template.field_type);
+  const [fieldType, setFieldType] = useState<ProgrammeFieldType>(template.field_type);
   const [description, setDescription] = useState(template.description);
   const [required, setRequired] = useState(template.default_required);
+  const [optionsText, setOptionsText] = useState(optionsToText(template.options));
   const [feedback, setFeedback] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -218,15 +258,24 @@ function FieldTemplateRow({
   function save() {
     if (!template.id) return;
     setFeedback(null);
+    const options = typeAcceptsOptions(fieldType) ? textToOptions(optionsText) : [];
     startTransition(async () => {
       const result = await updateFieldTemplateAction(template.id!, {
         label,
         field_type: fieldType,
         description,
         default_required: required,
+        options,
       });
       if (result.ok) {
-        onChange({ ...template, label, field_type: fieldType, description, default_required: required });
+        onChange({
+          ...template,
+          label,
+          field_type: fieldType,
+          description,
+          default_required: required,
+          options,
+        });
         setEditing(false);
       } else {
         setFeedback(result.error);
@@ -251,7 +300,10 @@ function FieldTemplateRow({
           {editing ? (
             <div className="grid gap-2 sm:grid-cols-2">
               <Input value={label} onChange={(event) => setLabel(event.target.value)} />
-              <Select value={fieldType} onValueChange={(value) => setFieldType(value as typeof fieldType)}>
+              <Select
+                value={fieldType}
+                onValueChange={(value) => setFieldType(value as ProgrammeFieldType)}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -278,10 +330,20 @@ function FieldTemplateRow({
                 />
                 Default required
               </label>
+              {typeAcceptsOptions(fieldType) ? (
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label>Options (one per line)</Label>
+                  <Textarea
+                    value={optionsText}
+                    onChange={(event) => setOptionsText(event.target.value)}
+                    rows={4}
+                  />
+                </div>
+              ) : null}
             </div>
           ) : (
             <>
-          <p className="break-words text-sm font-medium">{template.label}</p>
+              <p className="break-words text-sm font-medium">{template.label}</p>
               {template.description ? (
                 <p className="break-words text-xs text-muted-foreground">{template.description}</p>
               ) : null}
@@ -298,6 +360,15 @@ function FieldTemplateRow({
                   </Badge>
                 ) : null}
               </div>
+              {typeAcceptsOptions(template.field_type) ? (
+                template.options.length > 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Options: {template.options.join(" · ")}
+                  </p>
+                ) : (
+                  <p className="text-xs text-amber-700">No options defined yet.</p>
+                )
+              ) : null}
             </>
           )}
         </div>

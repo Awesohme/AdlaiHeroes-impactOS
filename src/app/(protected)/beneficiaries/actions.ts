@@ -459,6 +459,7 @@ export type EnrolmentFieldRow = {
   position: number;
   value: string | null;
   archived: boolean;
+  options: string[];
 };
 
 export async function listEnrolmentFieldsAction(
@@ -476,7 +477,7 @@ export async function listEnrolmentFieldsAction(
     supabase
       .from("programme_data_fields")
       .select(
-        "field_key,label,field_type,required,required_from_stage_key,position,enabled",
+        "field_key,label,field_type,required,required_from_stage_key,position,enabled,options",
       )
       .eq("programme_id", enrolment.programme_id)
       .order("position", { ascending: true }),
@@ -505,6 +506,9 @@ export async function listEnrolmentFieldsAction(
     position: Number(field.position ?? 0),
     value: valueMap.get(field.field_key) ?? null,
     archived: field.enabled === false,
+    options: Array.isArray((field as { options?: unknown }).options)
+      ? ((field as { options: unknown[] }).options.map((o) => String(o)) as string[])
+      : [],
   }));
 }
 

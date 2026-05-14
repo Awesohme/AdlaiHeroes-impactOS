@@ -11,6 +11,7 @@ const validFieldTypes = new Set<ProgrammeFieldType>([
   "text",
   "number",
   "select",
+  "multi_select",
   "yes_no",
   "location",
   "image",
@@ -110,6 +111,8 @@ export async function createFieldTemplateAction(formData: FormData): Promise<Fie
     .limit(1);
   const position = (existing?.[0]?.position ?? -1) + 1;
 
+  const options = parseOptions(String(formData.get("options") ?? ""));
+
   const { error } = await supabase.from("field_templates").insert({
     field_key: fieldKey,
     label,
@@ -117,6 +120,7 @@ export async function createFieldTemplateAction(formData: FormData): Promise<Fie
     description: description || null,
     default_required: defaultRequired,
     position,
+    options,
   });
   if (error) return { ok: false, error: mapDbError(error.message, "Could not create field.") };
   revalidatePath("/settings");
@@ -126,11 +130,20 @@ export async function createFieldTemplateAction(formData: FormData): Promise<Fie
 
 export async function updateFieldTemplateAction(
   id: string,
-  payload: { label: string; field_type: ProgrammeFieldType; description: string; default_required: boolean },
+  payload: {
+    label: string;
+    field_type: ProgrammeFieldType;
+    description: string;
+    default_required: boolean;
+    options: string[];
+  },
 ): Promise<FieldTemplateActionResult> {
   if (!payload.label.trim()) return { ok: false, error: "Label is required." };
   if (!validFieldTypes.has(payload.field_type)) return { ok: false, error: "Invalid field type." };
   const supabase = await createClient();
+  const cleanedOptions = (payload.options ?? [])
+    .map((o) => String(o).trim())
+    .filter(Boolean);
   const { error } = await supabase
     .from("field_templates")
     .update({
@@ -138,6 +151,7 @@ export async function updateFieldTemplateAction(
       field_type: payload.field_type,
       description: payload.description.trim() || null,
       default_required: payload.default_required,
+      options: cleanedOptions,
       updated_at: new Date().toISOString(),
     })
     .eq("id", id);
@@ -145,6 +159,13 @@ export async function updateFieldTemplateAction(
   revalidatePath("/settings");
   revalidatePath("/programmes/new");
   return { ok: true };
+}
+
+function parseOptions(raw: string): string[] {
+  return raw
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
 }
 
 export async function deleteFieldTemplateAction(id: string): Promise<FieldTemplateActionResult> {

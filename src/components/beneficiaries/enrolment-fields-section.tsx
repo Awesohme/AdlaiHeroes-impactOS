@@ -124,6 +124,59 @@ export function EnrolmentFieldsSection({
   );
 }
 
+function parseMulti(value: string): string[] {
+  if (!value) return [];
+  return value
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function serializeMulti(values: string[]): string {
+  return values.join(", ");
+}
+
+function MultiSelectInput({
+  options,
+  value,
+  onChange,
+}: {
+  options: string[];
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  const selected = parseMulti(value);
+  const selectedSet = new Set(selected);
+
+  function toggle(option: string, checked: boolean) {
+    if (checked) {
+      if (selectedSet.has(option)) return;
+      onChange(serializeMulti([...selected, option]));
+    } else {
+      onChange(serializeMulti(selected.filter((s) => s !== option)));
+    }
+  }
+
+  return (
+    <div className="space-y-1.5 rounded-md border p-2.5">
+      {options.map((option) => (
+        <label
+          key={option}
+          className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/40 rounded px-1.5 py-1"
+        >
+          <input
+            type="checkbox"
+            checked={selectedSet.has(option)}
+            onChange={(event) => toggle(option, event.target.checked)}
+            className="h-4 w-4 rounded border-input"
+          />
+          <span>{option}</span>
+        </label>
+      ))}
+    </div>
+  );
+}
+
 function FieldInput({
   enrolmentId,
   row,
@@ -201,11 +254,36 @@ function FieldInput({
             placeholder="0"
           />
         ) : type === "select" ? (
-          <Input
-            value={draft}
-            onChange={(event) => onDraft(event.target.value)}
-            placeholder="Captured value"
-          />
+          row.options.length > 0 ? (
+            <Select
+              value={draft || "_unset"}
+              onValueChange={(v) => onDraft(v === "_unset" ? "" : v)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Pick a value" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_unset">Not recorded</SelectItem>
+                {row.options.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <p className="text-xs text-amber-700">
+              No options defined for this field. Add options in Settings → Field templates.
+            </p>
+          )
+        ) : type === "multi_select" ? (
+          row.options.length > 0 ? (
+            <MultiSelectInput options={row.options} value={draft} onChange={onDraft} />
+          ) : (
+            <p className="text-xs text-amber-700">
+              No options defined for this field. Add options in Settings → Field templates.
+            </p>
+          )
         ) : (
           <Textarea
             value={draft}

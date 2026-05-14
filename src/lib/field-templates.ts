@@ -13,6 +13,7 @@ export type FieldTemplate = {
   description: string;
   default_required: boolean;
   position: number;
+  options: string[];
 };
 
 export async function getFieldTemplates(): Promise<FieldTemplate[]> {
@@ -21,7 +22,9 @@ export async function getFieldTemplates(): Promise<FieldTemplate[]> {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("field_templates")
-      .select("id,field_key,label,field_type,description,default_required,position")
+      .select(
+        "id,field_key,label,field_type,description,default_required,position,options",
+      )
       .order("position", { ascending: true });
     if (error || !data || data.length === 0) return fallbackCatalog();
     return data.map((row) => ({
@@ -32,6 +35,7 @@ export async function getFieldTemplates(): Promise<FieldTemplate[]> {
       description: row.description ?? "",
       default_required: row.default_required,
       position: row.position,
+      options: Array.isArray(row.options) ? row.options.map((o: unknown) => String(o)) : [],
     }));
   } catch {
     return fallbackCatalog();
@@ -47,5 +51,6 @@ function fallbackCatalog(): FieldTemplate[] {
     description: entry.description,
     default_required: index < 4,
     position: index,
+    options: [],
   }));
 }

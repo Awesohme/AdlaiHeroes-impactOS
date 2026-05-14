@@ -13,6 +13,7 @@ export type ProgrammeFieldPayload = {
   position: number;
   enabled: boolean;
   required_from_stage_key?: string | null;
+  options?: string[];
 };
 
 export type SaveProgrammeState = {
@@ -42,6 +43,7 @@ const validFieldTypes = new Set<ProgrammeFieldType>([
   "text",
   "number",
   "select",
+  "multi_select",
   "yes_no",
   "location",
   "image",
@@ -231,6 +233,7 @@ export async function saveProgrammeAction(
     field_type: field.field_type,
     required: field.required,
     required_from_stage_key: field.required_from_stage_key ?? null,
+    options: field.options ?? [],
     position: index,
     enabled: true,
   }));
@@ -345,6 +348,9 @@ function parseProgrammeFields(raw: string): ProgrammeFieldPayload[] {
         required_from_stage_key: item.required_from_stage_key
           ? String(item.required_from_stage_key)
           : null,
+        options: Array.isArray(item.options)
+          ? item.options.map((o: unknown) => String(o).trim()).filter(Boolean)
+          : [],
       }))
       .filter((item) => item.field_key && item.label && validFieldTypes.has(item.field_type));
   } catch {

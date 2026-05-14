@@ -3,9 +3,10 @@
 import { useRef, useState, useTransition } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import { Button } from "@/components/ui/button";
-import { ExternalLink, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { uploadEnrolmentSignatureAction } from "@/app/(protected)/beneficiaries/actions";
 import { cn } from "@/lib/utils";
+import { MediaPreview } from "@/components/media-preview";
 
 export function SignatureInput({
   enrolmentId,
@@ -52,14 +53,7 @@ export function SignatureInput({
   return (
     <div className="space-y-2">
       {existingId ? (
-        <a
-          href={`https://drive.google.com/file/d/${existingId}/view`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-        >
-          View current signature <ExternalLink className="h-3 w-3" />
-        </a>
+        <MediaPreview driveFileId={existingId} label="Current signature" size="sm" />
       ) : null}
       <div className="rounded-md border bg-background">
         <SignatureCanvas

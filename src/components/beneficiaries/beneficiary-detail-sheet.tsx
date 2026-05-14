@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ExternalLink, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import {
   SCORECARD_RUBRICS,
   SCORECARD_WEIGHTS,
@@ -43,6 +43,7 @@ import { InfoTooltip } from "@/components/info-tooltip";
 import { BeneficiaryNotesSection } from "@/components/beneficiaries/beneficiary-notes-section";
 import { EnrolmentFieldsSection } from "@/components/beneficiaries/enrolment-fields-section";
 import { BeneficiaryAvatar } from "@/components/beneficiaries/beneficiary-avatar";
+import { MediaPreview } from "@/components/media-preview";
 import {
   uploadBeneficiaryProfileImageAction,
 } from "@/app/(protected)/beneficiaries/actions";
@@ -536,14 +537,12 @@ export function BeneficiaryDetailSheet({
                   </p>
                 ) : null}
                 {consentDriveFileId ? (
-                  <a
-                    href={`https://drive.google.com/file/d/${consentDriveFileId}/view`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-                  >
-                    View consent file <ExternalLink className="h-3 w-3" />
-                  </a>
+                  <MediaPreview
+                    driveFileId={consentDriveFileId}
+                    label="Consent on file"
+                    size="sm"
+                    className="mt-1"
+                  />
                 ) : null}
               </div>
               {consentEnrolmentReady ? (

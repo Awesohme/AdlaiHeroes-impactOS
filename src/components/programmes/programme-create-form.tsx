@@ -45,8 +45,24 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { ArrowDown, ArrowUp, Loader2, Plus, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Loader2, Plus, Settings, X } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+
+function typeAcceptsOptions(type: string) {
+  return type === "select" || type === "multi_select";
+}
+
+function optionsToText(options: string[]): string {
+  return options.join("\n");
+}
+
+function textToOptions(text: string): string[] {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
 
 const initialState: SaveProgrammeState = {};
 
@@ -402,53 +418,108 @@ export function ProgrammeCreateForm({
                               </button>
                             </div>
                             <div className="min-w-0 flex-1">
-                              <p className="text-sm font-medium truncate">{field.label}</p>
+                              <p className="text-sm font-medium truncate">
+                                {field.label}
+                                {field.required ? (
+                                  <span className="text-destructive ml-0.5">*</span>
+                                ) : null}
+                              </p>
                               <p className="text-xs text-muted-foreground">
-                                {field.field_type.replace("_", "/")}
+                                {field.field_type.replace("_", " ")}
+                                {field.required && field.required_from_stage_key
+                                  ? ` · from ${
+                                      stageOptions.find(
+                                        (stage) => stage.key === field.required_from_stage_key,
+                                      )?.label ?? field.required_from_stage_key
+                                    }`
+                                  : null}
+                                {typeAcceptsOptions(field.field_type) &&
+                                (field.options?.length ?? 0) === 0
+                                  ? " · no options"
+                                  : null}
                               </p>
                             </div>
-                            <div className="flex items-center gap-2 text-xs">
-                              <label className="flex items-center gap-1.5">
-                                <input
-                                  type="checkbox"
-                                  checked={field.required}
-                                  onChange={() =>
-                                    toggleFieldRequired(field.field_key, setSelectedFields)
-                                  }
-                                  className="h-3.5 w-3.5 rounded border-input"
-                                />
-                                Required
-                              </label>
-                              {field.required && stageOptions.length > 0 ? (
-                                <Select
-                                  value={field.required_from_stage_key ?? "_always"}
-                                  onValueChange={(next) =>
-                                    setFieldRequiredFrom(
-                                      field.field_key,
-                                      next === "_always" ? null : next,
-                                      setSelectedFields,
-                                    )
-                                  }
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0"
+                                  aria-label="Field settings"
                                 >
-                                  <SelectTrigger className="h-7 w-[160px] text-xs">
-                                    <SelectValue placeholder="From" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="_always">Always required</SelectItem>
-                                    {stageOptions.map((stage) => (
-                                      <SelectItem key={stage.key} value={stage.key}>
-                                        From {stage.label}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              ) : null}
-                            </div>
+                                  <Settings className="h-3.5 w-3.5" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-72 space-y-3">
+                                <label className="flex items-center gap-2 text-sm">
+                                  <input
+                                    type="checkbox"
+                                    checked={field.required}
+                                    onChange={() =>
+                                      toggleFieldRequired(field.field_key, setSelectedFields)
+                                    }
+                                    className="h-4 w-4 rounded border-input"
+                                  />
+                                  Required
+                                </label>
+                                {field.required && stageOptions.length > 0 ? (
+                                  <div className="space-y-1.5">
+                                    <Label className="text-xs">Required from stage</Label>
+                                    <Select
+                                      value={field.required_from_stage_key ?? "_always"}
+                                      onValueChange={(next) =>
+                                        setFieldRequiredFrom(
+                                          field.field_key,
+                                          next === "_always" ? null : next,
+                                          setSelectedFields,
+                                        )
+                                      }
+                                    >
+                                      <SelectTrigger className="h-8 text-xs">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="_always">Always required</SelectItem>
+                                        {stageOptions.map((stage) => (
+                                          <SelectItem key={stage.key} value={stage.key}>
+                                            From {stage.label}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                ) : null}
+                                {typeAcceptsOptions(field.field_type) ? (
+                                  <div className="space-y-1.5">
+                                    <Label className="text-xs">Options (one per line)</Label>
+                                    <Textarea
+                                      value={optionsToText(field.options ?? [])}
+                                      onChange={(event) =>
+                                        setFieldOptions(
+                                          field.field_key,
+                                          textToOptions(event.target.value),
+                                          setSelectedFields,
+                                        )
+                                      }
+                                      rows={4}
+                                      className="text-xs"
+                                      placeholder={"Received\nPending\nDeclined"}
+                                    />
+                                    <p className="text-[10px] text-muted-foreground">
+                                      Avoid commas — they collide with the multi-select separator.
+                                    </p>
+                                  </div>
+                                ) : null}
+                              </PopoverContent>
+                            </Popover>
                             <Button
                               type="button"
                               size="sm"
                               variant="ghost"
+                              className="h-7 w-7 p-0"
                               onClick={() => removeField(field.field_key, setSelectedFields)}
+                              aria-label="Remove field"
                             >
                               <X className="h-3 w-3" />
                             </Button>
@@ -793,6 +864,7 @@ function buildDefaultFieldSet(catalog: FieldTemplate[]): ProgrammeDataFieldRow[]
       required: true,
       position: index,
       enabled: true,
+      options: field.options ?? [],
     }));
 }
 
@@ -839,8 +911,21 @@ function addField(
       required: false,
       position: current.length,
       enabled: true,
+      options: definition.options ?? [],
     },
   ]);
+}
+
+function setFieldOptions(
+  fieldKey: string,
+  options: string[],
+  setSelectedFields: Dispatch<SetStateAction<ProgrammeDataFieldRow[]>>,
+) {
+  setSelectedFields((current) =>
+    current.map((field) =>
+      field.field_key === fieldKey ? { ...field, options } : field,
+    ),
+  );
 }
 
 function removeField(
