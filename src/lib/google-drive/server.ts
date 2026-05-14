@@ -333,6 +333,55 @@ export async function uploadBeneficiaryPhotoToDrive({
   };
 }
 
+type UploadEnrolmentAssetInput = {
+  file: File;
+  beneficiaryCode: string;
+  beneficiaryName: string;
+  fieldKey: string;
+  subfolder: "Signatures" | "Field Images";
+};
+
+type UploadEnrolmentAssetResult = {
+  fileId: string;
+  fileName: string;
+  fileSizeBytes: number;
+  mimeType: string;
+  driveFolderId: string;
+};
+
+export async function uploadEnrolmentAssetToDrive({
+  file,
+  beneficiaryCode,
+  beneficiaryName,
+  subfolder,
+}: UploadEnrolmentAssetInput): Promise<UploadEnrolmentAssetResult> {
+  const mimeType = file.type || "application/octet-stream";
+  const rootFolder = await findOrCreateFolder({
+    folderName: "Beneficiary Photos",
+    parentId: getRequiredRootFolderId(),
+  });
+  const beneficiaryFolder = await findOrCreateFolder({
+    folderName: formatBeneficiaryFolderName(beneficiaryCode, beneficiaryName),
+    parentId: rootFolder.id,
+  });
+  const assetFolder = await findOrCreateFolder({
+    folderName: subfolder,
+    parentId: beneficiaryFolder.id,
+  });
+  const uploaded = await uploadFile({
+    file,
+    parentId: assetFolder.id,
+    mimeType,
+  });
+  return {
+    fileId: uploaded.id,
+    fileName: uploaded.name,
+    fileSizeBytes: Number(uploaded.size ?? file.size ?? 0),
+    mimeType: uploaded.mimeType || mimeType,
+    driveFolderId: assetFolder.id,
+  };
+}
+
 async function resolveEvidenceTypeFolder(programmeFolderId: string, evidenceType: string) {
   const subfolder = evidenceTypeFolderName(evidenceType);
 

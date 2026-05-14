@@ -12,6 +12,7 @@ export type ProgrammeFieldPayload = {
   required: boolean;
   position: number;
   enabled: boolean;
+  required_from_stage_key?: string | null;
 };
 
 export type SaveProgrammeState = {
@@ -204,32 +205,59 @@ export async function saveProgrammeAction(
 
   const programmeId = savedProgramme.id;
 
-  const { error: deleteError } = await supabase.from("programme_data_fields").delete().eq("programme_id", programmeId);
+  // Upsert-and-disable strategy: preserve rows for keys the admin removed
+  // so historical enrolment_field_values still surface to officers.
+  const { data: existingFields, error: existingError } = await supabase
+    .from("programme_data_fields")
+    .select("field_key")
+    .eq("programme_id", programmeId);
 
-  if (deleteError && !deleteError.message.includes("does not exist")) {
+  if (existingError && !existingError.message.includes("does not exist")) {
     return {
-      error: mapSaveError(deleteError.message),
+      error: mapSaveError(existingError.message),
       fields,
     };
   }
 
-  const fieldRows = dataFields.map((field, index) => ({
+  const submittedKeys = new Set(dataFields.map((f) => f.field_key));
+  const removedKeys = (existingFields ?? [])
+    .map((row) => row.field_key)
+    .filter((key) => !submittedKeys.has(key));
+
+  const upsertRows = dataFields.map((field, index) => ({
     programme_id: programmeId,
     field_key: field.field_key,
     label: field.label,
     field_type: field.field_type,
     required: field.required,
+    required_from_stage_key: field.required_from_stage_key ?? null,
     position: index,
-    enabled: field.enabled,
+    enabled: true,
   }));
 
-  const { error: fieldError } = await supabase.from("programme_data_fields").insert(fieldRows);
+  const { error: fieldError } = await supabase
+    .from("programme_data_fields")
+    .upsert(upsertRows, { onConflict: "programme_id,field_key" });
 
   if (fieldError) {
     return {
       error: mapSaveError(fieldError.message),
       fields,
     };
+  }
+
+  if (removedKeys.length > 0) {
+    const { error: disableError } = await supabase
+      .from("programme_data_fields")
+      .update({ enabled: false })
+      .eq("programme_id", programmeId)
+      .in("field_key", removedKeys);
+    if (disableError) {
+      return {
+        error: mapSaveError(disableError.message),
+        fields,
+      };
+    }
   }
 
   let flyerWarning = false;
@@ -314,6 +342,9 @@ function parseProgrammeFields(raw: string): ProgrammeFieldPayload[] {
         required: Boolean(item.required),
         position: Number(item.position ?? index),
         enabled: item.enabled !== false,
+        required_from_stage_key: item.required_from_stage_key
+          ? String(item.required_from_stage_key)
+          : null,
       }))
       .filter((item) => item.field_key && item.label && validFieldTypes.has(item.field_type));
   } catch {

@@ -14,6 +14,7 @@ export type ProgrammeDataFieldRow = {
   label: string;
   field_type: ProgrammeFieldType;
   required: boolean;
+  required_from_stage_key?: string | null;
   position: number;
   enabled: boolean;
 };
@@ -103,6 +104,7 @@ const programmeSelect = `
     label,
     field_type,
     required,
+    required_from_stage_key,
     position,
     enabled
   )
@@ -134,6 +136,7 @@ const legacyProgrammeSelect = `
     label,
     field_type,
     required,
+    required_from_stage_key,
     position,
     enabled
   )

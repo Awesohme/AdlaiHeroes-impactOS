@@ -1,6 +1,14 @@
 "use client";
 
-import { useActionState, useMemo, useState, useTransition, type Dispatch, type SetStateAction } from "react";
+import {
+  useActionState,
+  useEffect as useEffectReact,
+  useMemo,
+  useState,
+  useTransition,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
@@ -13,6 +21,7 @@ import {
 import type { FieldTemplate } from "@/lib/field-templates";
 import type { ProgrammeDataFieldRow, ProgrammeRow } from "@/lib/programmes";
 import { saveProgrammeAction, type SaveProgrammeState } from "@/app/(protected)/programmes/new/actions";
+import { listStagesAction } from "@/app/(protected)/programmes/actions";
 import {
   archiveProgrammeAction,
   restoreProgrammeAction,
@@ -73,6 +82,17 @@ export function ProgrammeCreateForm({
   const [selectedLocations, setSelectedLocations] = useState<string[]>(initialLocations);
   const [enabledModules, setEnabledModules] = useState<ProgrammeModuleKey[]>(initialModules);
   const [selectedFields, setSelectedFields] = useState<ProgrammeDataFieldRow[]>(initialFields);
+  const [stageOptions, setStageOptions] = useState<Array<{ key: string; label: string }>>([]);
+
+  useEffectReact(() => {
+    if (!initialProgramme?.id) {
+      setStageOptions([]);
+      return;
+    }
+    listStagesAction(initialProgramme.id).then((rows) =>
+      setStageOptions(rows.map((row) => ({ key: row.key, label: row.label }))),
+    );
+  }, [initialProgramme?.id]);
   const [name, setName] = useState(state.fields?.name ?? initialProgramme?.name ?? "");
   const [programmeType, setProgrammeType] = useState(
     state.fields?.programme_type ?? initialProgramme?.programme_type ?? programmeTypes[0] ?? "Education Support",
@@ -387,17 +407,43 @@ export function ProgrammeCreateForm({
                                 {field.field_type.replace("_", "/")}
                               </p>
                             </div>
-                            <label className="flex items-center gap-1.5 text-xs">
-                              <input
-                                type="checkbox"
-                                checked={field.required}
-                                onChange={() =>
-                                  toggleFieldRequired(field.field_key, setSelectedFields)
-                                }
-                                className="h-3.5 w-3.5 rounded border-input"
-                              />
-                              Required
-                            </label>
+                            <div className="flex items-center gap-2 text-xs">
+                              <label className="flex items-center gap-1.5">
+                                <input
+                                  type="checkbox"
+                                  checked={field.required}
+                                  onChange={() =>
+                                    toggleFieldRequired(field.field_key, setSelectedFields)
+                                  }
+                                  className="h-3.5 w-3.5 rounded border-input"
+                                />
+                                Required
+                              </label>
+                              {field.required && stageOptions.length > 0 ? (
+                                <Select
+                                  value={field.required_from_stage_key ?? "_always"}
+                                  onValueChange={(next) =>
+                                    setFieldRequiredFrom(
+                                      field.field_key,
+                                      next === "_always" ? null : next,
+                                      setSelectedFields,
+                                    )
+                                  }
+                                >
+                                  <SelectTrigger className="h-7 w-[160px] text-xs">
+                                    <SelectValue placeholder="From" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="_always">Always required</SelectItem>
+                                    {stageOptions.map((stage) => (
+                                      <SelectItem key={stage.key} value={stage.key}>
+                                        From {stage.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              ) : null}
+                            </div>
                             <Button
                               type="button"
                               size="sm"
@@ -829,7 +875,25 @@ function toggleFieldRequired(
 ) {
   setSelectedFields((current) =>
     current.map((field) =>
-      field.field_key === fieldKey ? { ...field, required: !field.required } : field,
+      field.field_key === fieldKey
+        ? {
+            ...field,
+            required: !field.required,
+            required_from_stage_key: !field.required ? field.required_from_stage_key ?? null : null,
+          }
+        : field,
+    ),
+  );
+}
+
+function setFieldRequiredFrom(
+  fieldKey: string,
+  stageKey: string | null,
+  setSelectedFields: Dispatch<SetStateAction<ProgrammeDataFieldRow[]>>,
+) {
+  setSelectedFields((current) =>
+    current.map((field) =>
+      field.field_key === fieldKey ? { ...field, required_from_stage_key: stageKey } : field,
     ),
   );
 }

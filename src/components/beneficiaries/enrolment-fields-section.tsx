@@ -19,6 +19,9 @@ import {
   saveEnrolmentFieldValueAction,
   type EnrolmentFieldRow,
 } from "@/app/(protected)/beneficiaries/actions";
+import { LocationInput } from "@/components/enrolment-fields/location-input";
+import { SignatureInput } from "@/components/enrolment-fields/signature-input";
+import { ImageInput } from "@/components/enrolment-fields/image-input";
 import { cn } from "@/lib/utils";
 
 export function EnrolmentFieldsSection({
@@ -47,9 +50,7 @@ export function EnrolmentFieldsSection({
 
   if (!enrolmentId) return null;
   if (loading) {
-    return (
-      <p className="text-xs text-muted-foreground py-2">Loading programme data…</p>
-    );
+    return <p className="text-xs text-muted-foreground py-2">Loading programme data…</p>;
   }
   if (rows.length === 0) {
     return (
@@ -84,15 +85,27 @@ export function EnrolmentFieldsSection({
     });
   }
 
+  function applyAssetValue(fieldKey: string, driveFileId: string) {
+    const newValue = `drive:${driveFileId}`;
+    setRows((current) =>
+      current.map((row) =>
+        row.field_key === fieldKey ? { ...row, value: newValue } : row,
+      ),
+    );
+    setDrafts((current) => ({ ...current, [fieldKey]: newValue }));
+  }
+
   return (
     <div className="space-y-3">
       {rows.map((row) => (
         <FieldInput
           key={row.field_key}
+          enrolmentId={enrolmentId!}
           row={row}
           draft={drafts[row.field_key] ?? ""}
           onDraft={(value) => setDrafts((d) => ({ ...d, [row.field_key]: value }))}
           onSave={() => save(row.field_key)}
+          onAssetSaved={(id) => applyAssetValue(row.field_key, id)}
           saving={pending && savingKey === row.field_key}
           disabled={pending && savingKey !== row.field_key}
         />
@@ -112,89 +125,113 @@ export function EnrolmentFieldsSection({
 }
 
 function FieldInput({
+  enrolmentId,
   row,
   draft,
   onDraft,
   onSave,
+  onAssetSaved,
   saving,
   disabled,
 }: {
+  enrolmentId: string;
   row: EnrolmentFieldRow;
   draft: string;
   onDraft: (value: string) => void;
   onSave: () => void;
+  onAssetSaved: (driveFileId: string) => void;
   saving: boolean;
   disabled: boolean;
 }) {
   const dirty = draft !== (row.value ?? "");
   const type = row.field_type;
+  const archived = row.archived;
+  const isAsset = type === "image" || type === "signature";
+
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between gap-2">
-        <Label className="text-xs">
+    <div className={cn("space-y-1.5", archived && "opacity-80")}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Label className="text-xs inline-flex items-center gap-1.5">
           {row.label}
           {row.required ? <span className="text-destructive ml-0.5">*</span> : null}
+          {archived ? (
+            <Badge variant="secondary" className="font-normal text-[10px]">
+              Archived field
+            </Badge>
+          ) : null}
         </Label>
         <Badge variant="outline" className="font-normal text-[10px]">
           {type.replace("_", " ")}
         </Badge>
       </div>
-      <div className="flex gap-2">
-        <div className="flex-1">
-          {type === "yes_no" ? (
-            <Select value={draft || "_unset"} onValueChange={(v) => onDraft(v === "_unset" ? "" : v)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="_unset">Not recorded</SelectItem>
-                <SelectItem value="yes">Yes</SelectItem>
-                <SelectItem value="no">No</SelectItem>
-              </SelectContent>
-            </Select>
-          ) : type === "select" ? (
-            <Input
-              value={draft}
-              onChange={(event) => onDraft(event.target.value)}
-              placeholder="Captured value"
-            />
-          ) : type === "number" ? (
-            <Input
-              type="number"
-              inputMode="numeric"
-              value={draft}
-              onChange={(event) => onDraft(event.target.value)}
-              placeholder="0"
-            />
-          ) : type === "location" ? (
-            <Textarea
-              value={draft}
-              onChange={(event) => onDraft(event.target.value)}
-              placeholder="Coordinates, area, or descriptive location"
-              rows={2}
-            />
-          ) : type === "image" || type === "signature" ? (
-            <p className="text-xs text-muted-foreground italic">
-              {type === "image" ? "Image capture coming soon — use the beneficiary's profile image for now." : "Signature capture coming soon."}
-            </p>
-          ) : (
-            <Input
-              value={draft}
-              onChange={(event) => onDraft(event.target.value)}
-              placeholder="Captured value"
-            />
-          )}
-        </div>
-        {type !== "image" && type !== "signature" ? (
-          <Button
-            type="button"
-            size="sm"
-            variant={dirty ? "default" : "ghost"}
-            onClick={onSave}
-            disabled={!dirty || saving || disabled}
-          >
-            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : dirty ? "Save" : "✓"}
-          </Button>
+      <div className="space-y-2">
+        {type === "signature" ? (
+          <SignatureInput
+            enrolmentId={enrolmentId}
+            fieldKey={row.field_key}
+            value={row.value}
+            onSaved={onAssetSaved}
+          />
+        ) : type === "image" ? (
+          <ImageInput
+            enrolmentId={enrolmentId}
+            fieldKey={row.field_key}
+            value={row.value}
+            onSaved={onAssetSaved}
+          />
+        ) : type === "location" ? (
+          <LocationInput value={draft} onChange={onDraft} />
+        ) : type === "yes_no" ? (
+          <Select value={draft || "_unset"} onValueChange={(v) => onDraft(v === "_unset" ? "" : v)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_unset">Not recorded</SelectItem>
+              <SelectItem value="yes">Yes</SelectItem>
+              <SelectItem value="no">No</SelectItem>
+            </SelectContent>
+          </Select>
+        ) : type === "number" ? (
+          <Input
+            type="number"
+            inputMode="numeric"
+            value={draft}
+            onChange={(event) => onDraft(event.target.value)}
+            placeholder="0"
+          />
+        ) : type === "select" ? (
+          <Input
+            value={draft}
+            onChange={(event) => onDraft(event.target.value)}
+            placeholder="Captured value"
+          />
+        ) : (
+          <Textarea
+            value={draft}
+            onChange={(event) => onDraft(event.target.value)}
+            rows={1}
+            placeholder="Captured value"
+          />
+        )}
+        {!isAsset ? (
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              size="sm"
+              variant={dirty ? "default" : "ghost"}
+              onClick={onSave}
+              disabled={!dirty || saving || disabled}
+            >
+              {saving ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : dirty ? (
+                "Save"
+              ) : (
+                "Saved"
+              )}
+            </Button>
+          </div>
         ) : null}
       </div>
     </div>

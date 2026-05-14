@@ -16,12 +16,12 @@ import {
 } from "@/lib/programme-pipeline";
 import {
   clearBeneficiaryConsentAction,
-  moveEnrolmentStageAction,
   uploadConsentEvidenceAction,
   upsertScorecardAction,
 } from "@/app/(protected)/beneficiaries/actions";
 import { BeneficiaryNotesSection } from "@/components/beneficiaries/beneficiary-notes-section";
 import { BeneficiaryAvatar } from "@/components/beneficiaries/beneficiary-avatar";
+import { StagePicker } from "@/components/pipeline/stage-picker";
 import { EnrolmentFieldsSection } from "@/components/beneficiaries/enrolment-fields-section";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
@@ -70,26 +70,6 @@ export function PipelineSidePanel({
         Pick a beneficiary card to start processing.
       </div>
     );
-  }
-
-  const currentIndex = stages.findIndex((s) => s.id === enrolment.stage_id);
-  const canMoveBack = currentIndex > 0;
-  const canMoveForward = currentIndex >= 0 && currentIndex < stages.length - 1;
-  const prevStage = canMoveBack ? stages[currentIndex - 1] : null;
-  const nextStage = canMoveForward ? stages[currentIndex + 1] : null;
-  const currentStage = currentIndex >= 0 ? stages[currentIndex] : null;
-
-  function moveStage(stageId: string | null) {
-    setFeedback(null);
-    startTransition(async () => {
-      const result = await moveEnrolmentStageAction(enrolment!.enrolment_id, stageId);
-      if (result.ok) {
-        setFeedback("Stage updated.");
-        router.refresh();
-      } else {
-        setFeedback(result.error);
-      }
-    });
   }
 
   function uploadConsent() {
@@ -180,37 +160,12 @@ export function PipelineSidePanel({
       </header>
 
       <Section title="Move stage">
-        <div className="grid gap-2 text-xs sm:grid-cols-3">
-          <StageContext label="Previous" value={prevStage?.label ?? "None"} />
-          <StageContext label="Current" value={currentStage?.label ?? "Unstaged"} active />
-          <StageContext label="Next" value={nextStage?.label ?? "None"} />
-        </div>
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={!canMoveBack || pending}
-            onClick={() => prevStage && moveStage(prevStage.id)}
-            className="flex-1"
-          >
-            Previous: {prevStage?.label ?? "None"}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            disabled={!canMoveForward || pending}
-            onClick={() => nextStage && moveStage(nextStage.id)}
-            className="flex-1"
-          >
-            Next: {nextStage?.label ?? "None"}
-          </Button>
-        </div>
-        {!stages.length ? (
-          <p className="text-xs text-muted-foreground">
-            Define stages on the programme first.
-          </p>
-        ) : null}
+        <StagePicker
+          enrolmentId={enrolment.enrolment_id}
+          currentStageId={enrolment.stage_id}
+          stages={stages}
+          onMoved={() => router.refresh()}
+        />
       </Section>
 
       <Section title="Programme data">
@@ -359,23 +314,6 @@ export function PipelineSidePanel({
           {feedback}
         </p>
       ) : null}
-    </div>
-  );
-}
-
-function StageContext({
-  label,
-  value,
-  active = false,
-}: {
-  label: string;
-  value: string;
-  active?: boolean;
-}) {
-  return (
-    <div className={cn("rounded-md border p-2", active && "border-primary/40 bg-primary/5")}>
-      <p className="uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className="mt-1 font-medium text-foreground">{value}</p>
     </div>
   );
 }
