@@ -10,6 +10,9 @@ import { getFieldTemplates } from "@/lib/field-templates";
 import { FieldTemplatesTab } from "@/components/settings/field-templates-tab";
 import { getProgrammeTypes } from "@/lib/programme-types";
 import { ProgrammeTypesTab } from "@/components/settings/programme-types-tab";
+import { UsersTab, type UserRow } from "@/components/settings/users-tab";
+import { getCurrentProfile } from "@/lib/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -49,10 +52,25 @@ export default async function SettingsPage({
 }) {
   const params = (await searchParams) ?? {};
   const drive = getGoogleDriveEnvStatus();
-  const [fieldTemplates, programmeTypes] = await Promise.all([
+  const [fieldTemplates, programmeTypes, currentProfile] = await Promise.all([
     getFieldTemplates(),
     getProgrammeTypes({ includeInactive: true }),
+    getCurrentProfile(),
   ]);
+  const isAdmin = currentProfile?.role === "admin" && currentProfile.is_active;
+  let users: UserRow[] = [];
+  if (isAdmin) {
+    try {
+      const admin = createAdminClient();
+      const { data } = await admin
+        .from("profiles")
+        .select("id, full_name, email, username, role, is_active")
+        .order("created_at", { ascending: true });
+      users = (data ?? []) as UserRow[];
+    } catch {
+      users = [];
+    }
+  }
   const driveReady = hasGoogleDriveServerEnv();
   const driveOk = params.drive_test === "ok";
   const driveError = params.drive_test === "error";
@@ -152,6 +170,7 @@ export default async function SettingsPage({
         <TabsList className="max-w-full overflow-x-auto">
           <TabsTrigger value="fields">Field templates</TabsTrigger>
           <TabsTrigger value="programme-types">Programme types</TabsTrigger>
+          {isAdmin ? <TabsTrigger value="users">Users</TabsTrigger> : null}
           <TabsTrigger value="platform">Platform</TabsTrigger>
           {diagnostics ? <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger> : null}
         </TabsList>
@@ -163,6 +182,12 @@ export default async function SettingsPage({
         <TabsContent value="programme-types">
           <ProgrammeTypesTab initial={programmeTypes} />
         </TabsContent>
+
+        {isAdmin && currentProfile ? (
+          <TabsContent value="users">
+            <UsersTab initial={users} currentUserId={currentProfile.id} />
+          </TabsContent>
+        ) : null}
 
         <TabsContent value="platform" className="space-y-4">
           <Card>

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertCircle } from "lucide-react";
 
@@ -10,6 +12,8 @@ const authErrors: Record<string, string> = {
   missing_code: "Google sign-in returned without an authorization code.",
   oauth: "Google sign-in could not be started from the server route.",
   session: "Sign-in completed, but no durable session was found on the next request.",
+  not_invited: "This account is not invited. Ask an admin to add you first.",
+  invalid_credentials: "Username or password is incorrect.",
 };
 
 export default async function LoginPage({
@@ -52,8 +56,45 @@ export default async function LoginPage({
             </div>
           ) : null}
           <Button asChild className="w-full">
-            <Link href={`/auth/sign-in${next}`}>Continue with Google</Link>
+            <Link href={`/auth/sign-in${next}`}>Continue with Adlai Google</Link>
           </Button>
+
+          <div className="relative my-2">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase tracking-wider">
+              <span className="bg-background px-2 text-muted-foreground">or</span>
+            </div>
+          </div>
+
+          <form method="post" action="/auth/username-sign-in" className="space-y-3">
+            {params?.next ? <input type="hidden" name="next" value={params.next} /> : null}
+            <div className="space-y-1.5">
+              <Label htmlFor="username" className="text-xs">Username</Label>
+              <Input
+                id="username"
+                name="username"
+                autoComplete="username"
+                placeholder="your.handle"
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="password" className="text-xs">Password</Label>
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                required
+              />
+            </div>
+            <Button type="submit" variant="outline" className="w-full">
+              Sign in with username
+            </Button>
+          </form>
+
           <div className="flex justify-center gap-4 text-xs text-muted-foreground">
             <Link href="/auth/debug" className="hover:underline">
               Auth debug
