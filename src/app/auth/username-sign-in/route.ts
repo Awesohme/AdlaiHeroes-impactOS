@@ -4,10 +4,16 @@ import { createRouteClient } from "@/lib/supabase/route";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const USERNAME_PATTERN = /^[a-z0-9_.-]{3,32}$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(request: NextRequest) {
   const form = await request.formData();
-  const rawUsername = String(form.get("username") ?? "").trim().toLowerCase();
+  // Accept either "username" or "identifier" — the form may post either name.
+  const rawIdentifier = String(
+    form.get("identifier") ?? form.get("username") ?? "",
+  )
+    .trim()
+    .toLowerCase();
   const password = String(form.get("password") ?? "");
   const next = sanitizeNextPath(String(form.get("next") ?? ""));
 
@@ -17,17 +23,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.redirect(url, { status: 303 });
   }
 
-  if (!rawUsername || !password) return fail("invalid_credentials");
-  if (!USERNAME_PATTERN.test(rawUsername)) return fail("invalid_credentials");
+  if (!rawIdentifier || !password) return fail("invalid_credentials");
+
+  const looksLikeEmail = EMAIL_PATTERN.test(rawIdentifier);
+  if (!looksLikeEmail && !USERNAME_PATTERN.test(rawIdentifier)) {
+    return fail("invalid_credentials");
+  }
 
   let email: string;
   try {
     const admin = createAdminClient();
-    const { data } = await admin
+    const query = admin
       .from("profiles")
       .select("email, is_active")
-      .eq("username", rawUsername)
-      .maybeSingle();
+      .eq("is_active", true);
+    const { data } = await (looksLikeEmail
+      ? query.ilike("email", rawIdentifier)
+      : query.eq("username", rawIdentifier)
+    ).maybeSingle();
     if (!data || !data.is_active || !data.email) return fail("invalid_credentials");
     email = data.email;
   } catch {

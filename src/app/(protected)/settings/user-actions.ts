@@ -2,9 +2,36 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin, type AppRole } from "@/lib/auth";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient, MissingServiceRoleError } from "@/lib/supabase/admin";
+
+const SERVICE_KEY_ERROR =
+  "Server can't reach Supabase admin. Check SUPABASE_SERVICE_ROLE_KEY on Vercel — it must be the service_role key (not the anon key) and the deployment must be redeployed after changing it.";
+
+function safeAdminClient(): { admin: ReturnType<typeof createAdminClient> | null; error: string | null } {
+  try {
+    return { admin: createAdminClient(), error: null };
+  } catch (err) {
+    if (err instanceof MissingServiceRoleError) {
+      return { admin: null, error: SERVICE_KEY_ERROR };
+    }
+    return { admin: null, error: err instanceof Error ? err.message : "Admin client init failed." };
+  }
+}
 
 export type UserActionResult = { ok: true } | { ok: false; error: string };
+
+export type InvitedUser = {
+  id: string;
+  full_name: string;
+  email: string;
+  username: string;
+  role: AppRole;
+  is_active: true;
+};
+
+export type InviteUserResult =
+  | { ok: true; user: InvitedUser }
+  | { ok: false; error: string };
 
 const VALID_ROLES: AppRole[] = [
   "admin",
@@ -21,7 +48,13 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 function mapError(message: string | undefined, fallback: string): string {
   if (!message) return fallback;
   const lower = message.toLowerCase();
-  if (lower.includes("duplicate key") || lower.includes("already exists") || lower.includes("already been registered")) {
+  if (lower.includes("invalid api key") || lower.includes("jwt") || lower.includes("service role")) {
+    return SERVICE_KEY_ERROR;
+  }
+  if (lower.includes("user not allowed") || lower.includes("not authorized") || lower.includes("insufficient")) {
+    return "This account isn't allowed to manage users.";
+  }
+  if (lower.includes("duplicate key") || lower.includes("already exists") || lower.includes("already been registered") || lower.includes("already registered")) {
     if (lower.includes("username")) return "That username is already taken.";
     if (lower.includes("email") || lower.includes("users_email")) return "That email already has an account.";
     return "A user with that username or email already exists.";
@@ -30,8 +63,7 @@ function mapError(message: string | undefined, fallback: string): string {
   return message;
 }
 
-async function activeAdminCount(): Promise<number> {
-  const admin = createAdminClient();
+async function activeAdminCount(admin: ReturnType<typeof createAdminClient>): Promise<number> {
   const { count } = await admin
     .from("profiles")
     .select("id", { count: "exact", head: true })
@@ -40,7 +72,7 @@ async function activeAdminCount(): Promise<number> {
   return count ?? 0;
 }
 
-export async function inviteUserAction(formData: FormData): Promise<UserActionResult> {
+export async function inviteUserAction(formData: FormData): Promise<InviteUserResult> {
   try {
     await requireAdmin();
   } catch {
@@ -61,7 +93,8 @@ export async function inviteUserAction(formData: FormData): Promise<UserActionRe
   if (password.length < 8) return { ok: false, error: "Password must be at least 8 characters." };
   if (!VALID_ROLES.includes(role)) return { ok: false, error: "Invalid role." };
 
-  const admin = createAdminClient();
+  const { admin, error: adminError } = safeAdminClient();
+  if (!admin) return { ok: false, error: adminError ?? SERVICE_KEY_ERROR };
 
   const { data: existingUsername } = await admin
     .from("profiles")
@@ -99,7 +132,17 @@ export async function inviteUserAction(formData: FormData): Promise<UserActionRe
   }
 
   revalidatePath("/settings");
-  return { ok: true };
+  return {
+    ok: true,
+    user: {
+      id: created.user.id,
+      full_name: fullName,
+      email,
+      username,
+      role,
+      is_active: true,
+    },
+  };
 }
 
 export async function updateUserRoleAction(
@@ -113,7 +156,8 @@ export async function updateUserRoleAction(
   }
   if (!VALID_ROLES.includes(role)) return { ok: false, error: "Invalid role." };
 
-  const admin = createAdminClient();
+  const { admin, error: adminError } = safeAdminClient();
+  if (!admin) return { ok: false, error: adminError ?? SERVICE_KEY_ERROR };
 
   if (role !== "admin") {
     const { data: target } = await admin
@@ -122,7 +166,7 @@ export async function updateUserRoleAction(
       .eq("id", userId)
       .maybeSingle();
     if (target?.role === "admin" && target.is_active) {
-      const adminsLeft = await activeAdminCount();
+      const adminsLeft = await activeAdminCount(admin);
       if (adminsLeft <= 1) {
         return { ok: false, error: "Can't demote the last active admin." };
       }
@@ -150,7 +194,8 @@ export async function setUserActiveAction(
     return { ok: false, error: "You can't deactivate yourself." };
   }
 
-  const admin = createAdminClient();
+  const { admin, error: adminError } = safeAdminClient();
+  if (!admin) return { ok: false, error: adminError ?? SERVICE_KEY_ERROR };
   if (!active) {
     const { data: target } = await admin
       .from("profiles")
@@ -158,7 +203,7 @@ export async function setUserActiveAction(
       .eq("id", userId)
       .maybeSingle();
     if (target?.role === "admin" && target.is_active) {
-      const adminsLeft = await activeAdminCount();
+      const adminsLeft = await activeAdminCount(admin);
       if (adminsLeft <= 1) {
         return { ok: false, error: "Can't deactivate the last active admin." };
       }
@@ -184,7 +229,8 @@ export async function resetUserPasswordAction(
     return { ok: false, error: "Password must be at least 8 characters." };
   }
 
-  const admin = createAdminClient();
+  const { admin, error: adminError } = safeAdminClient();
+  if (!admin) return { ok: false, error: adminError ?? SERVICE_KEY_ERROR };
   const { error } = await admin.auth.admin.updateUserById(userId, { password: newPassword });
   if (error) return { ok: false, error: mapError(error.message, "Could not reset password.") };
   return { ok: true };
@@ -200,14 +246,15 @@ export async function deleteUserAction(userId: string): Promise<UserActionResult
 
   if (userId === me.id) return { ok: false, error: "You can't delete yourself." };
 
-  const admin = createAdminClient();
+  const { admin, error: adminError } = safeAdminClient();
+  if (!admin) return { ok: false, error: adminError ?? SERVICE_KEY_ERROR };
   const { data: target } = await admin
     .from("profiles")
     .select("role, is_active")
     .eq("id", userId)
     .maybeSingle();
   if (target?.role === "admin" && target.is_active) {
-    const adminsLeft = await activeAdminCount();
+    const adminsLeft = await activeAdminCount(admin);
     if (adminsLeft <= 1) {
       return { ok: false, error: "Can't delete the last active admin." };
     }

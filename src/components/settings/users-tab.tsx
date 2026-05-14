@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Plus, RefreshCw, Trash2, Shuffle } from "lucide-react";
+import { Copy, Loader2, Plus, RefreshCw, Trash2, Shuffle } from "lucide-react";
 import {
   deleteUserAction,
   inviteUserAction,
@@ -41,6 +41,18 @@ const ROLE_OPTIONS: Array<{ value: AppRole; label: string }> = [
   { value: "viewer", label: "Viewer" },
 ];
 
+function deriveUsernameSuggestion(fullName: string): string {
+  const cleaned = fullName.trim().toLowerCase();
+  if (!cleaned) return "";
+  const parts = cleaned
+    .split(/\s+/)
+    .map((part) => part.replace(/[^a-z0-9]/g, ""))
+    .filter(Boolean);
+  if (parts.length === 0) return "";
+  if (parts.length === 1) return parts[0].slice(0, 32);
+  return `${parts[0]}.${parts[parts.length - 1]}`.slice(0, 32);
+}
+
 function randomPassword(length = 14): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%";
   let out = "";
@@ -58,24 +70,65 @@ function randomPassword(length = 14): string {
   return out;
 }
 
+function humaniseConfigError(raw: string): string {
+  const lower = raw.toLowerCase();
+  if (
+    lower.includes("invalid api key") ||
+    lower.includes("service role") ||
+    lower.includes("jwt") ||
+    lower.includes("service_role")
+  ) {
+    return "Server can't reach Supabase admin. Set SUPABASE_SERVICE_ROLE_KEY on Vercel (it must be the service_role key, not the anon key) and redeploy.";
+  }
+  return raw;
+}
+
 export function UsersTab({
   initial,
   currentUserId,
+  configError,
 }: {
   initial: UserRow[];
   currentUserId: string;
+  configError?: string | null;
 }) {
+  const configMessage = configError ? humaniseConfigError(configError) : null;
   const [users, setUsers] = useState<UserRow[]>(initial);
   const [fullName, setFullName] = useState("");
   const [username, setUsername] = useState("");
+  const [usernameDirty, setUsernameDirty] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState(() => randomPassword());
   const [role, setRole] = useState<AppRole>("programme_officer");
   const [feedback, setFeedback] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
+  const [lastInvite, setLastInvite] = useState<{
+    fullName: string;
+    username: string;
+    email: string;
+    password: string;
+    role: AppRole;
+  } | null>(null);
+  const [copied, setCopied] = useState(false);
   const [pending, startTransition] = useTransition();
+
+  const suggestedUsername = deriveUsernameSuggestion(fullName);
+  const showSuggestion = !usernameDirty && suggestedUsername && username === suggestedUsername;
+
+  function handleFullNameChange(value: string) {
+    setFullName(value);
+    if (!usernameDirty) {
+      setUsername(deriveUsernameSuggestion(value));
+    }
+  }
+
+  function handleUsernameChange(value: string) {
+    setUsername(value.toLowerCase());
+    setUsernameDirty(true);
+  }
 
   function invite() {
     setFeedback(null);
+    setCopied(false);
     startTransition(async () => {
       const fd = new FormData();
       fd.set("full_name", fullName);
@@ -88,20 +141,28 @@ export function UsersTab({
         setUsers((current) => [
           ...current,
           {
-            id: crypto.randomUUID(),
-            full_name: fullName,
-            email,
-            username,
-            role,
+            id: result.user.id,
+            full_name: result.user.full_name,
+            email: result.user.email,
+            username: result.user.username,
+            role: result.user.role,
             is_active: true,
           },
         ]);
+        setLastInvite({
+          fullName,
+          username,
+          email,
+          password,
+          role,
+        });
         setFeedback({
           tone: "ok",
-          text: `Invited ${username}. Password: ${password} — share it now, it won't be shown again.`,
+          text: `Invited ${username}. Click "Copy invite" — the password won't be shown again.`,
         });
         setFullName("");
         setUsername("");
+        setUsernameDirty(false);
         setEmail("");
         setPassword(randomPassword());
         setRole("programme_officer");
@@ -111,8 +172,45 @@ export function UsersTab({
     });
   }
 
+  async function copyInvite() {
+    if (!lastInvite) return;
+    const origin =
+      typeof window !== "undefined" && window.location?.origin
+        ? window.location.origin
+        : "";
+    const roleLabel =
+      ROLE_OPTIONS.find((option) => option.value === lastInvite.role)?.label ?? lastInvite.role;
+    const message = [
+      `Hi! You have been added to Adlai's Impact OS as a ${roleLabel}.`,
+      "",
+      "Please see your credentials below:",
+      `Username: ${lastInvite.username}`,
+      `Email: ${lastInvite.email}`,
+      `Password: ${lastInvite.password}`,
+      "",
+      "You can log in here:",
+      origin || "(ask the admin for the site URL)",
+    ].join("\n");
+
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(message);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      setFeedback({ tone: "err", text: "Could not copy — copy it manually below." });
+    }
+  }
+
   return (
     <div className="space-y-4">
+      {configMessage ? (
+        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+          <p className="font-medium">User management is offline.</p>
+          <p className="mt-1 text-xs">{configMessage}</p>
+        </div>
+      ) : null}
       <Card>
         <CardContent className="space-y-3 p-4">
           <p className="text-sm font-medium">Invite a user</p>
@@ -125,7 +223,7 @@ export function UsersTab({
               <Label className="text-xs">Full name</Label>
               <Input
                 value={fullName}
-                onChange={(event) => setFullName(event.target.value)}
+                onChange={(event) => handleFullNameChange(event.target.value)}
                 placeholder="Jane Doe"
               />
             </div>
@@ -145,10 +243,17 @@ export function UsersTab({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Username</Label>
+              <Label className="text-xs">
+                Username
+                {showSuggestion ? (
+                  <span className="ml-1 text-[10px] font-normal text-muted-foreground">
+                    (suggested — edit to override)
+                  </span>
+                ) : null}
+              </Label>
               <Input
                 value={username}
-                onChange={(event) => setUsername(event.target.value.toLowerCase())}
+                onChange={(event) => handleUsernameChange(event.target.value)}
                 placeholder="jane.doe"
               />
             </div>
@@ -196,11 +301,44 @@ export function UsersTab({
                 {feedback.text}
               </p>
             ) : null}
-            <Button onClick={invite} disabled={pending || !fullName.trim() || !username.trim()}>
+            <Button
+              onClick={invite}
+              disabled={pending || !fullName.trim() || !username.trim() || !!configMessage}
+            >
               {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               Invite
             </Button>
           </div>
+
+          {lastInvite ? (
+            <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs font-medium">
+                  Invite ready for {lastInvite.fullName} ({lastInvite.username})
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button type="button" size="sm" onClick={copyInvite}>
+                    <Copy className="h-3.5 w-3.5" />
+                    {copied ? "Copied" : "Copy invite"}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setLastInvite(null);
+                      setCopied(false);
+                    }}
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                Password shown once. After dismissing, you can only reset it from the user row below.
+              </p>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 

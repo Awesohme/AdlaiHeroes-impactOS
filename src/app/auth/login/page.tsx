@@ -71,12 +71,12 @@ export default async function LoginPage({
           <form method="post" action="/auth/username-sign-in" className="space-y-3">
             {params?.next ? <input type="hidden" name="next" value={params.next} /> : null}
             <div className="space-y-1.5">
-              <Label htmlFor="username" className="text-xs">Username</Label>
+              <Label htmlFor="identifier" className="text-xs">Username or email</Label>
               <Input
-                id="username"
-                name="username"
+                id="identifier"
+                name="identifier"
                 autoComplete="username"
-                placeholder="your.handle"
+                placeholder="your.handle or you@example.com"
                 required
               />
             </div>
@@ -91,7 +91,7 @@ export default async function LoginPage({
               />
             </div>
             <Button type="submit" variant="outline" className="w-full">
-              Sign in with username
+              Sign in
             </Button>
           </form>
 

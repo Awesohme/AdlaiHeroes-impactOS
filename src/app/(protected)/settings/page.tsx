@@ -59,16 +59,21 @@ export default async function SettingsPage({
   ]);
   const isAdmin = currentProfile?.role === "admin" && currentProfile.is_active;
   let users: UserRow[] = [];
+  let usersFetchError: string | null = null;
   if (isAdmin) {
     try {
       const admin = createAdminClient();
-      const { data } = await admin
+      const { data, error } = await admin
         .from("profiles")
         .select("id, full_name, email, username, role, is_active")
         .order("created_at", { ascending: true });
-      users = (data ?? []) as UserRow[];
-    } catch {
-      users = [];
+      if (error) {
+        usersFetchError = error.message;
+      } else {
+        users = (data ?? []) as UserRow[];
+      }
+    } catch (err) {
+      usersFetchError = err instanceof Error ? err.message : "Admin client init failed.";
     }
   }
   const driveReady = hasGoogleDriveServerEnv();
@@ -185,7 +190,11 @@ export default async function SettingsPage({
 
         {isAdmin && currentProfile ? (
           <TabsContent value="users">
-            <UsersTab initial={users} currentUserId={currentProfile.id} />
+            <UsersTab
+              initial={users}
+              currentUserId={currentProfile.id}
+              configError={usersFetchError}
+            />
           </TabsContent>
         ) : null}
 
