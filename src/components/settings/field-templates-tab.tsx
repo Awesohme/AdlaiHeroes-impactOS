@@ -8,13 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
   createFieldTemplateAction,
@@ -22,6 +15,7 @@ import {
   updateFieldTemplateAction,
 } from "@/app/(protected)/settings/actions";
 import { Loader2, Plus, Trash2 } from "lucide-react";
+import { SearchableSelect } from "@/components/searchable-select";
 
 const fieldTypes: Array<{ value: ProgrammeFieldType; label: string }> = [
   { value: "text", label: "Text" },
@@ -131,21 +125,13 @@ export function FieldTemplatesTab({ initial }: { initial: FieldTemplate[] }) {
             </div>
             <div className="space-y-1.5">
               <Label>Type</Label>
-              <Select
+              <SearchableSelect
                 value={newType}
-                onValueChange={(value) => setNewType(value as ProgrammeFieldType)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {fieldTypes.map((t) => (
-                    <SelectItem key={t.value} value={t.value}>
-                      {t.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                onChange={(value) => setNewType(value as ProgrammeFieldType)}
+                options={fieldTypes}
+                placeholder="Choose type"
+                searchPlaceholder="Search field types..."
+              />
             </div>
             <label className="flex items-center gap-2 self-end pb-2 text-sm">
               <input
@@ -300,21 +286,13 @@ function FieldTemplateRow({
           {editing ? (
             <div className="grid gap-2 sm:grid-cols-2">
               <Input value={label} onChange={(event) => setLabel(event.target.value)} />
-              <Select
+              <SearchableSelect
                 value={fieldType}
-                onValueChange={(value) => setFieldType(value as ProgrammeFieldType)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {fieldTypes.map((t) => (
-                    <SelectItem key={t.value} value={t.value}>
-                      {t.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                onChange={(value) => setFieldType(value as ProgrammeFieldType)}
+                options={fieldTypes}
+                placeholder="Choose type"
+                searchPlaceholder="Search field types..."
+              />
               <Textarea
                 className="sm:col-span-2"
                 value={description}

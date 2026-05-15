@@ -11,25 +11,16 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { createBeneficiaryAction } from "@/app/(protected)/beneficiaries/create-actions";
 import { nigeriaLocationOptions } from "@/lib/programme-config";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { InfoTooltip } from "@/components/info-tooltip";
+import { SearchableSelect } from "@/components/searchable-select";
 
 const genderOptions = [
-  { value: "", label: "Not specified" },
   { value: "female", label: "Female" },
   { value: "male", label: "Male" },
-  { value: "non_binary", label: "Non-binary" },
-  { value: "prefer_not_to_say", label: "Prefer not to say" },
 ];
 
 const safeguardingOptions = [
@@ -124,18 +115,13 @@ export function BeneficiaryCreateSheet({
               <Input name="date_of_birth" type="date" />
             </Field>
             <Field label="Gender" hint="Optional." tooltip="Used only for programme reporting and safeguarding context.">
-              <Select value={gender} onValueChange={setGender}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {genderOptions.map((option) => (
-                    <SelectItem key={option.value || "_none"} value={option.value || "_none"}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={gender}
+                onChange={setGender}
+                options={[{ value: "_none", label: "Not selected" }, ...genderOptions]}
+                placeholder="Choose gender"
+                searchPlaceholder="Search gender..."
+              />
             </Field>
           </div>
 
@@ -153,18 +139,16 @@ export function BeneficiaryCreateSheet({
               <Input name="community" placeholder="Karu" />
             </Field>
             <Field label="State" hint="Optional." tooltip="Select the Nigerian state or FCT when location is known.">
-              <Select value={stateValue} onValueChange={setStateValue}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose state" />
-                </SelectTrigger>
-                <SelectContent>
-                  {nigeriaLocationOptions.map((option) => (
-                    <SelectItem key={option} value={option}>
-                      {option}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={stateValue}
+                onChange={setStateValue}
+                options={nigeriaLocationOptions.map((option) => ({
+                  value: option,
+                  label: option,
+                }))}
+                placeholder="Choose state"
+                searchPlaceholder="Search states..."
+              />
             </Field>
           </div>
 
@@ -185,18 +169,13 @@ export function BeneficiaryCreateSheet({
               </ul>
             }
           >
-            <Select value={safeguarding} onValueChange={setSafeguarding}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {safeguardingOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={safeguarding}
+              onChange={setSafeguarding}
+              options={safeguardingOptions}
+              placeholder="Choose safeguarding flag"
+              searchPlaceholder="Search safeguarding..."
+            />
           </Field>
 
           {error ? <p className="text-sm text-destructive">{error}</p> : null}

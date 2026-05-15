@@ -1,13 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/searchable-select";
 import { getLgas, getStates } from "@/lib/nigeria-locations";
 
 const SEP = " / ";
@@ -30,31 +24,25 @@ export function LocationInput({
 
   return (
     <div className="grid gap-2 sm:grid-cols-2">
-      <Select
+      <SearchableSelect
         value={state || "_none"}
-        onValueChange={(next) => {
+        onChange={(next) => {
           if (next === "_none") {
             onChange("");
             return;
           }
           onChange(next);
         }}
-      >
-        <SelectTrigger>
-          <SelectValue placeholder="State" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="_none">— Pick a state —</SelectItem>
-          {states.map((s) => (
-            <SelectItem key={s} value={s}>
-              {s}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Select
+        options={[
+          { value: "_none", label: "Pick a state" },
+          ...states.map((s) => ({ value: s, label: s })),
+        ]}
+        placeholder="State"
+        searchPlaceholder="Search states..."
+      />
+      <SearchableSelect
         value={lga || "_none"}
-        onValueChange={(next) => {
+        onChange={(next) => {
           if (!state) return;
           if (next === "_none") {
             onChange(state);
@@ -63,19 +51,13 @@ export function LocationInput({
           onChange(`${state}${SEP}${next}`);
         }}
         disabled={!state || lgas.length === 0}
-      >
-        <SelectTrigger>
-          <SelectValue placeholder={state ? "LGA" : "Pick a state first"} />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="_none">— Pick an LGA —</SelectItem>
-          {lgas.map((l) => (
-            <SelectItem key={l} value={l}>
-              {l}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        options={[
+          { value: "_none", label: "Pick an LGA" },
+          ...lgas.map((l) => ({ value: l, label: l })),
+        ]}
+        placeholder={state ? "LGA" : "Pick a state first"}
+        searchPlaceholder="Search LGAs..."
+      />
     </div>
   );
 }

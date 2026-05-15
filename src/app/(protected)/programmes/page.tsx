@@ -3,6 +3,7 @@ import { AppFrame } from "@/components/app-frame";
 import { Button } from "@/components/ui/button";
 import { ProgrammesOverview } from "@/components/programmes/programmes-overview";
 import { getProgrammesWithFunding, type ProgrammeArchiveScope } from "@/lib/programmes";
+import { getBeneficiaries } from "@/lib/beneficiaries";
 import { Plus } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +16,7 @@ export default async function ProgrammesPage({
   const params = await searchParams;
   const view = parseArchiveScope(params.view);
   const programmes = await getProgrammesWithFunding({ archiveScope: view });
+  const beneficiaries = await getBeneficiaries(programmes.rows);
   const created = params.created === "1";
   const updated = params.updated === "1";
 
@@ -41,6 +43,7 @@ export default async function ProgrammesPage({
               : undefined
         }
         rows={programmes.rows}
+        beneficiaries={beneficiaries.rows}
         archiveScope={view}
         source={programmes.source}
       />

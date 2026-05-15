@@ -24,6 +24,28 @@ export type ProgrammeFieldDefinition = {
   description: string;
 };
 
+export const reservedBeneficiaryProfileFieldKeys = new Set([
+  "beneficiary_code",
+  "full_name",
+  "beneficiary_name",
+  "gender",
+  "date_of_birth",
+  "guardian_name",
+  "guardian_phone",
+  "community",
+  "state",
+  "location",
+  "profile_image",
+  "consent_status",
+  "photo_video_consent",
+  "safeguarding_flag",
+  "school_name",
+]);
+
+export function isReservedBeneficiaryProfileField(fieldKey: string) {
+  return reservedBeneficiaryProfileFieldKeys.has(fieldKey);
+}
+
 export const programmeStatusOptions: Array<{ value: ProgrammeStatus; label: string }> = [
   { value: "draft", label: "Draft" },
   { value: "planned", label: "Planned" },

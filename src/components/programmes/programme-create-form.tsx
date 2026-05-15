@@ -16,6 +16,7 @@ import {
   moduleOptions,
   nigeriaLocationOptions,
   programmeStatusOptions,
+  isReservedBeneficiaryProfileField,
   type ProgrammeModuleKey,
 } from "@/lib/programme-config";
 import type { FieldTemplate } from "@/lib/field-templates";
@@ -33,13 +34,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Accordion,
   AccordionContent,
   AccordionItem,
@@ -48,6 +42,7 @@ import {
 import { ArrowDown, ArrowUp, Loader2, Plus, Settings, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { SearchableSelect } from "@/components/searchable-select";
 
 function typeAcceptsOptions(type: string) {
   return type === "select" || type === "multi_select";
@@ -91,9 +86,11 @@ export function ProgrammeCreateForm({
     initialProgramme?.enabled_modules ||
     ["beneficiaries", "activities", "evidence", "reporting", "education_support"];
   const initialFields =
-    parseDataFields(state.fields?.data_fields_json) ||
-    initialProgramme?.data_fields ||
-    buildDefaultFieldSet(fieldCatalog);
+    (
+      parseDataFields(state.fields?.data_fields_json) ||
+      initialProgramme?.data_fields ||
+      buildDefaultFieldSet(fieldCatalog)
+    ).filter((field) => !isReservedBeneficiaryProfileField(field.field_key));
 
   const [selectedLocations, setSelectedLocations] = useState<string[]>(initialLocations);
   const [enabledModules, setEnabledModules] = useState<ProgrammeModuleKey[]>(initialModules);
@@ -148,7 +145,9 @@ export function ProgrammeCreateForm({
   );
 
   const availableFields = fieldCatalog.filter(
-    (field) => !selectedFields.some((selectedField) => selectedField.field_key === field.field_key),
+    (field) =>
+      !isReservedBeneficiaryProfileField(field.field_key) &&
+      !selectedFields.some((selectedField) => selectedField.field_key === field.field_key),
   );
   const summaryStatus = mode === "create" && status === "draft" ? "draft" : status;
   const isArchived = Boolean(initialProgramme?.archived_at);
@@ -183,18 +182,16 @@ export function ProgrammeCreateForm({
             </Field>
 
             <Field label="Programme type">
-              <Select value={programmeType} onValueChange={setProgrammeType}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {programmeTypeChoices.map((option) => (
-                    <SelectItem key={option} value={option}>
-                      {option}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={programmeType}
+                onChange={setProgrammeType}
+                options={programmeTypeChoices.map((option) => ({
+                  value: option,
+                  label: option,
+                }))}
+                placeholder="Choose programme type"
+                searchPlaceholder="Search programme types..."
+              />
               <input type="hidden" name="programme_type" value={programmeType} />
             </Field>
 
@@ -263,18 +260,13 @@ export function ProgrammeCreateForm({
             </Field>
 
             <Field label="Programme status">
-              <Select value={summaryStatus} onValueChange={setStatus}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {programmeStatusOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={summaryStatus}
+                onChange={setStatus}
+                options={programmeStatusOptions}
+                placeholder="Choose status"
+                searchPlaceholder="Search statuses..."
+              />
               <input type="hidden" name="status" value={summaryStatus} />
             </Field>
 
@@ -466,28 +458,26 @@ export function ProgrammeCreateForm({
                                 {field.required && stageOptions.length > 0 ? (
                                   <div className="space-y-1.5">
                                     <Label className="text-xs">Required from stage</Label>
-                                    <Select
+                                    <SearchableSelect
                                       value={field.required_from_stage_key ?? "_always"}
-                                      onValueChange={(next) =>
+                                      onChange={(next) =>
                                         setFieldRequiredFrom(
                                           field.field_key,
                                           next === "_always" ? null : next,
                                           setSelectedFields,
                                         )
                                       }
-                                    >
-                                      <SelectTrigger className="h-8 text-xs">
-                                        <SelectValue />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="_always">Always required</SelectItem>
-                                        {stageOptions.map((stage) => (
-                                          <SelectItem key={stage.key} value={stage.key}>
-                                            From {stage.label}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
+                                      options={[
+                                        { value: "_always", label: "Always required" },
+                                        ...stageOptions.map((stage) => ({
+                                          value: stage.key,
+                                          label: `From ${stage.label}`,
+                                        })),
+                                      ]}
+                                      placeholder="Required from stage"
+                                      searchPlaceholder="Search stages..."
+                                      className="h-8 text-xs"
+                                    />
                                   </div>
                                 ) : null}
                                 {typeAcceptsOptions(field.field_type) ? (
@@ -856,7 +846,7 @@ function statusVariant(status: string): "default" | "secondary" | "destructive" 
 
 function buildDefaultFieldSet(catalog: FieldTemplate[]): ProgrammeDataFieldRow[] {
   return catalog
-    .filter((field) => field.default_required)
+    .filter((field) => field.default_required && !isReservedBeneficiaryProfileField(field.field_key))
     .map((field, index) => ({
       field_key: field.field_key,
       label: field.label,

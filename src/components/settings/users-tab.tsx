@@ -6,13 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Copy, Loader2, Plus, RefreshCw, Trash2, Shuffle } from "lucide-react";
 import {
   deleteUserAction,
@@ -23,6 +16,7 @@ import {
 } from "@/app/(protected)/settings/user-actions";
 import type { AppRole } from "@/lib/auth";
 import { InfoTooltip } from "@/components/info-tooltip";
+import { SearchableSelect } from "@/components/searchable-select";
 
 export type UserRow = {
   id: string;
@@ -236,18 +230,13 @@ export function UsersTab({
                   content="Programme officers and M&E leads can record day-to-day ops. Admins manage users, settings, and destructive actions."
                 />
               </Label>
-              <Select value={role} onValueChange={(value) => setRole(value as AppRole)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ROLE_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={role}
+                onChange={(value) => setRole(value as AppRole)}
+                options={ROLE_OPTIONS}
+                placeholder="Choose role"
+                searchPlaceholder="Search roles..."
+              />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">
@@ -446,18 +435,14 @@ function UserRowItem({
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Select value={user.role} onValueChange={(value) => changeRole(value as AppRole)}>
-            <SelectTrigger className="h-8 w-[170px] text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {ROLE_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            value={user.role}
+            onChange={(value) => changeRole(value as AppRole)}
+            options={ROLE_OPTIONS}
+            className="h-8 w-[170px] text-xs"
+            placeholder="Choose role"
+            searchPlaceholder="Search roles..."
+          />
           <label className="flex items-center gap-1.5 text-xs">
             <input
               type="checkbox"

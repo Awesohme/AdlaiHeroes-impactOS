@@ -5,13 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Sheet,
   SheetContent,
   SheetHeader,
@@ -22,6 +15,7 @@ import { Search } from "lucide-react";
 import type { EnrolmentSummary } from "@/app/(protected)/programmes/actions";
 import { PipelineCard } from "@/components/pipeline/pipeline-card";
 import { PipelineSidePanel } from "@/components/pipeline/pipeline-side-panel";
+import { SearchableSelect } from "@/components/searchable-select";
 
 type ProgrammeOption = { id: string | null; code: string; name: string };
 type StageOption = { id: string; label: string; position: number };
@@ -95,18 +89,14 @@ export function PipelineBoard({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3" data-tour="pipeline-controls">
-        <Select value={selectedCode ?? ""} onValueChange={changeProgramme}>
-          <SelectTrigger className="w-full sm:w-72">
-            <SelectValue placeholder="Choose a programme" />
-          </SelectTrigger>
-          <SelectContent>
-            {programmes.map((p) => (
-              <SelectItem key={p.code} value={p.code}>
-                {p.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <SearchableSelect
+          value={selectedCode ?? ""}
+          onChange={changeProgramme}
+          options={programmes.map((p) => ({ value: p.code, label: p.name }))}
+          placeholder="Choose a programme"
+          searchPlaceholder="Search programmes..."
+          className="w-full sm:w-72"
+        />
         <div className="relative w-full sm:max-w-xs">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input

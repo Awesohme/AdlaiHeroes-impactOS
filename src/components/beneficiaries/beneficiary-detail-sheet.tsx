@@ -15,13 +15,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import {
   SCORECARD_RUBRICS,
@@ -47,6 +40,7 @@ import { MediaPreview } from "@/components/media-preview";
 import {
   uploadBeneficiaryProfileImageAction,
 } from "@/app/(protected)/beneficiaries/actions";
+import { SearchableSelect } from "@/components/searchable-select";
 
 type StageOption = { id: string; label: string; position: number };
 
@@ -354,34 +348,24 @@ export function BeneficiaryDetailSheet({
         {!isLive && beneficiary.id ? (
           <DetailSection title="Enrol in a programme">
             <div className="flex gap-2">
-              <Select value={enrolProgramme} onValueChange={setEnrolProgramme}>
-                <SelectTrigger className="flex-1">
-                  <SelectValue placeholder="Choose a programme" />
-                </SelectTrigger>
-                <SelectContent>
-                  {programmes
-                    .filter((p) => !!p.id)
-                    .map((p) => (
-                      <SelectItem key={p.id} value={p.id!}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={enrolProgramme}
+                onChange={setEnrolProgramme}
+                options={programmes
+                  .filter((p) => !!p.id)
+                  .map((p) => ({ value: p.id!, label: p.name }))}
+                placeholder="Choose a programme"
+                searchPlaceholder="Search programmes..."
+              />
             </div>
             {enrolStages.length > 0 ? (
-              <Select value={enrolStage} onValueChange={setEnrolStage}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Starting stage" />
-                </SelectTrigger>
-                <SelectContent>
-                  {enrolStages.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={enrolStage}
+                onChange={setEnrolStage}
+                options={enrolStages.map((s) => ({ value: s.id, label: s.label }))}
+                placeholder="Starting stage"
+                searchPlaceholder="Search stages..."
+              />
             ) : enrolProgramme ? (
               <p className="text-xs text-muted-foreground">
                 This programme has no stages defined yet — you can enrol without a stage.
@@ -428,22 +412,14 @@ export function BeneficiaryDetailSheet({
         {isLive ? (
           <DetailSection title="Pipeline stage">
             <div className="flex gap-2">
-              <Select
+              <SearchableSelect
                 value={stageId}
-                onValueChange={setStageId}
+                onChange={setStageId}
                 disabled={!stages.length}
-              >
-                <SelectTrigger className="flex-1">
-                  <SelectValue placeholder={stages.length ? "Choose stage" : "No stages defined"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {stages.map((stage) => (
-                    <SelectItem key={stage.id} value={stage.id}>
-                      {stage.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={stages.map((stage) => ({ value: stage.id, label: stage.label }))}
+                placeholder={stages.length ? "Choose stage" : "No stages defined"}
+                searchPlaceholder="Search stages..."
+              />
               <Button
                 type="button"
                 onClick={saveStage}
@@ -488,18 +464,13 @@ export function BeneficiaryDetailSheet({
           }
         >
           <div className="flex gap-2">
-            <Select value={safeguarding} onValueChange={setSafeguarding}>
-              <SelectTrigger className="flex-1">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {safeguardingOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={safeguarding}
+              onChange={setSafeguarding}
+              options={safeguardingOptions}
+              placeholder="Choose safeguarding flag"
+              searchPlaceholder="Search safeguarding..."
+            />
             <Button
               type="button"
               onClick={saveSafeguarding}

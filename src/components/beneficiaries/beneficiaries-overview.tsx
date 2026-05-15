@@ -20,13 +20,6 @@ import { MetricTile, type MetricTone } from "@/components/metric-tile";
 import { Users, ShieldCheck, AlertTriangle, Activity } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Table,
   TableBody,
   TableCell,
@@ -39,6 +32,7 @@ import { BeneficiaryDetailSheet } from "@/components/beneficiaries/beneficiary-d
 import { BeneficiaryCreateSheet } from "@/components/beneficiaries/beneficiary-create-sheet";
 import { BeneficiaryAvatar } from "@/components/beneficiaries/beneficiary-avatar";
 import { InfoTooltip } from "@/components/info-tooltip";
+import { SearchableSelect } from "@/components/searchable-select";
 import { useRouter } from "next/navigation";
 
 export function BeneficiariesOverview({
@@ -61,11 +55,12 @@ export function BeneficiariesOverview({
   const router = useRouter();
 
   const filteredRows = rows.filter((row) => {
+    const lowerQuery = query.toLowerCase();
     const queryMatch =
       !query ||
-      row.full_name.toLowerCase().includes(query.toLowerCase()) ||
-      row.beneficiary_code.toLowerCase().includes(query.toLowerCase()) ||
-      row.guardian_phone.toLowerCase().includes(query.toLowerCase());
+      safeLower(row.full_name).includes(lowerQuery) ||
+      safeLower(row.beneficiary_code).includes(lowerQuery) ||
+      safeLower(row.guardian_phone).includes(lowerQuery);
     const programmeMatch = programmeFilter === "all" || row.programme_name === programmeFilter;
     const safeguardingMatch = safeguardingFilter === "all" || row.risk_flag === safeguardingFilter;
     const statusMatch = statusFilter === "all" || row.current_status === statusFilter;
@@ -257,7 +252,7 @@ export function BeneficiariesOverview({
                     </TableCell>
                     <TableCell>
                       <Badge
-                        variant={row.consent_status.includes("captured") ? "default" : "secondary"}
+                        variant={safeLower(row.consent_status).includes("captured") ? "default" : "secondary"}
                         className="font-normal"
                       >
                         {formatStatus(row.consent_status)}
@@ -299,7 +294,8 @@ export function BeneficiariesOverview({
       <BeneficiaryCreateSheet
         open={createOpen}
         onOpenChange={setCreateOpen}
-        onCreated={() => {
+        onCreated={(_id, code) => {
+          setQuery(code);
           router.refresh();
         }}
       />
@@ -323,25 +319,26 @@ function FilterSelect({
   extraOptions?: Array<{ value: string; label: string }>;
 }) {
   return (
-    <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="h-9 w-[160px]">
-        <SelectValue placeholder={label} />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="all">All {label.toLowerCase()}</SelectItem>
-        {extraOptions?.map((opt) => (
-          <SelectItem key={opt.value} value={opt.value}>
-            {opt.label}
-          </SelectItem>
-        ))}
-        {options.map((option) => (
-          <SelectItem key={option} value={option}>
-            {formatter ? formatter(option) : option}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <SearchableSelect
+      value={value}
+      onChange={onChange}
+      className="w-[160px]"
+      placeholder={label}
+      searchPlaceholder={`Search ${label.toLowerCase()}...`}
+      options={[
+        { value: "all", label: `All ${label.toLowerCase()}` },
+        ...(extraOptions ?? []),
+        ...options.map((option) => ({
+          value: option,
+          label: formatter ? formatter(option) : option,
+        })),
+      ]}
+    />
   );
+}
+
+function safeLower(value: unknown) {
+  return String(value ?? "").toLowerCase();
 }
 
 function formatStatus(value: string) {

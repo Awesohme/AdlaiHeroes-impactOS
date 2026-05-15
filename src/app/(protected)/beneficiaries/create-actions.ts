@@ -10,7 +10,7 @@ export type CreateBeneficiaryResult =
 
 const validConsent = new Set(["not_recorded", "consent_captured", "photo_consent_pending", "declined"]);
 const validSafeguarding = new Set(["none", "reviewed", "follow_up_needed"]);
-const validGender = new Set(["", "female", "male", "non_binary", "prefer_not_to_say"]);
+const validGender = new Set(["", "female", "male"]);
 const validImageTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const maxProfileImageBytes = 8 * 1024 * 1024;
 

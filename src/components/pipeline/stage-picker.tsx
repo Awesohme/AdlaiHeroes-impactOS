@@ -2,16 +2,10 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { moveEnrolmentStageAction } from "@/app/(protected)/beneficiaries/actions";
 import { cn } from "@/lib/utils";
+import { SearchableSelect } from "@/components/searchable-select";
 
 type Stage = { id: string; label: string; position: number };
 
@@ -64,22 +58,22 @@ export function StagePicker({
   return (
     <div className="space-y-2">
       <div className="flex gap-2">
-        <Select value={picked} onValueChange={setPicked}>
-          <SelectTrigger className="flex-1">
-            <SelectValue placeholder="Choose stage" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="_unstaged">
-              Unstaged{!currentStageId ? " · current" : ""}
-            </SelectItem>
-            {stages.map((stage) => (
-              <SelectItem key={stage.id} value={stage.id}>
-                {stage.label}
-                {currentStageId === stage.id ? " · current" : ""}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <SearchableSelect
+          value={picked}
+          onChange={setPicked}
+          options={[
+            {
+              value: "_unstaged",
+              label: `Unstaged${!currentStageId ? " · current" : ""}`,
+            },
+            ...stages.map((stage) => ({
+              value: stage.id,
+              label: `${stage.label}${currentStageId === stage.id ? " · current" : ""}`,
+            })),
+          ]}
+          placeholder="Choose stage"
+          searchPlaceholder="Search stages..."
+        />
         <Button type="button" onClick={move} disabled={pending || !dirty}>
           {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Move"}
         </Button>

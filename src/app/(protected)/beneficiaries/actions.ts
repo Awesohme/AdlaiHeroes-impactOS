@@ -7,6 +7,7 @@ import {
   uploadConsentFileToDrive,
   uploadEnrolmentAssetToDrive,
 } from "@/lib/google-drive/server";
+import { isReservedBeneficiaryProfileField } from "@/lib/programme-config";
 import { generateEvidenceCode } from "@/lib/evidence-codes";
 
 const validSafeguarding = new Set(["none", "reviewed", "follow_up_needed"]);
@@ -374,6 +375,7 @@ export async function moveEnrolmentStageAction(
 
     const missing: string[] = [];
     for (const field of requiredFieldsRaw ?? []) {
+      if (isReservedBeneficiaryProfileField(field.field_key)) continue;
       const threshold = field.required_from_stage_key
         ? stagePositionByKey.get(field.required_from_stage_key) ?? 0
         : 0;
@@ -492,7 +494,9 @@ export async function listEnrolmentFieldsAction(
   }
   // Include disabled (archived) fields only when the enrolment has a value for them.
   const fields = (fieldsRaw ?? []).filter(
-    (f) => f.enabled !== false || valueMap.has(f.field_key),
+    (f) =>
+      !isReservedBeneficiaryProfileField(f.field_key) &&
+      (f.enabled !== false || valueMap.has(f.field_key)),
   );
   return fields.map((field) => ({
     field_key: field.field_key,

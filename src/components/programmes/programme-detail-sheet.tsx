@@ -13,13 +13,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
   ArrowDown,
@@ -31,11 +24,9 @@ import {
   Trash2,
 } from "lucide-react";
 import type { ProgrammeRow } from "@/lib/programmes";
+import type { BeneficiaryRow } from "@/lib/beneficiaries";
 import { programmeStatusOptions } from "@/lib/programme-config";
-import {
-  ProgrammeStatusBadge,
-  programmeStatusBadgeClass,
-} from "@/components/programmes/programme-status-badge";
+import { ProgrammeStatusBadge } from "@/components/programmes/programme-status-badge";
 import {
   addFundsEntryAction,
   addMilestoneAction,
@@ -57,15 +48,19 @@ import {
 } from "@/app/(protected)/programmes/actions";
 import { cn } from "@/lib/utils";
 import { MediaPreview } from "@/components/media-preview";
+import { SearchableSelect } from "@/components/searchable-select";
+import { enrolBeneficiaryAction } from "@/app/(protected)/beneficiaries/actions";
 
 export function ProgrammeDetailSheet({
   programme,
   open,
   onOpenChange,
+  beneficiaries = [],
 }: {
   programme: ProgrammeRow | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  beneficiaries?: BeneficiaryRow[];
 }) {
   const [status, setStatus] = useState(programme?.status ?? "draft");
   const [statusFeedback, setStatusFeedback] = useState<string | null>(null);
@@ -88,6 +83,9 @@ export function ProgrammeDetailSheet({
   const [stageFeedback, setStageFeedback] = useState<string | null>(null);
 
   const [enrolments, setEnrolments] = useState<EnrolmentSummary[]>([]);
+  const [beneficiaryToEnrol, setBeneficiaryToEnrol] = useState("");
+  const [startingStage, setStartingStage] = useState("");
+  const [enrolFeedback, setEnrolFeedback] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const isMock = !programme?.id;
 
@@ -98,6 +96,9 @@ export function ProgrammeDetailSheet({
     setMilestoneFeedback(null);
     setFundsFeedback(null);
     setStageFeedback(null);
+    setEnrolFeedback(null);
+    setBeneficiaryToEnrol("");
+    setStartingStage("");
     setLoading(true);
     Promise.all([
       listMilestonesAction(programme.id),
@@ -128,6 +129,13 @@ export function ProgrammeDetailSheet({
   const fundsTotal = funds.reduce((sum, row) => sum + row.amount_ngn, 0);
   const fundsRemaining = Math.max((programme.budget_ngn ?? 0) - fundsTotal, 0);
   const isArchived = Boolean(programme.archived_at);
+  const enrolledBeneficiaryIds = new Set(enrolments.map((row) => row.beneficiary_id));
+  const enrolmentOptions = beneficiaries
+    .filter((row) => row.id && !enrolledBeneficiaryIds.has(row.id))
+    .map((row) => ({
+      value: row.id!,
+      label: `${row.full_name} (${row.beneficiary_code})`,
+    }));
   const milestoneProgress = milestones.length
     ? Math.round((milestones.filter((m) => m.done).length / milestones.length) * 100)
     : 0;
@@ -218,26 +226,14 @@ export function ProgrammeDetailSheet({
             <div className="border-t pt-4 space-y-2">
               <Label htmlFor="programme-status">Update status</Label>
               <div className="flex gap-2">
-                <Select value={status} onValueChange={setStatus} disabled={isMock || isArchived}>
-                  <SelectTrigger id="programme-status" className="flex-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {programmeStatusOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        <span className="flex items-center gap-2">
-                          <span
-                            className={cn(
-                              "inline-block h-2 w-2 rounded-full",
-                              programmeStatusBadgeClass(option.value).split(" ")[0].replace("bg-", "bg-"),
-                            )}
-                          />
-                          {option.label}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={status}
+                  onChange={setStatus}
+                  disabled={isMock || isArchived}
+                  options={programmeStatusOptions}
+                  placeholder="Choose status"
+                  searchPlaceholder="Search statuses..."
+                />
                 <Button
                   type="button"
                   onClick={saveStatus}
@@ -648,6 +644,78 @@ export function ProgrammeDetailSheet({
                 </ul>
               </>
             )}
+            {!isMock && !isArchived ? (
+              <div className="rounded-md border bg-muted/20 p-3 space-y-3">
+                <div>
+                  <p className="text-sm font-medium">Add beneficiary to this programme</p>
+                  <p className="text-xs text-muted-foreground">
+                    Pick an existing beneficiary, then choose their starting stage.
+                  </p>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-[1fr_12rem_auto]">
+                  <SearchableSelect
+                    value={beneficiaryToEnrol}
+                    onChange={setBeneficiaryToEnrol}
+                    options={enrolmentOptions}
+                    placeholder="Choose beneficiary"
+                    searchPlaceholder="Search beneficiaries..."
+                    emptyText="No available beneficiaries found."
+                  />
+                  <SearchableSelect
+                    value={startingStage}
+                    onChange={setStartingStage}
+                    options={[
+                      { value: "_none", label: "No stage" },
+                      ...stages.map((stage) => ({ value: stage.id, label: stage.label })),
+                    ]}
+                    placeholder="Starting stage"
+                    searchPlaceholder="Search stages..."
+                  />
+                  <Button
+                    type="button"
+                    disabled={!beneficiaryToEnrol}
+                    onClick={() => {
+                      if (!programme?.id || !beneficiaryToEnrol) return;
+                      setEnrolFeedback(null);
+                      enrolBeneficiaryAction(
+                        beneficiaryToEnrol,
+                        programme.id,
+                        startingStage && startingStage !== "_none" ? startingStage : null,
+                      ).then((result) => {
+                        if (result.ok) {
+                          setBeneficiaryToEnrol("");
+                          setStartingStage("");
+                          Promise.all([
+                            listEnrolmentsByProgrammeAction(programme.id!),
+                            listStagesAction(programme.id!),
+                          ]).then(([nextEnrolments, nextStages]) => {
+                            setEnrolments(nextEnrolments);
+                            setStages(nextStages);
+                          });
+                          setEnrolFeedback("Beneficiary enrolled.");
+                        } else {
+                          setEnrolFeedback(result.error);
+                        }
+                      });
+                    }}
+                  >
+                    Enrol
+                  </Button>
+                </div>
+                {enrolFeedback ? (
+                  <p
+                    className={cn(
+                      "text-xs",
+                      enrolFeedback === "Beneficiary enrolled."
+                        ? "text-emerald-700"
+                        : "text-destructive",
+                    )}
+                  >
+                    {enrolFeedback}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
           </TabsContent>
         </Tabs>
       </SheetContent>

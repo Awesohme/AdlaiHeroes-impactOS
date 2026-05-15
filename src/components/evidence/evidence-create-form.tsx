@@ -7,16 +7,10 @@ import type { ProgrammeRow } from "@/lib/programmes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { SearchableSelect } from "@/components/searchable-select";
 
 const initialState: CreateEvidenceState = {};
 
@@ -58,47 +52,45 @@ export function EvidenceCreateForm({ programmes }: { programmes: ProgrammeRow[] 
           </Field>
 
           <Field label="Evidence type">
-            <Select value={evidenceType} onValueChange={setEvidenceType}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Document">Document</SelectItem>
-                <SelectItem value="Photo">Photo</SelectItem>
-                <SelectItem value="Video">Video</SelectItem>
-                <SelectItem value="Attendance">Attendance</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={evidenceType}
+              onChange={setEvidenceType}
+              options={["Document", "Photo", "Video", "Attendance"].map((option) => ({
+                value: option,
+                label: option,
+              }))}
+              placeholder="Choose type"
+              searchPlaceholder="Search types..."
+            />
             <input type="hidden" name="evidence_type" value={evidenceType} />
           </Field>
 
           <Field label="Linked programme" hint="Anchors Drive folder routing." className="sm:col-span-2">
-            <Select value={programmeCode} onValueChange={setProgrammeCode}>
-              <SelectTrigger>
-                <SelectValue placeholder="Choose a programme" />
-              </SelectTrigger>
-              <SelectContent>
-                {options.map((programme) => (
-                  <SelectItem key={programme.programme_code} value={programme.programme_code}>
-                    {programme.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={programmeCode}
+              onChange={setProgrammeCode}
+              options={options.map((programme) => ({
+                value: programme.programme_code,
+                label: programme.name,
+              }))}
+              placeholder="Choose a programme"
+              searchPlaceholder="Search programmes..."
+            />
             <input type="hidden" name="programme_code" value={programmeCode} />
           </Field>
 
           <Field label="Verification status">
-            <Select value={verificationStatus} onValueChange={setVerificationStatus}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="consent_check">Pending</SelectItem>
-                <SelectItem value="in_review">In review</SelectItem>
-                <SelectItem value="verified">Confirmed</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={verificationStatus}
+              onChange={setVerificationStatus}
+              options={[
+                { value: "consent_check", label: "Pending" },
+                { value: "in_review", label: "In review" },
+                { value: "verified", label: "Confirmed" },
+              ]}
+              placeholder="Choose status"
+              searchPlaceholder="Search statuses..."
+            />
             <input type="hidden" name="verification_status" value={verificationStatus} />
           </Field>
 

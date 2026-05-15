@@ -6,13 +6,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import {
   listEnrolmentFieldsAction,
@@ -22,6 +15,7 @@ import {
 import { LocationInput } from "@/components/enrolment-fields/location-input";
 import { SignatureInput } from "@/components/enrolment-fields/signature-input";
 import { ImageInput } from "@/components/enrolment-fields/image-input";
+import { SearchableSelect } from "@/components/searchable-select";
 import { cn } from "@/lib/utils";
 
 export function EnrolmentFieldsSection({
@@ -235,16 +229,16 @@ function FieldInput({
         ) : type === "location" ? (
           <LocationInput value={draft} onChange={onDraft} />
         ) : type === "yes_no" ? (
-          <Select value={draft || "_unset"} onValueChange={(v) => onDraft(v === "_unset" ? "" : v)}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="_unset">Not recorded</SelectItem>
-              <SelectItem value="yes">Yes</SelectItem>
-              <SelectItem value="no">No</SelectItem>
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            value={draft || "_unset"}
+            onChange={(value) => onDraft(value === "_unset" ? "" : value)}
+            options={[
+              { value: "_unset", label: "Not recorded" },
+              { value: "yes", label: "Yes" },
+              { value: "no", label: "No" },
+            ]}
+            placeholder="Not recorded"
+          />
         ) : type === "number" ? (
           <Input
             type="number"
@@ -255,22 +249,16 @@ function FieldInput({
           />
         ) : type === "select" ? (
           row.options.length > 0 ? (
-            <Select
+            <SearchableSelect
               value={draft || "_unset"}
-              onValueChange={(v) => onDraft(v === "_unset" ? "" : v)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Pick a value" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="_unset">Not recorded</SelectItem>
-                {row.options.map((option) => (
-                  <SelectItem key={option} value={option}>
-                    {option}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              onChange={(value) => onDraft(value === "_unset" ? "" : value)}
+              options={[
+                { value: "_unset", label: "Not recorded" },
+                ...row.options.map((option) => ({ value: option, label: option })),
+              ]}
+              placeholder="Pick a value"
+              searchPlaceholder="Search options..."
+            />
           ) : (
             <p className="text-xs text-amber-700">
               No options defined for this field. Add options in Settings → Field templates.

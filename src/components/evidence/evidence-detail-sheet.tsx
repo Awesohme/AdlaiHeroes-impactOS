@@ -12,13 +12,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, MessageSquarePlus } from "lucide-react";
 import {
@@ -29,6 +22,7 @@ import {
 import { cn } from "@/lib/utils";
 import { MediaPreview } from "@/components/media-preview";
 import { InfoTooltip } from "@/components/info-tooltip";
+import { SearchableSelect } from "@/components/searchable-select";
 
 const statusOptions = [
   { value: "consent_check", label: "Pending" },
@@ -124,21 +118,15 @@ export function EvidenceDetailSheet({
               <InfoTooltip content="Pending means not ready, In review means staff are checking it, Confirmed means it can be used." />
             </Label>
             <div className="flex gap-2">
-              <Select value={status} onValueChange={setStatus} disabled={isMock}>
-                <SelectTrigger id="evidence-status" className="flex-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {statusOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      <span className="flex items-center gap-2">
-                        <StatusDot status={option.value} />
-                        {option.label}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={status}
+                onChange={setStatus}
+                disabled={isMock}
+                className="flex-1"
+                options={statusOptions}
+                placeholder="Verification status"
+                searchPlaceholder="Search statuses..."
+              />
               <Button
                 type="button"
                 onClick={saveStatus}
@@ -251,21 +239,6 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
       <dt className="text-muted-foreground">{label}</dt>
       <dd className="font-medium text-right">{value}</dd>
     </div>
-  );
-}
-
-function StatusDot({ status }: { status: string }) {
-  return (
-    <span
-      className={cn(
-        "h-2 w-2 rounded-full",
-        status === "verified"
-          ? "bg-emerald-500"
-          : status === "consent_check"
-            ? "bg-slate-400"
-            : "bg-amber-500",
-      )}
-    />
   );
 }
 

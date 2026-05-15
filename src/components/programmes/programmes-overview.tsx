@@ -8,13 +8,6 @@ import { MetricTile, type MetricTone } from "@/components/metric-tile";
 import { FolderKanban, Activity, ClipboardList, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Table,
   TableBody,
   TableCell,
@@ -26,6 +19,8 @@ import { ArrowUpRight, CheckCircle2, Info } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { ProgrammeStatusBadge } from "@/components/programmes/programme-status-badge";
 import { ProgrammeDetailSheet } from "@/components/programmes/programme-detail-sheet";
+import { SearchableSelect } from "@/components/searchable-select";
+import type { BeneficiaryRow } from "@/lib/beneficiaries";
 
 export function ProgrammesOverview({
   rows,
@@ -33,12 +28,14 @@ export function ProgrammesOverview({
   error,
   notice,
   archiveScope,
+  beneficiaries = [],
 }: {
   rows: ProgrammeRow[];
   source: "supabase" | "mock";
   error?: string;
   notice?: string;
   archiveScope: ProgrammeArchiveScope;
+  beneficiaries?: BeneficiaryRow[];
 }) {
   const [yearFilter, setYearFilter] = useState("all");
   const [locationFilter, setLocationFilter] = useState("all");
@@ -48,11 +45,12 @@ export function ProgrammesOverview({
   const [selected, setSelected] = useState<ProgrammeRow | null>(null);
 
   const filteredRows = rows.filter((row) => {
+    const locationAreas = Array.isArray(row.location_areas) ? row.location_areas : [];
     const yearMatch =
       yearFilter === "all" ||
       row.start_date?.startsWith(yearFilter) ||
       row.end_date?.startsWith(yearFilter);
-    const locationMatch = locationFilter === "all" || row.location_areas.includes(locationFilter);
+    const locationMatch = locationFilter === "all" || locationAreas.includes(locationFilter);
     const donorMatch = donorFilter === "all" || row.donor_funder === donorFilter;
     const typeMatch = typeFilter === "all" || row.programme_type === typeFilter;
     const statusMatch = statusFilter === "all" || row.status === statusFilter;
@@ -70,7 +68,7 @@ export function ProgrammesOverview({
       .flatMap((row) => [row.start_date?.slice(0, 4), row.end_date?.slice(0, 4)])
       .filter(Boolean) as string[],
   );
-  const locations = uniqueValues(rows.flatMap((row) => row.location_areas));
+  const locations = uniqueValues(rows.flatMap((row) => (Array.isArray(row.location_areas) ? row.location_areas : [])));
   const donors = uniqueValues(rows.map((row) => row.donor_funder).filter(Boolean));
   const types = uniqueValues(rows.map((row) => row.programme_type));
 
@@ -279,6 +277,7 @@ export function ProgrammesOverview({
         onOpenChange={(open) => {
           if (!open) setSelected(null);
         }}
+        beneficiaries={beneficiaries}
       />
     </div>
   );
@@ -374,19 +373,20 @@ function FilterSelect({
   formatter?: (value: string) => string;
 }) {
   return (
-    <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="h-9 w-[160px]">
-        <SelectValue placeholder={label} />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="all">All {label.toLowerCase()}</SelectItem>
-        {options.map((option) => (
-          <SelectItem key={option} value={option}>
-            {formatter ? formatter(option) : option}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <SearchableSelect
+      value={value}
+      onChange={onChange}
+      className="w-[160px]"
+      placeholder={label}
+      searchPlaceholder={`Search ${label.toLowerCase()}...`}
+      options={[
+        { value: "all", label: `All ${label.toLowerCase()}` },
+        ...options.map((option) => ({
+          value: option,
+          label: formatter ? formatter(option) : option,
+        })),
+      ]}
+    />
   );
 }
 
