@@ -1,4 +1,3 @@
-import Link from "next/link";
 import Image from "next/image";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,12 +7,10 @@ import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { LoginSubmitButton } from "@/components/auth/login-submit-button";
 
 const authErrors: Record<string, string> = {
-  callback: "Google sign-in returned, but we could not finish the secure browser session.",
+  callback: "We could not finish Google sign-in in this browser window. Try again or use username/password instead.",
   env: "Supabase environment variables are missing on the server.",
   missing_code: "Google sign-in returned without an authorization code.",
   oauth: "Google sign-in could not be started from the server route.",
-  session:
-    "Google sign-in completed, but this browser did not keep the secure session cookie. Try Google again, use username/password, or switch to a normal browser window if you are in private/incognito mode.",
   not_invited: "This account is not invited. Ask an admin to add you first.",
   invalid_credentials: "Username or password is incorrect.",
   role_pending:
@@ -27,10 +24,11 @@ export default async function LoginPage({
 }) {
   const params = await searchParams;
   const next = params?.next ? `?next=${encodeURIComponent(params.next)}` : "";
-  const error = params?.error
-    ? authErrors[params.error] ?? `Auth error: ${params.error}`
-    : null;
-  const showAuthDebug = params?.error === "session" || params?.error === "callback";
+  const isRecoverableGoogleIssue = params?.error === "session";
+  const error =
+    params?.error && !isRecoverableGoogleIssue
+      ? authErrors[params.error] ?? "We could not complete sign-in. Try again."
+      : null;
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-muted/30 px-4 py-12">
@@ -57,20 +55,15 @@ export default async function LoginPage({
           {error ? (
             <div className="space-y-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
               <div className="flex gap-2">
-              <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-              <span>{error}</span>
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>{error}</span>
               </div>
-              {params?.error === "session" ? (
-                <Link
-                  href={`/auth/sign-in${next}`}
-                  className="inline-flex text-xs font-medium underline underline-offset-2"
-                >
-                  Try Google again
-                </Link>
-              ) : null}
             </div>
           ) : null}
           <GoogleSignInButton href={`/auth/sign-in${next}`} />
+          <p className="text-center text-xs text-muted-foreground">
+            If Google does not open correctly here, open this page in Chrome or Safari and try again.
+          </p>
 
           <div className="relative my-2">
             <div className="absolute inset-0 flex items-center">
@@ -105,14 +98,6 @@ export default async function LoginPage({
             </div>
             <LoginSubmitButton />
           </form>
-
-          {showAuthDebug ? (
-            <div className="flex justify-center gap-4 text-xs text-muted-foreground">
-              <Link href="/auth/debug" className="hover:underline">
-                Auth debug
-              </Link>
-            </div>
-          ) : null}
         </CardContent>
       </Card>
     </main>

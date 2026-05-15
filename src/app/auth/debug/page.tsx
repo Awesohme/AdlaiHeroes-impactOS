@@ -1,5 +1,6 @@
 import { cookies, headers } from "next/headers";
-import { getCurrentUser } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { getCurrentProfile } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -9,9 +10,13 @@ export default async function AuthDebugPage({
   searchParams?: Promise<{ error?: string }>;
 }) {
   const params = await searchParams;
+  const profile = await getCurrentProfile();
+  if (!profile || !profile.is_active || profile.role !== "admin") {
+    redirect("/auth/login");
+  }
+
   const headerStore = await headers();
   const cookieStore = await cookies();
-  const user = await getCurrentUser();
   const cookieNames = cookieStore
     .getAll()
     .map((cookie) => cookie.name)
@@ -34,9 +39,9 @@ export default async function AuthDebugPage({
           <article>
             <div>
               <h2>Server user</h2>
-              <p>{user ? `${user.email ?? "No email"} (${user.id})` : "No server user"}</p>
+              <p>{`${profile.email ?? "No email"} (${profile.id})`}</p>
             </div>
-            <span>{user ? "User found" : "No user"}</span>
+            <span>Admin user found</span>
           </article>
           <article>
             <div>
