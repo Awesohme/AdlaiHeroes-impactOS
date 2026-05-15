@@ -23,6 +23,9 @@ const genderOptions = [
   { value: "male", label: "Male" },
 ];
 
+const maxProfileImageBytes = 8 * 1024 * 1024;
+const validProfileImageTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+
 const safeguardingOptions = [
   { value: "none", label: "None", helper: "No safeguarding concern is known at the point of capture." },
   { value: "reviewed", label: "Reviewed", helper: "A concern was checked and resolved or documented." },
@@ -52,6 +55,17 @@ export function BeneficiaryCreateSheet({
   }
 
   function handleSubmit(formData: FormData) {
+    const profileImage = formData.get("profile_image");
+    if (profileImage instanceof File && profileImage.size > 0) {
+      if (!validProfileImageTypes.has(profileImage.type)) {
+        setError("Profile image must be JPG, PNG, or WebP.");
+        return;
+      }
+      if (profileImage.size > maxProfileImageBytes) {
+        setError("Profile image is too large. Please upload a JPG, PNG, or WebP under 8 MB.");
+        return;
+      }
+    }
     formData.set("gender", gender === "_none" ? "" : gender);
     formData.set("state", stateValue);
     formData.set("consent_status", "not_recorded");
