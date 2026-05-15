@@ -29,6 +29,7 @@ export function ProgrammesOverview({
   notice,
   archiveScope,
   beneficiaries = [],
+  canManageOps = false,
 }: {
   rows: ProgrammeRow[];
   source: "supabase" | "mock";
@@ -36,6 +37,7 @@ export function ProgrammesOverview({
   notice?: string;
   archiveScope: ProgrammeArchiveScope;
   beneficiaries?: BeneficiaryRow[];
+  canManageOps?: boolean;
 }) {
   const [yearFilter, setYearFilter] = useState("all");
   const [locationFilter, setLocationFilter] = useState("all");
@@ -285,6 +287,7 @@ export function ProgrammesOverview({
           if (!open) setSelected(null);
         }}
         beneficiaries={beneficiaries}
+        canManageOps={canManageOps}
       />
     </div>
   );

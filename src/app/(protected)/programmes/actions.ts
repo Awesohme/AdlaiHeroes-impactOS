@@ -41,6 +41,118 @@ export async function updateProgrammeStatusAction(
   return { ok: true };
 }
 
+export type ReachUpdateRow = {
+  id: string;
+  previous_actual_count: number | null;
+  new_actual_count: number;
+  note: string | null;
+  created_at: string;
+  created_by: string | null;
+  created_by_name: string | null;
+  created_by_email: string | null;
+};
+
+export async function listProgrammeReachUpdatesAction(programmeId: string): Promise<ReachUpdateRow[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("programme_reach_updates")
+    .select("id,previous_actual_count,new_actual_count,note,created_at,created_by,profiles:created_by(full_name,email)")
+    .eq("programme_id", programmeId)
+    .order("created_at", { ascending: false })
+    .limit(8);
+  if (error || !data) return [];
+  type ProfileRel = { full_name: string | null; email: string | null };
+  type RowShape = {
+    id: string;
+    previous_actual_count: number | null;
+    new_actual_count: number;
+    note: string | null;
+    created_at: string;
+    created_by: string | null;
+    profiles?: ProfileRel | ProfileRel[] | null;
+  };
+  return (data as unknown as RowShape[]).map((row) => {
+    const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+    return {
+      id: row.id,
+      previous_actual_count: row.previous_actual_count,
+      new_actual_count: Number(row.new_actual_count),
+      note: row.note ?? null,
+      created_at: row.created_at,
+      created_by: row.created_by ?? null,
+      created_by_name: profile?.full_name ?? null,
+      created_by_email: profile?.email ?? null,
+    };
+  });
+}
+
+export async function updateManualReachAction(
+  programmeId: string,
+  payload: { actualCount: string; note?: string },
+): Promise<ActionResult<{ actualCount: number; updates: ReachUpdateRow[] }>> {
+  const actualCount = Number(String(payload.actualCount).replace(/[^\d]/g, ""));
+  if (!Number.isFinite(actualCount) || actualCount < 0) {
+    return { ok: false, error: "Enter a valid non-negative actual count." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Your session expired. Sign in again." };
+
+  const { data: programme, error: programmeError } = await supabase
+    .from("programmes")
+    .select("id, reach_tracking_mode, manual_actual_reach_count, archived_at")
+    .eq("id", programmeId)
+    .maybeSingle();
+
+  if (programmeError || !programme) {
+    return {
+      ok: false,
+      error: mapRlsError(programmeError?.message, "Programme not found."),
+    };
+  }
+
+  if (programme.archived_at) {
+    return { ok: false, error: "Archived programmes cannot be updated here." };
+  }
+
+  if (programme.reach_tracking_mode !== "manual") {
+    return { ok: false, error: "Only manual-reach programmes can be updated here." };
+  }
+
+  const previousActualCount =
+    programme.manual_actual_reach_count === null ? null : Number(programme.manual_actual_reach_count);
+
+  const { error: updateError } = await supabase
+    .from("programmes")
+    .update({
+      manual_actual_reach_count: actualCount,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", programmeId);
+  if (updateError) {
+    return { ok: false, error: mapRlsError(updateError.message, "Could not update actual count.") };
+  }
+
+  const { error: logError } = await supabase.from("programme_reach_updates").insert({
+    programme_id: programmeId,
+    previous_actual_count: previousActualCount,
+    new_actual_count: actualCount,
+    note: payload.note?.trim() || null,
+    created_by: user.id,
+  });
+  if (logError) {
+    return { ok: false, error: mapRlsError(logError.message, "Actual count was updated, but the history log could not be saved.") };
+  }
+
+  const updates = await listProgrammeReachUpdatesAction(programmeId);
+  revalidatePath("/programmes");
+  revalidatePath("/dashboard");
+  return { ok: true, data: { actualCount, updates } };
+}
+
 export async function archiveProgrammeAction(
   programmeId: string,
   payload: { programmeCode: string; confirmationCode: string; reason: string; confirmed: boolean },

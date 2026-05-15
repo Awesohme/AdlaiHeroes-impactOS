@@ -36,14 +36,17 @@ import {
   listEnrolmentsByProgrammeAction,
   listFundsAction,
   listMilestonesAction,
+  listProgrammeReachUpdatesAction,
   listStagesAction,
   moveStageAction,
   seedEducationStagesAction,
   toggleMilestoneAction,
+  updateManualReachAction,
   updateProgrammeStatusAction,
   type EnrolmentSummary,
   type FundsRow,
   type MilestoneRow,
+  type ReachUpdateRow,
   type StageRow,
 } from "@/app/(protected)/programmes/actions";
 import { cn } from "@/lib/utils";
@@ -56,11 +59,13 @@ export function ProgrammeDetailSheet({
   open,
   onOpenChange,
   beneficiaries = [],
+  canManageOps = false,
 }: {
   programme: ProgrammeRow | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   beneficiaries?: BeneficiaryRow[];
+  canManageOps?: boolean;
 }) {
   const [status, setStatus] = useState(programme?.status ?? "draft");
   const [statusFeedback, setStatusFeedback] = useState<string | null>(null);
@@ -86,6 +91,15 @@ export function ProgrammeDetailSheet({
   const [beneficiaryToEnrol, setBeneficiaryToEnrol] = useState("");
   const [startingStage, setStartingStage] = useState("");
   const [enrolFeedback, setEnrolFeedback] = useState<string | null>(null);
+  const [reachUpdates, setReachUpdates] = useState<ReachUpdateRow[]>([]);
+  const [manualActualCount, setManualActualCount] = useState<number | null>(
+    programme?.actual_reach_count ?? null,
+  );
+  const [reachModalOpen, setReachModalOpen] = useState(false);
+  const [reachCountInput, setReachCountInput] = useState("");
+  const [reachNote, setReachNote] = useState("");
+  const [reachFeedback, setReachFeedback] = useState<string | null>(null);
+  const [reachPending, startReachTransition] = useTransition();
   const [loading, setLoading] = useState(false);
   const isMock = !programme?.id;
 
@@ -97,6 +111,11 @@ export function ProgrammeDetailSheet({
     setFundsFeedback(null);
     setStageFeedback(null);
     setEnrolFeedback(null);
+    setReachFeedback(null);
+    setReachModalOpen(false);
+    setReachNote("");
+    setReachCountInput("");
+    setManualActualCount(programme.actual_reach_count ?? null);
     setBeneficiaryToEnrol("");
     setStartingStage("");
     setLoading(true);
@@ -105,14 +124,18 @@ export function ProgrammeDetailSheet({
       listFundsAction(programme.id),
       listStagesAction(programme.id),
       listEnrolmentsByProgrammeAction(programme.id),
-    ]).then(([m, f, s, e]) => {
+      programme.reach_tracking_mode === "manual"
+        ? listProgrammeReachUpdatesAction(programme.id)
+        : Promise.resolve([]),
+    ]).then(([m, f, s, e, r]) => {
       setMilestones(m);
       setFunds(f);
       setStages(s);
       setEnrolments(e);
+      setReachUpdates(r);
       setLoading(false);
     });
-  }, [open, programme?.id, programme?.status]);
+  }, [open, programme?.id, programme?.status, programme?.actual_reach_count, programme?.reach_tracking_mode]);
 
   if (!programme) return null;
 
@@ -126,13 +149,44 @@ export function ProgrammeDetailSheet({
     });
   }
 
+  function saveManualReach() {
+    if (!programme?.id || !canQuickUpdateManualReach) return;
+    setReachFeedback(null);
+    startReachTransition(async () => {
+      const result = await updateManualReachAction(programme.id!, {
+        actualCount: reachCountInput,
+        note: reachNote,
+      });
+      if (!result.ok) {
+        setReachFeedback(result.error);
+        return;
+      }
+      if (!result.data) {
+        setReachFeedback("The actual count was updated, but the latest summary could not be loaded.");
+        return;
+      }
+      setManualActualCount(result.data.actualCount);
+      setReachUpdates(result.data.updates);
+      setReachModalOpen(false);
+      setReachCountInput("");
+      setReachNote("");
+      setReachFeedback(null);
+    });
+  }
+
   const fundsTotal = funds.reduce((sum, row) => sum + row.amount_ngn, 0);
   const fundsRemaining = Math.max((programme.budget_ngn ?? 0) - fundsTotal, 0);
+  const actualReachCount =
+    programme.reach_tracking_mode === "manual"
+      ? manualActualCount
+      : programme.actual_reach_count;
   const reachGap =
-    programme.target_reach_count !== null && programme.actual_reach_count !== null
-      ? programme.target_reach_count - programme.actual_reach_count
+    programme.target_reach_count !== null && actualReachCount !== null
+      ? programme.target_reach_count - actualReachCount
       : null;
   const isArchived = Boolean(programme.archived_at);
+  const canQuickUpdateManualReach =
+    programme.reach_tracking_mode === "manual" && !isArchived && !isMock && canManageOps;
   const enrolledBeneficiaryIds = new Set(enrolments.map((row) => row.beneficiary_id));
   const enrolmentOptions = beneficiaries
     .filter((row) => row.id && !enrolledBeneficiaryIds.has(row.id))
@@ -202,7 +256,7 @@ export function ProgrammeDetailSheet({
             />
             <DetailRow
               label={`Actual ${programme.reach_unit_label}`}
-              value={formatReachCount(programme.actual_reach_count, programme.reach_unit_label)}
+              value={formatReachCount(actualReachCount, programme.reach_unit_label)}
             />
             {reachGap !== null ? (
               <DetailRow
@@ -260,6 +314,67 @@ export function ProgrammeDetailSheet({
                 driveFileId={programme.flyer_drive_file_id}
                 label="Flyer"
               />
+            ) : null}
+
+            {canQuickUpdateManualReach ? (
+              <div className="rounded-md border bg-muted/20 p-3 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium">Manual reach updates</p>
+                    <p className="text-xs text-muted-foreground">
+                      Record the latest actual {programme.reach_unit_label} count without opening the full editor.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => {
+                      setReachFeedback(null);
+                      setReachCountInput(actualReachCount?.toString() ?? "");
+                      setReachNote("");
+                      setReachModalOpen(true);
+                    }}
+                  >
+                    Update actual count
+                  </Button>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    Recent updates
+                  </p>
+                  {reachUpdates.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      No manual updates recorded yet.
+                    </p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {reachUpdates.slice(0, 5).map((update) => (
+                        <li key={update.id} className="rounded-md border bg-background px-3 py-2">
+                          <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                            <span className="font-medium">
+                              {formatReachTransition(
+                                update.previous_actual_count,
+                                update.new_actual_count,
+                                programme.reach_unit_label,
+                              )}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {formatDateTime(update.created_at)}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {update.created_by_name || update.created_by_email || "Unknown teammate"}
+                          </p>
+                          {update.note ? (
+                            <p className="mt-1 text-xs text-muted-foreground">{update.note}</p>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
             ) : null}
 
             <div className="border-t pt-4 space-y-2">
@@ -760,6 +875,88 @@ export function ProgrammeDetailSheet({
             ) : null}
           </TabsContent>
         </Tabs>
+
+        {reachModalOpen ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+            <div className="w-full max-w-md rounded-xl border bg-background p-5 shadow-xl">
+              <div className="space-y-1">
+                <h3 className="text-base font-semibold">Update actual count</h3>
+                <p className="text-sm text-muted-foreground">
+                  Record the latest actual {programme.reach_unit_label} for this manual-reach programme.
+                </p>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <div className="rounded-md border bg-muted/20 p-3">
+                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Target</p>
+                    <p className="mt-1 text-sm font-medium">
+                      {formatReachCount(programme.target_reach_count, programme.reach_unit_label)}
+                    </p>
+                  </div>
+                  <div className="rounded-md border bg-muted/20 p-3">
+                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Current</p>
+                    <p className="mt-1 text-sm font-medium">
+                      {formatReachCount(actualReachCount, programme.reach_unit_label)}
+                    </p>
+                  </div>
+                  <div className="rounded-md border bg-muted/20 p-3">
+                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Unit</p>
+                    <p className="mt-1 text-sm font-medium capitalize">{programme.reach_unit_label}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="manual-reach-count">New actual count</Label>
+                  <Input
+                    id="manual-reach-count"
+                    inputMode="numeric"
+                    placeholder="Enter the latest total"
+                    value={reachCountInput}
+                    onChange={(event) => setReachCountInput(event.target.value.replace(/[^\d]/g, ""))}
+                    disabled={reachPending}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="manual-reach-note">Reason / note (optional)</Label>
+                  <Input
+                    id="manual-reach-note"
+                    placeholder="Example: field count from Lagos outreach"
+                    value={reachNote}
+                    onChange={(event) => setReachNote(event.target.value)}
+                    disabled={reachPending}
+                  />
+                </div>
+
+                {reachFeedback ? (
+                  <p className="text-xs text-destructive">{reachFeedback}</p>
+                ) : null}
+
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      if (reachPending) return;
+                      setReachModalOpen(false);
+                    }}
+                    disabled={reachPending}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={saveManualReach}
+                    disabled={reachPending || !reachCountInput.trim()}
+                  >
+                    {reachPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save update"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </SheetContent>
     </Sheet>
   );
@@ -844,6 +1041,30 @@ function formatDate(value: string) {
     day: "numeric",
     year: "numeric",
   }).format(date);
+}
+
+function formatDateTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("en-NG", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function formatReachTransition(
+  previousValue: number | null,
+  nextValue: number,
+  unitLabel: string,
+) {
+  const previousLabel =
+    previousValue === null || previousValue === undefined
+      ? "Not set"
+      : `${previousValue.toLocaleString("en-NG")} ${unitLabel}`;
+  return `${previousLabel} → ${nextValue.toLocaleString("en-NG")} ${unitLabel}`;
 }
 
 function today() {

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ProgrammesOverview } from "@/components/programmes/programmes-overview";
 import { getProgrammesWithFunding, type ProgrammeArchiveScope } from "@/lib/programmes";
 import { getBeneficiaries } from "@/lib/beneficiaries";
+import { getCurrentProfile } from "@/lib/auth";
 import { Plus } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -15,10 +16,18 @@ export default async function ProgrammesPage({
 }) {
   const params = await searchParams;
   const view = parseArchiveScope(params.view);
-  const programmes = await getProgrammesWithFunding({ archiveScope: view });
+  const [programmes, currentProfile] = await Promise.all([
+    getProgrammesWithFunding({ archiveScope: view }),
+    getCurrentProfile(),
+  ]);
   const beneficiaries = await getBeneficiaries(programmes.rows);
   const created = params.created === "1";
   const updated = params.updated === "1";
+  const canManageOps =
+    currentProfile?.is_active &&
+    (currentProfile.role === "admin" ||
+      currentProfile.role === "programme_officer" ||
+      currentProfile.role === "me_lead");
 
   return (
     <AppFrame
@@ -44,6 +53,7 @@ export default async function ProgrammesPage({
         }
         rows={programmes.rows}
         beneficiaries={beneficiaries.rows}
+        canManageOps={Boolean(canManageOps)}
         archiveScope={view}
         source={programmes.source}
       />
