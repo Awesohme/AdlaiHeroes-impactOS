@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
 import {
   SCORECARD_RUBRICS,
   SCORECARD_WEIGHTS,
@@ -23,6 +23,7 @@ import {
 } from "@/lib/programme-pipeline";
 import {
   clearBeneficiaryConsentAction,
+  deleteBeneficiaryAction,
   enrolBeneficiaryAction,
   listProgrammeStagesAction,
   moveEnrolmentStageAction,
@@ -87,6 +88,10 @@ export function BeneficiaryDetailSheet({
   const [consentFeedback, setConsentFeedback] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoFeedback, setPhotoFeedback] = useState<string | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteCode, setDeleteCode] = useState("");
+  const [deleteConfirmed, setDeleteConfirmed] = useState(false);
+  const [deleteFeedback, setDeleteFeedback] = useState<string | null>(null);
   const [consentDriveFileId, setConsentDriveFileId] = useState<string | null>(null);
   const [consentRecordedAt, setConsentRecordedAt] = useState<string | null>(null);
   const [scorecard, setScorecard] = useState({
@@ -114,6 +119,10 @@ export function BeneficiaryDetailSheet({
     setConsentFeedback(null);
     setPhotoFile(null);
     setPhotoFeedback(null);
+    setDeleteOpen(false);
+    setDeleteCode("");
+    setDeleteConfirmed(false);
+    setDeleteFeedback(null);
     setScorecard({
       financial_need: beneficiary.scorecard?.financial_need ?? 0,
       academic_record: beneficiary.scorecard?.academic_record ?? 0,
@@ -243,6 +252,25 @@ export function BeneficiaryDetailSheet({
       const result = await upsertScorecardAction(beneficiary.enrolment_id!, scorecard);
       if (result.ok) setFeedback("Scorecard saved.");
       else setFeedback(result.error);
+    });
+  }
+
+  function deleteBeneficiary() {
+    if (!beneficiary?.id) return;
+    setDeleteFeedback(null);
+    startTransition(async () => {
+      const result = await deleteBeneficiaryAction({
+        beneficiaryId: beneficiary.id!,
+        beneficiaryCode: deleteCode,
+        confirmed: deleteConfirmed,
+      });
+      if (result.ok) {
+        setDeleteFeedback("Beneficiary deleted.");
+        onOpenChange(false);
+        router.refresh();
+      } else {
+        setDeleteFeedback(result.error);
+      }
     });
   }
 
@@ -681,6 +709,103 @@ export function BeneficiaryDetailSheet({
           <p className="text-xs text-muted-foreground mt-6">
             Stage and scorecard appear once this beneficiary is enrolled in a programme.
           </p>
+        ) : null}
+
+        {beneficiary.id ? (
+          <DetailSection title="Danger zone">
+            <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 space-y-3">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-destructive">Delete beneficiary</p>
+                <p className="text-xs text-muted-foreground">
+                  This permanently deletes the beneficiary profile and linked enrolments. Evidence
+                  files stay in Drive, but their beneficiary link is cleared.
+                </p>
+              </div>
+              {!deleteOpen ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => setDeleteOpen(true)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Start delete
+                </Button>
+              ) : (
+                <div className="space-y-3">
+                  <div className="rounded-md border bg-background p-3 text-xs text-muted-foreground">
+                    Step 1: confirm you want a permanent delete. Step 2: type{" "}
+                    <span className="font-mono font-semibold text-foreground">
+                      {beneficiary.beneficiary_code}
+                    </span>{" "}
+                    exactly. Step 3: tick the final confirmation.
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Beneficiary code</Label>
+                    <Input
+                      value={deleteCode}
+                      onChange={(event) => setDeleteCode(event.target.value)}
+                      placeholder={beneficiary.beneficiary_code}
+                      className="font-mono"
+                    />
+                  </div>
+                  <label className="flex items-start gap-2 text-xs text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={deleteConfirmed}
+                      onChange={(event) => setDeleteConfirmed(event.target.checked)}
+                      className="mt-0.5 h-4 w-4 rounded border-input"
+                    />
+                    <span>
+                      I understand this deletes the beneficiary profile and linked operational
+                      records, and this cannot be undone from ImpactOps.
+                    </span>
+                  </label>
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setDeleteOpen(false);
+                        setDeleteCode("");
+                        setDeleteConfirmed(false);
+                        setDeleteFeedback(null);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      onClick={deleteBeneficiary}
+                      disabled={
+                        pending ||
+                        !deleteConfirmed ||
+                        deleteCode.trim().toUpperCase() !== beneficiary.beneficiary_code.toUpperCase()
+                      }
+                    >
+                      {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                      Delete permanently
+                    </Button>
+                  </div>
+                  {deleteFeedback ? (
+                    <p
+                      className={cn(
+                        "text-xs",
+                        deleteFeedback === "Beneficiary deleted."
+                          ? "text-emerald-700"
+                          : "text-destructive",
+                      )}
+                    >
+                      {deleteFeedback}
+                    </p>
+                  ) : null}
+                </div>
+              )}
+            </div>
+          </DetailSection>
         ) : null}
       </SheetContent>
     </Sheet>

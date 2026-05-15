@@ -278,6 +278,43 @@ export async function clearBeneficiaryConsentAction(
   return { ok: true };
 }
 
+export async function deleteBeneficiaryAction({
+  beneficiaryId,
+  beneficiaryCode,
+  confirmed,
+}: {
+  beneficiaryId: string;
+  beneficiaryCode: string;
+  confirmed: boolean;
+}): Promise<ActionResult> {
+  if (!beneficiaryId) return { ok: false, error: "Beneficiary is required." };
+  if (!confirmed) return { ok: false, error: "Confirm that you understand this delete action." };
+
+  const supabase = await createClient();
+  const { data: beneficiary, error: loadError } = await supabase
+    .from("beneficiaries")
+    .select("id,beneficiary_code")
+    .eq("id", beneficiaryId)
+    .maybeSingle();
+  if (loadError) return { ok: false, error: mapDbError(loadError.message, "Could not load beneficiary.") };
+  if (!beneficiary) return { ok: false, error: "Beneficiary not found." };
+
+  const expected = String(beneficiary.beneficiary_code ?? "").trim().toUpperCase();
+  const provided = beneficiaryCode.trim().toUpperCase();
+  if (!expected || provided !== expected) {
+    return { ok: false, error: `Type ${expected || "the beneficiary code"} exactly to delete.` };
+  }
+
+  const { error } = await supabase.from("beneficiaries").delete().eq("id", beneficiaryId);
+  if (error) return { ok: false, error: mapDbError(error.message, "Could not delete beneficiary.") };
+
+  revalidatePath("/beneficiaries");
+  revalidatePath("/dashboard");
+  revalidatePath("/pipeline");
+  revalidatePath("/programmes");
+  return { ok: true };
+}
+
 export type ActionResult<T = unknown> = { ok: true; data?: T } | { ok: false; error: string };
 
 const validDecisions = new Set(["approved", "deferred", "declined", ""]);
