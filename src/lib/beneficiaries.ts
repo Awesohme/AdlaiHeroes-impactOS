@@ -26,7 +26,6 @@ export type BeneficiaryRow = {
   programme_modules: ProgrammeModuleKey[];
   community: string;
   state: string;
-  school_name: string;
   guardian_name: string;
   guardian_phone: string;
   consent_status: string;
@@ -65,7 +64,6 @@ type BeneficiaryRecord = {
   guardian_phone: string | null;
   community: string | null;
   state: string | null;
-  school_name: string | null;
   consent_status: string;
   safeguarding_flag: string;
   consent_received: boolean | null;
@@ -124,7 +122,7 @@ export async function getBeneficiaries(programmes: ProgrammeRow[]) {
       supabase
         .from("beneficiaries")
         .select(
-          "id,beneficiary_code,full_name,guardian_name,guardian_phone,community,state,school_name,consent_status,safeguarding_flag,consent_received,consent_evidence_drive_file_id,consent_recorded_at,profile_image_drive_file_id,profile_image_folder_id,profile_image_mime_type,profile_image_size_bytes,profile_image_uploaded_at",
+          "id,beneficiary_code,full_name,guardian_name,guardian_phone,community,state,consent_status,safeguarding_flag,consent_received,consent_evidence_drive_file_id,consent_recorded_at,profile_image_drive_file_id,profile_image_folder_id,profile_image_mime_type,profile_image_size_bytes,profile_image_uploaded_at",
         )
         .order("created_at", { ascending: false })
         .limit(40),
@@ -191,7 +189,6 @@ function formatBeneficiary(
     programme_modules: programme?.enabled_modules ?? [],
     community: beneficiary.community ?? "Unknown community",
     state: beneficiary.state ?? "Unknown state",
-    school_name: beneficiary.school_name ?? "School not captured",
     guardian_name: beneficiary.guardian_name ?? "Guardian not captured",
     guardian_phone: beneficiary.guardian_phone ?? "No phone on file",
     consent_status: beneficiary.consent_status,
@@ -266,7 +263,6 @@ function buildMockBeneficiaries(programmes: ProgrammeRow[]): BeneficiaryRow[] {
       programme_modules: references[0]?.enabled_modules ?? ["beneficiaries", "activities", "evidence"],
       community: "Karu",
       state: "Abuja, FCT",
-      school_name: "Government Secondary School, Karu",
       guardian_name: "Ifeoma Okafor",
       guardian_phone: "0803 123 4567",
       consent_status: "consent_captured",
@@ -285,7 +281,6 @@ function buildMockBeneficiaries(programmes: ProgrammeRow[]): BeneficiaryRow[] {
       programme_modules: references[1]?.enabled_modules ?? ["beneficiaries", "evidence"],
       community: "Kubwa",
       state: "Abuja, FCT",
-      school_name: "LEA Primary School, Kubwa",
       guardian_name: "Sani Ibrahim",
       guardian_phone: "0807 987 6543",
       consent_status: "consent_captured",
@@ -293,7 +288,7 @@ function buildMockBeneficiaries(programmes: ProgrammeRow[]): BeneficiaryRow[] {
       current_status: "active",
       last_activity: relativeActivityDate(2),
       risk_flag: "clear",
-      highlights: ["school support", "evidence enabled"],
+      highlights: ["support active", "evidence enabled"],
     },
     {
       ...base(),
@@ -304,7 +299,6 @@ function buildMockBeneficiaries(programmes: ProgrammeRow[]): BeneficiaryRow[] {
       programme_modules: references[2]?.enabled_modules ?? ["beneficiaries", "activities", "evidence"],
       community: "Gwagwalada",
       state: "Abuja, FCT",
-      school_name: "Gwagwalada Secondary School",
       guardian_name: "Bello Aliyu",
       guardian_phone: "0805 000 1111",
       consent_status: "photo_consent_pending",

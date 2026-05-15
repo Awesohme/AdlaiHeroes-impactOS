@@ -71,7 +71,6 @@ export async function createBeneficiaryAction(
     guardian_phone: String(formData.get("guardian_phone") ?? "").trim() || null,
     community: String(formData.get("community") ?? "").trim() || null,
     state: String(formData.get("state") ?? "").trim() || null,
-    school_name: String(formData.get("school_name") ?? "").trim() || null,
     consent_status: consent,
     photo_video_consent: photoVideoConsent,
     safeguarding_flag: safeguarding,

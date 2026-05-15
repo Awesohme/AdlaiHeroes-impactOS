@@ -28,6 +28,7 @@ import {
 } from "@/app/(protected)/evidence/actions";
 import { cn } from "@/lib/utils";
 import { MediaPreview } from "@/components/media-preview";
+import { InfoTooltip } from "@/components/info-tooltip";
 
 const statusOptions = [
   { value: "consent_check", label: "Pending" },
@@ -118,7 +119,10 @@ export function EvidenceDetailSheet({
           <DetailGrid evidence={evidence} />
 
           <section className="space-y-2 border-t pt-5">
-            <Label htmlFor="evidence-status">Verification status</Label>
+            <Label htmlFor="evidence-status" className="inline-flex items-center gap-1">
+              Verification status
+              <InfoTooltip content="Pending means not ready, In review means staff are checking it, Confirmed means it can be used." />
+            </Label>
             <div className="flex gap-2">
               <Select value={status} onValueChange={setStatus} disabled={isMock}>
                 <SelectTrigger id="evidence-status" className="flex-1">

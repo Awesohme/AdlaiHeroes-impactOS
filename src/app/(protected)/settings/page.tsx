@@ -172,7 +172,7 @@ export default async function SettingsPage({
       ) : null}
 
       <Tabs defaultValue="fields" className="space-y-4">
-        <TabsList className="max-w-full overflow-x-auto">
+        <TabsList className="max-w-full overflow-x-auto" data-tour="settings-tabs">
           <TabsTrigger value="fields">Field templates</TabsTrigger>
           <TabsTrigger value="programme-types">Programme types</TabsTrigger>
           {isAdmin ? <TabsTrigger value="users">Users</TabsTrigger> : null}
@@ -189,7 +189,7 @@ export default async function SettingsPage({
         </TabsContent>
 
         {isAdmin && currentProfile ? (
-          <TabsContent value="users">
+          <TabsContent value="users" data-tour="settings-users">
             <UsersTab
               initial={users}
               currentUserId={currentProfile.id}
@@ -198,7 +198,7 @@ export default async function SettingsPage({
           </TabsContent>
         ) : null}
 
-        <TabsContent value="platform" className="space-y-4">
+        <TabsContent value="platform" className="space-y-4" data-tour="settings-platform">
           <Card>
             <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
               <div>

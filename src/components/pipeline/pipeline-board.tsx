@@ -94,7 +94,7 @@ export function PipelineBoard({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3" data-tour="pipeline-controls">
         <Select value={selectedCode ?? ""} onValueChange={changeProgramme}>
           <SelectTrigger className="w-full sm:w-72">
             <SelectValue placeholder="Choose a programme" />
@@ -135,6 +135,7 @@ export function PipelineBoard({
       ) : (
         <div
           className="grid gap-4 lg:grid-cols-[1fr_22rem]"
+          data-tour="pipeline-board"
           onClick={() => {
             if (isDesktop) setSelectedEnrolment(null);
           }}
@@ -165,6 +166,7 @@ export function PipelineBoard({
           <Card
             className="hidden lg:block sticky top-20 self-start max-h-[calc(100vh-7rem)] overflow-y-auto"
             onClick={(event) => event.stopPropagation()}
+            data-tour="pipeline-panel"
           >
             <CardContent className="p-4">
               <PipelineSidePanel

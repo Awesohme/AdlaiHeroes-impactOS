@@ -160,7 +160,14 @@ export function PipelineSidePanel({
         </div>
       </header>
 
-      <Section title="Move stage">
+      <Section
+        title={
+          <span className="inline-flex items-center gap-2">
+            Move stage
+            <InfoTooltip content="Stages are the operational decision path. Moving into Approved, Deferred, or Declined records that outcome." />
+          </span>
+        }
+      >
         <StagePicker
           enrolmentId={enrolment.enrolment_id}
           currentStageId={enrolment.stage_id}
@@ -173,7 +180,14 @@ export function PipelineSidePanel({
         <EnrolmentFieldsSection enrolmentId={enrolment.enrolment_id} />
       </Section>
 
-      <Section title="Consent">
+      <Section
+        title={
+          <span className="inline-flex items-center gap-2">
+            Consent
+            <InfoTooltip content="Consent is only counted after the signed form is uploaded. This protects beneficiary images and sensitive records." />
+          </span>
+        }
+      >
         {enrolment.consent_received ? (
           <div className="rounded-md border bg-emerald-50/60 p-3 space-y-1 text-sm">
             <p className="font-medium text-emerald-700">Consent received</p>

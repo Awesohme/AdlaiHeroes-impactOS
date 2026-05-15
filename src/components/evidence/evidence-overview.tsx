@@ -106,13 +106,13 @@ export function EvidenceOverview({
         </div>
       ) : null}
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" data-tour="evidence-metrics">
         {counters.map((stat) => (
           <MetricTile key={stat.label} {...stat} />
         ))}
       </section>
 
-      <Card>
+      <Card data-tour="evidence-register">
         <CardHeader className="border-b flex flex-row items-center justify-between space-y-0">
           <CardTitle className="text-base">Register</CardTitle>
           <Link

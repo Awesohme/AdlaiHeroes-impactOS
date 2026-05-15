@@ -22,6 +22,7 @@ import {
   updateUserRoleAction,
 } from "@/app/(protected)/settings/user-actions";
 import type { AppRole } from "@/lib/auth";
+import { InfoTooltip } from "@/components/info-tooltip";
 
 export type UserRow = {
   id: string;
@@ -228,7 +229,13 @@ export function UsersTab({
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Role</Label>
+              <Label className="inline-flex items-center gap-1 text-xs">
+                Role
+                <InfoTooltip
+                  size={13}
+                  content="Programme officers and M&E leads can record day-to-day ops. Admins manage users, settings, and destructive actions."
+                />
+              </Label>
               <Select value={role} onValueChange={(value) => setRole(value as AppRole)}>
                 <SelectTrigger>
                   <SelectValue />

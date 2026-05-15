@@ -11,7 +11,8 @@ const authErrors: Record<string, string> = {
   env: "Supabase environment variables are missing on the server.",
   missing_code: "Google sign-in returned without an authorization code.",
   oauth: "Google sign-in could not be started from the server route.",
-  session: "Sign-in completed, but no durable session was found on the next request.",
+  session:
+    "Google sign-in completed, but this browser did not persist the session cookie. Try again, use username/password, or open a normal browser window if you are in private/incognito mode.",
   not_invited: "This account is not invited. Ask an admin to add you first.",
   invalid_credentials: "Username or password is incorrect.",
 };
@@ -44,15 +45,25 @@ export default async function LoginPage({
           </p>
           <CardTitle className="text-2xl">Sign in</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Use an approved Google account. Real beneficiary data stays blocked until role-aware
-            access is verified.
+            Use an approved Google account or the username/password your admin created for you.
+            Access opens only after your role is active.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
           {error ? (
-            <div className="flex gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+            <div className="space-y-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+              <div className="flex gap-2">
               <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
               <span>{error}</span>
+              </div>
+              {params?.error === "session" ? (
+                <Link
+                  href={`/auth/sign-in${next}`}
+                  className="inline-flex text-xs font-medium underline underline-offset-2"
+                >
+                  Try Google again
+                </Link>
+              ) : null}
             </div>
           ) : null}
           <Button asChild className="w-full">

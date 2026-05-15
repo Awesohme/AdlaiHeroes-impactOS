@@ -72,12 +72,6 @@ export const moduleOptions: Array<{ key: ProgrammeModuleKey; label: string; desc
 
 export const programmeFieldCatalog: ProgrammeFieldDefinition[] = [
   {
-    field_key: "school_name",
-    label: "School Name",
-    field_type: "text",
-    description: "Capture the school or institution tied to the beneficiary record.",
-  },
-  {
     field_key: "beneficiary_age",
     label: "Beneficiary Age",
     field_type: "number",
@@ -140,7 +134,6 @@ export const programmeFieldCatalog: ProgrammeFieldDefinition[] = [
 ];
 
 export const defaultProgrammeFieldKeys = [
-  "school_name",
   "beneficiary_age",
   "consent_status",
   "cbt_readiness_score",

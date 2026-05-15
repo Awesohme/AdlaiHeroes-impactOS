@@ -109,7 +109,7 @@ export default async function DashboardPage() {
         </>
       }
     >
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section data-tour="dashboard-metrics" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {counters.map((stat) => (
           <MetricTile key={stat.label} {...stat} />
         ))}
@@ -185,7 +185,7 @@ export default async function DashboardPage() {
       </section>
 
       <section className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
+        <Card data-tour="dashboard-recent" className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle className="text-base">Recent records</CardTitle>
             <Link
@@ -220,7 +220,7 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card data-tour="dashboard-actions">
           <CardHeader>
             <CardTitle className="text-base">Quick actions</CardTitle>
           </CardHeader>

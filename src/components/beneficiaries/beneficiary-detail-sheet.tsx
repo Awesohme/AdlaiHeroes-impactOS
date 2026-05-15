@@ -344,7 +344,6 @@ export function BeneficiaryDetailSheet({
           <DetailItem label="Phone" value={beneficiary.guardian_phone} />
           <DetailItem label="Community" value={beneficiary.community} />
           <DetailItem label="State" value={beneficiary.state} />
-          <DetailItem label="School" value={beneficiary.school_name} />
         </DetailSection>
 
         <DetailSection title="Programme">

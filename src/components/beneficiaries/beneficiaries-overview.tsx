@@ -38,6 +38,7 @@ import { Search, Info, Plus } from "lucide-react";
 import { BeneficiaryDetailSheet } from "@/components/beneficiaries/beneficiary-detail-sheet";
 import { BeneficiaryCreateSheet } from "@/components/beneficiaries/beneficiary-create-sheet";
 import { BeneficiaryAvatar } from "@/components/beneficiaries/beneficiary-avatar";
+import { InfoTooltip } from "@/components/info-tooltip";
 import { useRouter } from "next/navigation";
 
 export function BeneficiariesOverview({
@@ -134,7 +135,7 @@ export function BeneficiariesOverview({
         ))}
       </section>
 
-      <Card>
+      <Card data-tour="beneficiary-table">
         <CardHeader className="border-b space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative w-full sm:max-w-xs">
@@ -146,11 +147,16 @@ export function BeneficiariesOverview({
                 className="pl-9"
               />
             </div>
-            <Button size="sm" className="ml-auto" onClick={() => setCreateOpen(true)}>
+            <Button
+              size="sm"
+              className="ml-auto"
+              onClick={() => setCreateOpen(true)}
+              data-tour="beneficiary-add"
+            >
               <Plus className="h-4 w-4" /> Add beneficiary
             </Button>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2" data-tour="beneficiary-filters">
             <FilterSelect
               label="Programme"
               value={programmeFilter}
@@ -192,8 +198,18 @@ export function BeneficiariesOverview({
                 <TableHead>Programme</TableHead>
                 <TableHead>Stage</TableHead>
                 <TableHead>Last activity</TableHead>
-                <TableHead>Consent</TableHead>
-                <TableHead>Risk</TableHead>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1">
+                    Consent
+                    <InfoTooltip content="Consent file must be uploaded before photos or sensitive case records are reused." />
+                  </span>
+                </TableHead>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1">
+                    Risk
+                    <InfoTooltip content="Safeguarding flags help staff spot records that need review or follow-up." />
+                  </span>
+                </TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
             </TableHeader>
