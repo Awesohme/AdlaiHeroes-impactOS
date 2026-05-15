@@ -1,4 +1,5 @@
 export type ProgrammeStatus = "draft" | "planned" | "active" | "monitoring" | "completed" | "at_risk";
+export type ProgrammeReachTrackingMode = "beneficiary_registry" | "manual";
 
 export type ProgrammeModuleKey =
   | "beneficiaries"
@@ -53,6 +54,23 @@ export const programmeStatusOptions: Array<{ value: ProgrammeStatus; label: stri
   { value: "monitoring", label: "Monitoring" },
   { value: "completed", label: "Completed" },
   { value: "at_risk", label: "At Risk" },
+];
+
+export const programmeReachTrackingModeOptions: Array<{
+  value: ProgrammeReachTrackingMode;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: "beneficiary_registry",
+    label: "Beneficiary registry",
+    description: "Actual reach is counted from enrolled beneficiary records.",
+  },
+  {
+    value: "manual",
+    label: "Manual count",
+    description: "Actual reach is tracked as an operational total without enrolments.",
+  },
 ];
 
 export const programmeTypeOptions = [

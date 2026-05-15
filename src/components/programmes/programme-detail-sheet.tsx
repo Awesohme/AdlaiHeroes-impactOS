@@ -128,6 +128,10 @@ export function ProgrammeDetailSheet({
 
   const fundsTotal = funds.reduce((sum, row) => sum + row.amount_ngn, 0);
   const fundsRemaining = Math.max((programme.budget_ngn ?? 0) - fundsTotal, 0);
+  const reachGap =
+    programme.target_reach_count !== null && programme.actual_reach_count !== null
+      ? programme.target_reach_count - programme.actual_reach_count
+      : null;
   const isArchived = Boolean(programme.archived_at);
   const enrolledBeneficiaryIds = new Set(enrolments.map((row) => row.beneficiary_id));
   const enrolmentOptions = beneficiaries
@@ -185,9 +189,44 @@ export function ProgrammeDetailSheet({
             <DetailRow label="Locations" value={programme.location_areas.join(", ") || "—"} />
             <DetailRow label="Dates" value={programme.timeline_label} />
             <DetailRow
-              label="Expected beneficiaries"
-              value={programme.expected_beneficiaries?.toLocaleString() ?? "—"}
+              label="Reach tracking"
+              value={
+                programme.reach_tracking_mode === "manual"
+                  ? "Manual count"
+                  : "Beneficiary registry"
+              }
             />
+            <DetailRow
+              label={`Target ${programme.reach_unit_label}`}
+              value={formatReachCount(programme.target_reach_count, programme.reach_unit_label)}
+            />
+            <DetailRow
+              label={`Actual ${programme.reach_unit_label}`}
+              value={formatReachCount(programme.actual_reach_count, programme.reach_unit_label)}
+            />
+            {reachGap !== null ? (
+              <DetailRow
+                label={reachGap >= 0 ? "Remaining gap" : "Over target"}
+                value={formatReachCount(Math.abs(reachGap), programme.reach_unit_label)}
+              />
+            ) : null}
+            {programme.reach_tracking_mode === "manual" ? (
+              <DetailRow
+                label="Actual source"
+                value="Manual operational count"
+              />
+            ) : (
+              <DetailRow
+                label="Actual source"
+                value="Derived from enrolled beneficiaries"
+              />
+            )}
+            {programme.reach_tracking_mode === "beneficiary_registry" ? (
+              <DetailRow
+                label="Registry records"
+                value={formatReachCount(enrolments.length, "records")}
+              />
+            ) : null}
             <DetailRow
               label="Budget"
               value={programme.budget_ngn ? `NGN ${programme.budget_ngn.toLocaleString("en-NG")}` : "—"}
@@ -509,8 +548,9 @@ export function ProgrammeDetailSheet({
               </div>
             ) : enrolments.length === 0 ? (
               <div className="rounded-md border border-dashed bg-muted/30 p-3 text-xs text-muted-foreground">
-                Stages move beneficiaries through milestones once they&apos;re enrolled here. Open a
-                beneficiary → &quot;Enrol in a programme&quot; to start.
+                {programme.reach_tracking_mode === "manual"
+                  ? "This programme tracks reach manually, so pipeline stages are optional. Use them only if this team still wants a beneficiary workflow."
+                  : "Stages move beneficiaries through milestones once they&apos;re enrolled here. Open a beneficiary → \"Enrol in a programme\" to start."}
               </div>
             ) : null}
 
@@ -610,7 +650,9 @@ export function ProgrammeDetailSheet({
               <p className="text-sm text-muted-foreground py-4 text-center">Loading…</p>
             ) : enrolments.length === 0 ? (
               <p className="text-sm text-muted-foreground py-4 text-center">
-                No beneficiaries enrolled yet.
+                {programme.reach_tracking_mode === "manual"
+                  ? "No beneficiaries are linked yet. That is fine for manual-reach programmes."
+                  : "No beneficiaries enrolled yet."}
               </p>
             ) : (
               <>
@@ -760,6 +802,11 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
       <span className="font-medium text-right">{value}</span>
     </div>
   );
+}
+
+function formatReachCount(value: number | null, unitLabel: string) {
+  if (value === null || value === undefined) return "—";
+  return `${value.toLocaleString("en-NG")} ${unitLabel}`;
 }
 
 function ProgressBar({

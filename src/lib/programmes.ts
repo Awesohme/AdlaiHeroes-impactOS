@@ -6,6 +6,7 @@ import {
   getFieldDefinition,
   type ProgrammeFieldType,
   type ProgrammeModuleKey,
+  type ProgrammeReachTrackingMode,
   type ProgrammeStatus,
 } from "@/lib/programme-config";
 
@@ -29,6 +30,12 @@ export type ProgrammeRow = {
   donor_funder: string;
   location_areas: string[];
   expected_beneficiaries: number | null;
+  reach_tracking_mode: ProgrammeReachTrackingMode;
+  reach_unit_label: string;
+  target_reach_count: number | null;
+  manual_actual_reach_count: number | null;
+  actual_reach_count: number | null;
+  actual_reach_source: "beneficiary_registry" | "manual";
   budget_ngn: number | null;
   objectives: string;
   programme_description: string;
@@ -39,7 +46,6 @@ export type ProgrammeRow = {
   data_fields: ProgrammeDataFieldRow[];
   progress: number;
   timeline_label: string;
-  reach: string;
   flyer_drive_file_id: string | null;
   funds_raised: number;
   archived_at: string | null;
@@ -58,6 +64,10 @@ type ProgrammeRecord = {
   location_areas: string[] | null;
   target_group: string | null;
   expected_beneficiaries: number | null;
+  reach_tracking_mode?: ProgrammeReachTrackingMode | string | null;
+  reach_unit_label?: string | null;
+  target_reach_count?: number | null;
+  manual_actual_reach_count?: number | null;
   budget_ngn: number | string | null;
   objectives: string | null;
   programme_description: string | null;
@@ -87,6 +97,10 @@ const programmeSelect = `
   location_areas,
   target_group,
   expected_beneficiaries,
+  reach_tracking_mode,
+  reach_unit_label,
+  target_reach_count,
+  manual_actual_reach_count,
   budget_ngn,
   objectives,
   programme_description,
@@ -123,6 +137,10 @@ const legacyProgrammeSelect = `
   location_areas,
   target_group,
   expected_beneficiaries,
+  reach_tracking_mode,
+  reach_unit_label,
+  target_reach_count,
+  manual_actual_reach_count,
   budget_ngn,
   objectives,
   programme_description,
@@ -169,7 +187,7 @@ export async function getProgrammes(options?: { archiveScope?: ProgrammeArchiveS
   let data = initial.data as ProgrammeRecord[] | null;
   let error = initial.error;
 
-  if (error?.message.includes("archived_at")) {
+  if (needsLegacyProgrammeFallback(error?.message)) {
     const fallback = await supabase
       .from("programmes")
       .select(legacyProgrammeSelect)
@@ -227,7 +245,7 @@ export async function getProgrammeByCode(programmeCode: string) {
   let data = initial.data as ProgrammeRecord | null;
   let error = initial.error;
 
-  if (error?.message.includes("archived_at")) {
+  if (needsLegacyProgrammeFallback(error?.message)) {
     const fallback = await supabase
       .from("programmes")
       .select(legacyProgrammeSelect)
@@ -251,6 +269,17 @@ export async function getProgrammeByCode(programmeCode: string) {
   };
 }
 
+function needsLegacyProgrammeFallback(message: string | undefined) {
+  if (!message) return false;
+  return (
+    message.includes("archived_at") ||
+    message.includes("reach_tracking_mode") ||
+    message.includes("reach_unit_label") ||
+    message.includes("target_reach_count") ||
+    message.includes("manual_actual_reach_count")
+  );
+}
+
 export function buildProgrammeSelectOptions(rows: ProgrammeRow[]) {
   return rows.map((row) => ({
     value: row.programme_code,
@@ -265,8 +294,13 @@ function formatProgramme(programme: ProgrammeRecord): ProgrammeRow {
   const endDate = programme.end_date ?? programme.ends_on;
   const donorFunder = programme.donor_funder ?? programme.donor ?? "Adlai Heroes Foundation";
   const expectedBeneficiaries = programme.expected_beneficiaries ?? null;
+  const reachTrackingMode = normaliseReachTrackingMode(programme.reach_tracking_mode);
+  const reachUnitLabel = normaliseReachUnitLabel(programme.reach_unit_label);
+  const targetReachCount = programme.target_reach_count ?? expectedBeneficiaries ?? null;
+  const manualActualReachCount = programme.manual_actual_reach_count ?? null;
   const budget = programme.budget_ngn === null ? null : Number(programme.budget_ngn);
   const status = programme.status ?? "draft";
+  const actualReachCount = reachTrackingMode === "manual" ? manualActualReachCount : null;
 
   return {
     id: programme.id,
@@ -277,6 +311,12 @@ function formatProgramme(programme: ProgrammeRecord): ProgrammeRow {
     donor_funder: donorFunder,
     location_areas: locationAreas,
     expected_beneficiaries: expectedBeneficiaries,
+    reach_tracking_mode: reachTrackingMode,
+    reach_unit_label: reachUnitLabel,
+    target_reach_count: targetReachCount,
+    manual_actual_reach_count: manualActualReachCount,
+    actual_reach_count: actualReachCount,
+    actual_reach_source: reachTrackingMode === "manual" ? "manual" : "beneficiary_registry",
     budget_ngn: budget,
     objectives: programme.objectives ?? "",
     programme_description: programme.programme_description ?? "",
@@ -287,7 +327,6 @@ function formatProgramme(programme: ProgrammeRecord): ProgrammeRow {
     data_fields: dataFields,
     progress: deriveProgress(status, startDate, endDate),
     timeline_label: formatTimeline(startDate, endDate),
-    reach: expectedBeneficiaries ? `${expectedBeneficiaries.toLocaleString()} beneficiaries` : "Not set",
     flyer_drive_file_id: programme.flyer_drive_file_id ?? null,
     funds_raised: 0,
     archived_at: programme.archived_at ?? null,
@@ -311,21 +350,59 @@ export async function getProgrammesWithFunding(options?: { archiveScope?: Progra
       .from("programme_funds")
       .select("programme_id,amount_ngn")
       .in("programme_id", ids);
+    const enrolmentResponse = await supabase
+      .from("enrolments")
+      .select("programme_id,beneficiary_id")
+      .in("programme_id", ids);
+
     if (error || !data) return result;
     const totals = new Map<string, number>();
     for (const row of data) {
       if (!row.programme_id) continue;
       totals.set(row.programme_id, (totals.get(row.programme_id) ?? 0) + Number(row.amount_ngn));
     }
+    const actualCounts = new Map<string, number>();
+    if (!enrolmentResponse.error && enrolmentResponse.data) {
+      const distinctBeneficiaries = new Map<string, Set<string>>();
+      for (const row of enrolmentResponse.data) {
+        if (!row.programme_id || !row.beneficiary_id) continue;
+        const set = distinctBeneficiaries.get(row.programme_id) ?? new Set<string>();
+        set.add(row.beneficiary_id);
+        distinctBeneficiaries.set(row.programme_id, set);
+      }
+      for (const [programmeId, set] of distinctBeneficiaries.entries()) {
+        actualCounts.set(programmeId, set.size);
+      }
+    }
     return {
       ...result,
       rows: result.rows.map((row) =>
-        row.id ? { ...row, funds_raised: totals.get(row.id) ?? 0 } : row,
+        row.id
+          ? {
+              ...row,
+              funds_raised: totals.get(row.id) ?? 0,
+              actual_reach_count:
+                row.reach_tracking_mode === "manual"
+                  ? row.manual_actual_reach_count
+                  : actualCounts.get(row.id) ?? 0,
+              actual_reach_source:
+                row.reach_tracking_mode === "manual" ? "manual" : "beneficiary_registry",
+            }
+          : row,
       ),
     };
   } catch {
     return result;
   }
+}
+
+function normaliseReachTrackingMode(value: ProgrammeRecord["reach_tracking_mode"]): ProgrammeReachTrackingMode {
+  return value === "manual" ? "manual" : "beneficiary_registry";
+}
+
+function normaliseReachUnitLabel(value: string | null | undefined) {
+  const trimmed = String(value ?? "").trim();
+  return trimmed || "beneficiaries";
 }
 
 function normaliseLocations(locationAreas: string[] | null, location: string | null) {
@@ -431,6 +508,12 @@ function mockProgrammes(): ProgrammeRow[] {
     donor_funder: "Adlai Heroes Foundation",
     location_areas: index % 2 === 0 ? ["Abuja, FCT", "Kano"] : ["Lagos", "Ogun"],
     expected_beneficiaries: parseInt(String(reach).replace(/[^\d]/g, ""), 10) || null,
+    reach_tracking_mode: "beneficiary_registry",
+    reach_unit_label: "beneficiaries",
+    target_reach_count: parseInt(String(reach).replace(/[^\d]/g, ""), 10) || null,
+    manual_actual_reach_count: null,
+    actual_reach_count: parseInt(String(reach).replace(/[^\d]/g, ""), 10) || null,
+    actual_reach_source: "beneficiary_registry",
     budget_ngn: [25000000, 18750000, 9500000][index % 3] ?? 0,
     objectives: "Improve programme reach, evidence quality, and beneficiary follow-through through a stronger operational record.",
     programme_description: "Reference-mode fallback record while the live programme table is still empty or unavailable.",
@@ -441,7 +524,6 @@ function mockProgrammes(): ProgrammeRow[] {
     data_fields: normaliseDataFields(null),
     progress: [74, 52, 28][index % 3] ?? 0,
     timeline_label: "Jan 1, 2026 - Dec 31, 2026",
-    reach: String(reach),
     flyer_drive_file_id: null,
     funds_raised: 0,
     archived_at: null,

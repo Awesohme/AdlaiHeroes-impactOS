@@ -15,9 +15,11 @@ import {
   getProgrammeStatusLabel,
   moduleOptions,
   nigeriaLocationOptions,
+  programmeReachTrackingModeOptions,
   programmeStatusOptions,
   isReservedBeneficiaryProfileField,
   type ProgrammeModuleKey,
+  type ProgrammeReachTrackingMode,
 } from "@/lib/programme-config";
 import type { FieldTemplate } from "@/lib/field-templates";
 import type { ProgrammeDataFieldRow, ProgrammeRow } from "@/lib/programmes";
@@ -117,9 +119,21 @@ export function ProgrammeCreateForm({
   const [targetGroup, setTargetGroup] = useState(
     state.fields?.target_group ?? initialProgramme?.target_group ?? "",
   );
-  const [expectedBeneficiaries, setExpectedBeneficiaries] = useState(
-    state.fields?.expected_beneficiaries ??
-      formatNullableNumber(initialProgramme?.expected_beneficiaries),
+  const [reachTrackingMode, setReachTrackingMode] = useState<ProgrammeReachTrackingMode>(
+    (state.fields?.reach_tracking_mode as ProgrammeReachTrackingMode | undefined) ??
+      initialProgramme?.reach_tracking_mode ??
+      "beneficiary_registry",
+  );
+  const [reachUnitLabel, setReachUnitLabel] = useState(
+    state.fields?.reach_unit_label ?? initialProgramme?.reach_unit_label ?? "beneficiaries",
+  );
+  const [targetReachCount, setTargetReachCount] = useState(
+    state.fields?.target_reach_count ??
+      formatNullableNumber(initialProgramme?.target_reach_count ?? initialProgramme?.expected_beneficiaries),
+  );
+  const [manualActualReachCount, setManualActualReachCount] = useState(
+    state.fields?.manual_actual_reach_count ??
+      formatNullableNumber(initialProgramme?.manual_actual_reach_count),
   );
   const [budgetNgn, setBudgetNgn] = useState(
     state.fields?.budget_ngn ?? formatCurrencyInput(initialProgramme?.budget_ngn),
@@ -162,6 +176,7 @@ export function ProgrammeCreateForm({
       <input name="location_areas_json" type="hidden" value={JSON.stringify(selectedLocations)} />
       <input name="enabled_modules_json" type="hidden" value={JSON.stringify(enabledModules)} />
       <input name="data_fields_json" type="hidden" value={JSON.stringify(selectedFields)} />
+      <input name="expected_beneficiaries" type="hidden" value={targetReachCount} />
 
       <div className="space-y-6">
         <Card>
@@ -236,16 +251,6 @@ export function ProgrammeCreateForm({
                 name="target_group"
                 onChange={(event) => setTargetGroup(event.target.value)}
                 placeholder="Adolescent girls (10–19 years)"
-              />
-            </Field>
-
-            <Field label="Expected beneficiaries">
-              <Input
-                value={expectedBeneficiaries}
-                inputMode="numeric"
-                name="expected_beneficiaries"
-                onChange={(event) => setExpectedBeneficiaries(formatThousands(event.target.value))}
-                placeholder="1,200"
               />
             </Field>
 
@@ -325,6 +330,70 @@ export function ProgrammeCreateForm({
                 rows={4}
               />
             </Field>
+
+            <div className="sm:col-span-2 rounded-lg border border-border/70 bg-muted/20 p-4">
+              <div className="space-y-1">
+                <Label>Reach tracking</Label>
+                <p className="text-xs text-muted-foreground">
+                  Choose whether actual reach comes from enrolled beneficiaries or a manual operational count.
+                </p>
+              </div>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <Field label="Tracking mode">
+                  <SearchableSelect
+                    value={reachTrackingMode}
+                    onChange={(value) => setReachTrackingMode(value as ProgrammeReachTrackingMode)}
+                    options={programmeReachTrackingModeOptions.map((option) => ({
+                      value: option.value,
+                      label: option.label,
+                    }))}
+                    placeholder="Choose reach tracking"
+                    searchPlaceholder="Search reach modes..."
+                  />
+                  <input type="hidden" name="reach_tracking_mode" value={reachTrackingMode} />
+                </Field>
+
+                <Field label="Target unit">
+                  <Input
+                    value={reachUnitLabel}
+                    name="reach_unit_label"
+                    onChange={(event) => setReachUnitLabel(event.target.value)}
+                    placeholder="beneficiaries"
+                  />
+                </Field>
+
+                <Field label={`Target ${reachUnitLabel || "reach"}`}>
+                  <Input
+                    value={targetReachCount}
+                    inputMode="numeric"
+                    name="target_reach_count"
+                    onChange={(event) => setTargetReachCount(formatThousands(event.target.value))}
+                    placeholder="1,200"
+                  />
+                </Field>
+
+                {reachTrackingMode === "manual" ? (
+                  <Field label={`Actual ${reachUnitLabel || "reach"}`}>
+                    <Input
+                      value={manualActualReachCount}
+                      inputMode="numeric"
+                      name="manual_actual_reach_count"
+                      onChange={(event) => setManualActualReachCount(formatThousands(event.target.value))}
+                      placeholder="0"
+                    />
+                  </Field>
+                ) : (
+                  <Field
+                    label="Actual reach source"
+                    hint="Actual reach will be counted automatically from enrolled beneficiaries."
+                  >
+                    <div className="flex h-9 items-center rounded-md border bg-background px-3 text-sm text-muted-foreground">
+                      Beneficiary registry
+                    </div>
+                  </Field>
+                )}
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -694,7 +763,15 @@ export function ProgrammeCreateForm({
             </p>
             <p className="text-muted-foreground">{timelineLabel(startDate, endDate)}</p>
             <div className="border-t pt-3 space-y-2">
-              <Stat label="Expected beneficiaries" value={expectedBeneficiaries || "—"} />
+              <Stat label={`Target ${reachUnitLabel || "reach"}`} value={targetReachCount || "—"} />
+              <Stat
+                label={`Actual ${reachUnitLabel || "reach"}`}
+                value={
+                  reachTrackingMode === "manual"
+                    ? manualActualReachCount || "—"
+                    : "From enrolments"
+                }
+              />
               <Stat
                 label="Budget"
                 value={budgetNgn ? `NGN ${formatBudget(budgetNgn)}` : "—"}

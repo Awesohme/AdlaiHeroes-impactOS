@@ -18,10 +18,10 @@ const programmeStatuses = new Set([
 function mapRlsError(message: string | undefined, fallback: string) {
   if (!message) return fallback;
   if (message.includes("row-level security") || message.includes("permission denied")) {
-    return "Database write access is not enabled. Run the latest SQL block in Supabase, then try again.";
+    return "Your account can view records, but edit access is not active yet. Ask an admin to finish your role setup.";
   }
   if (message.includes("does not exist") || message.includes("relation \"public.")) {
-    return "Required table is not live yet. Run the latest SQL block in Supabase, then refresh.";
+    return "This feature is still being switched on for the workspace. Ask an admin to finish the platform update, then refresh.";
   }
   return message;
 }

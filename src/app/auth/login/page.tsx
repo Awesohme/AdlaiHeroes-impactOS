@@ -1,20 +1,23 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertCircle } from "lucide-react";
+import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
+import { LoginSubmitButton } from "@/components/auth/login-submit-button";
 
 const authErrors: Record<string, string> = {
-  callback: "Google sign-in returned, but the session exchange failed.",
+  callback: "Google sign-in returned, but we could not finish the secure browser session.",
   env: "Supabase environment variables are missing on the server.",
   missing_code: "Google sign-in returned without an authorization code.",
   oauth: "Google sign-in could not be started from the server route.",
   session:
-    "Google sign-in completed, but this browser did not persist the session cookie. Try again, use username/password, or open a normal browser window if you are in private/incognito mode.",
+    "Google sign-in completed, but this browser did not keep the secure session cookie. Try Google again, use username/password, or switch to a normal browser window if you are in private/incognito mode.",
   not_invited: "This account is not invited. Ask an admin to add you first.",
   invalid_credentials: "Username or password is incorrect.",
+  role_pending:
+    "Your account can sign in, but edit access is not active yet. Ask an admin to finish your role setup.",
 };
 
 export default async function LoginPage({
@@ -27,6 +30,7 @@ export default async function LoginPage({
   const error = params?.error
     ? authErrors[params.error] ?? `Auth error: ${params.error}`
     : null;
+  const showAuthDebug = params?.error === "session" || params?.error === "callback";
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-muted/30 px-4 py-12">
@@ -66,9 +70,7 @@ export default async function LoginPage({
               ) : null}
             </div>
           ) : null}
-          <Button asChild className="w-full">
-            <Link href={`/auth/sign-in${next}`}>Continue with Adlai Google</Link>
-          </Button>
+          <GoogleSignInButton href={`/auth/sign-in${next}`} />
 
           <div className="relative my-2">
             <div className="absolute inset-0 flex items-center">
@@ -101,16 +103,16 @@ export default async function LoginPage({
                 required
               />
             </div>
-            <Button type="submit" variant="outline" className="w-full">
-              Sign in
-            </Button>
+            <LoginSubmitButton />
           </form>
 
-          <div className="flex justify-center gap-4 text-xs text-muted-foreground">
-            <Link href="/auth/debug" className="hover:underline">
-              Auth debug
-            </Link>
-          </div>
+          {showAuthDebug ? (
+            <div className="flex justify-center gap-4 text-xs text-muted-foreground">
+              <Link href="/auth/debug" className="hover:underline">
+                Auth debug
+              </Link>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
     </main>

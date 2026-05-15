@@ -1,7 +1,12 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import type { ProgrammeFieldType, ProgrammeModuleKey, ProgrammeStatus } from "@/lib/programme-config";
+import type {
+  ProgrammeFieldType,
+  ProgrammeModuleKey,
+  ProgrammeReachTrackingMode,
+  ProgrammeStatus,
+} from "@/lib/programme-config";
 import { createClient } from "@/lib/supabase/server";
 import { uploadProgrammeFlyerToDrive } from "@/lib/google-drive/server";
 
@@ -26,6 +31,10 @@ export type SaveProgrammeState = {
     donor_funder?: string;
     target_group?: string;
     expected_beneficiaries?: string;
+    reach_tracking_mode?: string;
+    reach_unit_label?: string;
+    target_reach_count?: string;
+    manual_actual_reach_count?: string;
     budget_ngn?: string;
     objectives?: string;
     programme_description?: string;
@@ -39,6 +48,7 @@ export type SaveProgrammeState = {
 };
 
 const validStatuses = new Set<ProgrammeStatus>(["draft", "planned", "active", "monitoring", "completed", "at_risk"]);
+const validReachTrackingModes = new Set<ProgrammeReachTrackingMode>(["beneficiary_registry", "manual"]);
 const validFieldTypes = new Set<ProgrammeFieldType>([
   "text",
   "number",
@@ -69,6 +79,10 @@ export async function saveProgrammeAction(
     donor_funder: String(formData.get("donor_funder") ?? "").trim(),
     target_group: String(formData.get("target_group") ?? "").trim(),
     expected_beneficiaries: String(formData.get("expected_beneficiaries") ?? "").trim(),
+    reach_tracking_mode: String(formData.get("reach_tracking_mode") ?? "beneficiary_registry").trim(),
+    reach_unit_label: String(formData.get("reach_unit_label") ?? "beneficiaries").trim(),
+    target_reach_count: String(formData.get("target_reach_count") ?? "").trim(),
+    manual_actual_reach_count: String(formData.get("manual_actual_reach_count") ?? "").trim(),
     budget_ngn: String(formData.get("budget_ngn") ?? "").trim(),
     objectives: String(formData.get("objectives") ?? "").trim(),
     programme_description: String(formData.get("programme_description") ?? "").trim(),
@@ -84,7 +98,15 @@ export async function saveProgrammeAction(
   const enabledModules = parseStringArray(fields.enabled_modules_json) as ProgrammeModuleKey[];
   const dataFields = parseProgrammeFields(fields.data_fields_json);
   const expectedBeneficiaries = fields.expected_beneficiaries ? Number(fields.expected_beneficiaries.replace(/[^\d]/g, "")) : null;
+  const targetReachCount = fields.target_reach_count ? Number(fields.target_reach_count.replace(/[^\d]/g, "")) : null;
+  const manualActualReachCount = fields.manual_actual_reach_count
+    ? Number(fields.manual_actual_reach_count.replace(/[^\d]/g, ""))
+    : null;
   const budgetNgn = fields.budget_ngn ? Number(fields.budget_ngn.replace(/,/g, "")) : null;
+  const reachTrackingMode = validReachTrackingModes.has(fields.reach_tracking_mode as ProgrammeReachTrackingMode)
+    ? (fields.reach_tracking_mode as ProgrammeReachTrackingMode)
+    : null;
+  const reachUnitLabel = fields.reach_unit_label.trim() || "beneficiaries";
 
   if (!fields.name || !fields.programme_type || !fields.target_group || !locationAreas.length) {
     return {
@@ -100,6 +122,13 @@ export async function saveProgrammeAction(
     };
   }
 
+  if (!reachTrackingMode) {
+    return {
+      error: "Choose how this programme tracks actual reach.",
+      fields,
+    };
+  }
+
   if (fields.start_date && fields.end_date && fields.start_date > fields.end_date) {
     return {
       error: "End date cannot be earlier than start date.",
@@ -109,7 +138,21 @@ export async function saveProgrammeAction(
 
   if (expectedBeneficiaries !== null && (!Number.isFinite(expectedBeneficiaries) || expectedBeneficiaries < 0)) {
     return {
-      error: "Expected beneficiaries must be a valid non-negative number.",
+      error: "Target reach must be a valid non-negative number.",
+      fields,
+    };
+  }
+
+  if (targetReachCount !== null && (!Number.isFinite(targetReachCount) || targetReachCount < 0)) {
+    return {
+      error: "Target reach must be a valid non-negative number.",
+      fields,
+    };
+  }
+
+  if (manualActualReachCount !== null && (!Number.isFinite(manualActualReachCount) || manualActualReachCount < 0)) {
+    return {
+      error: "Actual reach must be a valid non-negative number.",
       fields,
     };
   }
@@ -155,6 +198,11 @@ export async function saveProgrammeAction(
     location_areas: locationAreas,
     target_group: fields.target_group || null,
     expected_beneficiaries: expectedBeneficiaries,
+    reach_tracking_mode: reachTrackingMode,
+    reach_unit_label: reachUnitLabel,
+    target_reach_count: targetReachCount,
+    manual_actual_reach_count:
+      reachTrackingMode === "manual" ? manualActualReachCount : null,
     budget_ngn: budgetNgn,
     objectives: fields.objectives || null,
     programme_description: fields.programme_description || null,
@@ -364,11 +412,11 @@ function mapSaveError(message?: string, code?: string, userSuppliedCode = false)
   }
 
   if (message.includes("row-level security") || message.includes("permission denied")) {
-    return "Database write access is not enabled yet for your role. Run the updated programme write policy SQL, then try again.";
+    return "Your account can view records, but edit access is not active yet. Ask an admin to finish your role setup.";
   }
 
   if (message.includes("programme_data_fields")) {
-    return "The richer programme schema is not live yet. Run supabase/programme-model-upgrade.sql and the updated write-policy SQL, then try again.";
+    return "The latest programme setup changes are not live yet. Ask an admin to finish the platform update, then try again.";
   }
 
   if (code === "23505" || message.includes("programmes_programme_code_key")) {

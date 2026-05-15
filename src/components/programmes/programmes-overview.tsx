@@ -206,7 +206,8 @@ export function ProgrammesOverview({
                 <TableHead>Type</TableHead>
                 <TableHead>Location</TableHead>
                 <TableHead>Dates</TableHead>
-                <TableHead className="text-right">Reach</TableHead>
+                <TableHead className="text-right">Target</TableHead>
+                <TableHead className="text-right">Actual</TableHead>
                 <TableHead className="text-right">Budget</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-12" />
@@ -215,7 +216,7 @@ export function ProgrammesOverview({
             <TableBody>
               {filteredRows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-10">
+                  <TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-10">
                     No programmes match the current filters.
                   </TableCell>
                 </TableRow>
@@ -243,7 +244,13 @@ export function ProgrammesOverview({
                       {formatCompactTimeline(row.start_date, row.end_date)}
                     </TableCell>
                     <TableCell className="text-right text-sm">
-                      {row.expected_beneficiaries?.toLocaleString() ?? "—"}
+                      {formatReachCount(row.target_reach_count, row.reach_unit_label)}
+                    </TableCell>
+                    <TableCell className="text-right text-sm">
+                      <div>{formatReachCount(row.actual_reach_count, row.reach_unit_label)}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {row.actual_reach_source === "manual" ? "Manual" : "Registry"}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right text-sm min-w-[160px]">
                       <BudgetCell budget={row.budget_ngn} raised={row.funds_raised} />
@@ -317,6 +324,11 @@ function formatNgnCompact(value: number) {
   if (value >= 1_000_000) return `₦${(value / 1_000_000).toFixed(1)}M`;
   if (value >= 1_000) return `₦${(value / 1_000).toFixed(0)}K`;
   return `₦${value.toLocaleString("en-NG")}`;
+}
+
+function formatReachCount(value: number | null, unitLabel: string) {
+  if (value === null || value === undefined) return "—";
+  return `${value.toLocaleString("en-NG")} ${unitLabel}`;
 }
 
 function formatPercent(value: number) {
