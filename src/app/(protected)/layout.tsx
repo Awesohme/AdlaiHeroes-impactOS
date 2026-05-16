@@ -6,8 +6,6 @@ import { MobileNav } from "@/components/mobile-nav";
 import { ProductTour, ProductTourButton } from "@/components/product-tour";
 import { LogOut, Search } from "lucide-react";
 
-export const dynamic = "force-dynamic";
-
 export default async function ProtectedLayout({
   children,
 }: Readonly<{

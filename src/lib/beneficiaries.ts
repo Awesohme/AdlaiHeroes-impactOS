@@ -108,7 +108,7 @@ type EnrolmentRecord = {
   enrolment_scorecards?: ScorecardRel | ScorecardRel[] | null;
 };
 
-export async function getBeneficiaries(programmes: ProgrammeRow[]) {
+export async function getBeneficiaries(programmes: ProgrammeRow[] = []) {
   if (!hasSupabaseBrowserEnv()) {
     return {
       rows: buildMockBeneficiaries(programmes),

@@ -3,11 +3,10 @@ import { AppFrame } from "@/components/app-frame";
 import { Button } from "@/components/ui/button";
 import { ProgrammesOverview } from "@/components/programmes/programmes-overview";
 import { getProgrammesWithFunding, type ProgrammeArchiveScope } from "@/lib/programmes";
-import { getBeneficiaries } from "@/lib/beneficiaries";
 import { getCurrentProfile } from "@/lib/auth";
 import { Plus } from "lucide-react";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 30;
 
 export default async function ProgrammesPage({
   searchParams,
@@ -20,7 +19,6 @@ export default async function ProgrammesPage({
     getProgrammesWithFunding({ archiveScope: view }),
     getCurrentProfile(),
   ]);
-  const beneficiaries = await getBeneficiaries(programmes.rows);
   const created = params.created === "1";
   const updated = params.updated === "1";
   const canManageOps =
@@ -52,7 +50,6 @@ export default async function ProgrammesPage({
               : undefined
         }
         rows={programmes.rows}
-        beneficiaries={beneficiaries.rows}
         canManageOps={Boolean(canManageOps)}
         archiveScope={view}
         source={programmes.source}

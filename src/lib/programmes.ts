@@ -402,6 +402,34 @@ export async function getProgrammesWithFunding(options?: { archiveScope?: Progra
   }
 }
 
+export async function getProgrammeStageAvailability(programmeIds: string[]): Promise<Map<string, number>> {
+  if (!hasSupabaseBrowserEnv() || programmeIds.length === 0) {
+    return new Map();
+  }
+
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("programme_stages")
+      .select("programme_id")
+      .in("programme_id", programmeIds);
+
+    if (error || !data) {
+      return new Map();
+    }
+
+    const counts = new Map<string, number>();
+    for (const row of data) {
+      if (!row.programme_id) continue;
+      counts.set(row.programme_id, (counts.get(row.programme_id) ?? 0) + 1);
+    }
+
+    return counts;
+  } catch {
+    return new Map();
+  }
+}
+
 function normaliseReachTrackingMode(value: ProgrammeRecord["reach_tracking_mode"]): ProgrammeReachTrackingMode {
   return value === "manual" ? "manual" : "beneficiary_registry";
 }

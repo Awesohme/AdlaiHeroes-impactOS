@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { sanitizeNextPath } from "@/lib/env";
@@ -26,7 +27,7 @@ export type CurrentProfile = {
   is_active: boolean;
 };
 
-export async function getCurrentUser(): Promise<CurrentUser | null> {
+export const getCurrentUser = cache(async function getCurrentUser(): Promise<CurrentUser | null> {
   if (!hasSupabaseBrowserEnv()) {
     return null;
   }
@@ -44,9 +45,9 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     id: user.id,
     email: user.email ?? null,
   };
-}
+});
 
-export async function getCurrentProfile(): Promise<CurrentProfile | null> {
+export const getCurrentProfile = cache(async function getCurrentProfile(): Promise<CurrentProfile | null> {
   const user = await getCurrentUser();
   if (!user) return null;
 
@@ -67,7 +68,7 @@ export async function getCurrentProfile(): Promise<CurrentProfile | null> {
     role: data.role as AppRole,
     is_active: data.is_active ?? false,
   };
-}
+});
 
 export async function requireAdmin(): Promise<CurrentProfile> {
   const profile = await getCurrentProfile();

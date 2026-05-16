@@ -3,11 +3,10 @@ import { BeneficiariesOverview } from "@/components/beneficiaries/beneficiaries-
 import { getBeneficiaries } from "@/lib/beneficiaries";
 import { getProgrammes } from "@/lib/programmes";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 30;
 
 export default async function BeneficiariesPage() {
-  const programmes = await getProgrammes();
-  const beneficiaries = await getBeneficiaries(programmes.rows);
+  const [programmes, beneficiaries] = await Promise.all([getProgrammes(), getBeneficiaries()]);
 
   return (
     <AppFrame

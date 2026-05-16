@@ -5,7 +5,7 @@ import { EvidenceOverview } from "@/components/evidence/evidence-overview";
 import { getEvidenceRecords } from "@/lib/evidence";
 import { Upload } from "lucide-react";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 30;
 
 export default async function EvidencePage({
   searchParams,

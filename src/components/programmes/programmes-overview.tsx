@@ -20,7 +20,6 @@ import type { LucideIcon } from "lucide-react";
 import { ProgrammeStatusBadge } from "@/components/programmes/programme-status-badge";
 import { ProgrammeDetailSheet } from "@/components/programmes/programme-detail-sheet";
 import { SearchableSelect } from "@/components/searchable-select";
-import type { BeneficiaryRow } from "@/lib/beneficiaries";
 
 export function ProgrammesOverview({
   rows,
@@ -28,7 +27,6 @@ export function ProgrammesOverview({
   error,
   notice,
   archiveScope,
-  beneficiaries = [],
   canManageOps = false,
 }: {
   rows: ProgrammeRow[];
@@ -36,7 +34,6 @@ export function ProgrammesOverview({
   error?: string;
   notice?: string;
   archiveScope: ProgrammeArchiveScope;
-  beneficiaries?: BeneficiaryRow[];
   canManageOps?: boolean;
 }) {
   const [yearFilter, setYearFilter] = useState("all");
@@ -286,7 +283,6 @@ export function ProgrammesOverview({
         onOpenChange={(open) => {
           if (!open) setSelected(null);
         }}
-        beneficiaries={beneficiaries}
         canManageOps={canManageOps}
       />
     </div>

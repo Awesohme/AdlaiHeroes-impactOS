@@ -24,7 +24,6 @@ import {
   Trash2,
 } from "lucide-react";
 import type { ProgrammeRow } from "@/lib/programmes";
-import type { BeneficiaryRow } from "@/lib/beneficiaries";
 import { programmeStatusOptions } from "@/lib/programme-config";
 import { ProgrammeStatusBadge } from "@/components/programmes/programme-status-badge";
 import {
@@ -34,6 +33,7 @@ import {
   deleteMilestoneAction,
   deleteStageAction,
   listEnrolmentsByProgrammeAction,
+  listAvailableBeneficiariesForProgrammeAction,
   listFundsAction,
   listMilestonesAction,
   listProgrammeReachUpdatesAction,
@@ -43,6 +43,7 @@ import {
   toggleMilestoneAction,
   updateManualReachAction,
   updateProgrammeStatusAction,
+  type BeneficiaryOption,
   type EnrolmentSummary,
   type FundsRow,
   type MilestoneRow,
@@ -59,13 +60,11 @@ export function ProgrammeDetailSheet({
   programme,
   open,
   onOpenChange,
-  beneficiaries = [],
   canManageOps = false,
 }: {
   programme: ProgrammeRow | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  beneficiaries?: BeneficiaryRow[];
   canManageOps?: boolean;
 }) {
   const [status, setStatus] = useState(programme?.status ?? "draft");
@@ -89,6 +88,7 @@ export function ProgrammeDetailSheet({
   const [stageFeedback, setStageFeedback] = useState<string | null>(null);
 
   const [enrolments, setEnrolments] = useState<EnrolmentSummary[]>([]);
+  const [availableBeneficiaries, setAvailableBeneficiaries] = useState<BeneficiaryOption[]>([]);
   const [beneficiaryToEnrol, setBeneficiaryToEnrol] = useState("");
   const [startingStage, setStartingStage] = useState("");
   const [enrolFeedback, setEnrolFeedback] = useState<string | null>(null);
@@ -125,18 +125,29 @@ export function ProgrammeDetailSheet({
       listFundsAction(programme.id),
       listStagesAction(programme.id),
       listEnrolmentsByProgrammeAction(programme.id),
+      !programme.archived_at
+        ? listAvailableBeneficiariesForProgrammeAction(programme.id)
+        : Promise.resolve([]),
       programme.reach_tracking_mode === "manual"
         ? listProgrammeReachUpdatesAction(programme.id)
         : Promise.resolve([]),
-    ]).then(([m, f, s, e, r]) => {
+    ]).then(([m, f, s, e, available, r]) => {
       setMilestones(m);
       setFunds(f);
       setStages(s);
       setEnrolments(e);
+      setAvailableBeneficiaries(available);
       setReachUpdates(r);
       setLoading(false);
     });
-  }, [open, programme?.id, programme?.status, programme?.actual_reach_count, programme?.reach_tracking_mode]);
+  }, [
+    open,
+    programme?.id,
+    programme?.status,
+    programme?.actual_reach_count,
+    programme?.reach_tracking_mode,
+    programme?.archived_at,
+  ]);
 
   if (!programme) return null;
 
@@ -189,13 +200,10 @@ export function ProgrammeDetailSheet({
   const canQuickUpdateManualReach =
     programme.reach_tracking_mode === "manual" && !isArchived && !isMock && canManageOps;
   const scorecardEnabled = usesEducationScorecard(programme.pipeline_template_key);
-  const enrolledBeneficiaryIds = new Set(enrolments.map((row) => row.beneficiary_id));
-  const enrolmentOptions = beneficiaries
-    .filter((row) => row.id && !enrolledBeneficiaryIds.has(row.id))
-    .map((row) => ({
-      value: row.id!,
-      label: `${row.full_name} (${row.beneficiary_code})`,
-    }));
+  const enrolmentOptions = availableBeneficiaries.map((row) => ({
+    value: row.id,
+    label: `${row.full_name} (${row.beneficiary_code})`,
+  }));
   const milestoneProgress = milestones.length
     ? Math.round((milestones.filter((m) => m.done).length / milestones.length) * 100)
     : 0;
@@ -847,9 +855,11 @@ export function ProgrammeDetailSheet({
                           Promise.all([
                             listEnrolmentsByProgrammeAction(programme.id!),
                             listStagesAction(programme.id!),
-                          ]).then(([nextEnrolments, nextStages]) => {
+                            listAvailableBeneficiariesForProgrammeAction(programme.id!),
+                          ]).then(([nextEnrolments, nextStages, nextAvailableBeneficiaries]) => {
                             setEnrolments(nextEnrolments);
                             setStages(nextStages);
+                            setAvailableBeneficiaries(nextAvailableBeneficiaries);
                           });
                           setEnrolFeedback("Beneficiary enrolled.");
                         } else {

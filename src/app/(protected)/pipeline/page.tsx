@@ -2,7 +2,7 @@ import Link from "next/link";
 import { AppFrame } from "@/components/app-frame";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { getProgrammes } from "@/lib/programmes";
+import { getProgrammes, getProgrammeStageAvailability } from "@/lib/programmes";
 import {
   listEnrolmentsByProgrammeAction,
   listStagesAction,
@@ -10,7 +10,7 @@ import {
 import { PipelineBoard } from "@/components/pipeline/pipeline-board";
 import { usesEducationScorecard } from "@/lib/programme-pipeline";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 30;
 
 export default async function PipelinePage({
   searchParams,
@@ -44,19 +44,21 @@ export default async function PipelinePage({
   let selected = programmes.find((p) => p.programme_code === params.programme) ?? null;
 
   if (!selected) {
-    for (const p of programmes) {
-      if (!p.id) continue;
-      const stages = await listStagesAction(p.id);
-      if (stages.length > 0) {
-        selected = p;
-        break;
-      }
-    }
+    const stageAvailability = await getProgrammeStageAvailability(
+      programmes.map((programme) => programme.id).filter((id): id is string => Boolean(id)),
+    );
+    selected =
+      programmes.find((programme) => programme.id && (stageAvailability.get(programme.id) ?? 0) > 0) ??
+      null;
     if (!selected) selected = programmes[0];
   }
 
-  const stages = selected?.id ? await listStagesAction(selected.id) : [];
-  const enrolments = selected?.id ? await listEnrolmentsByProgrammeAction(selected.id) : [];
+  const [stages, enrolments] = selected?.id
+    ? await Promise.all([
+        listStagesAction(selected.id),
+        listEnrolmentsByProgrammeAction(selected.id),
+      ])
+    : [[], []];
 
   return (
     <AppFrame

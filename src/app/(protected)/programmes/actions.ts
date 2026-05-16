@@ -472,6 +472,12 @@ export type EnrolmentSummary = {
   } | null;
 };
 
+export type BeneficiaryOption = {
+  id: string;
+  beneficiary_code: string;
+  full_name: string;
+};
+
 export async function listEnrolmentsByProgrammeAction(
   programmeId: string,
 ): Promise<EnrolmentSummary[]> {
@@ -555,4 +561,40 @@ export async function listEnrolmentsByProgrammeAction(
         : null,
     };
   });
+}
+
+export async function listAvailableBeneficiariesForProgrammeAction(
+  programmeId: string,
+): Promise<BeneficiaryOption[]> {
+  const supabase = await createClient();
+  const [{ data: beneficiaries, error: beneficiariesError }, { data: enrolments, error: enrolmentsError }] =
+    await Promise.all([
+      supabase
+        .from("beneficiaries")
+        .select("id,beneficiary_code,full_name")
+        .order("created_at", { ascending: false })
+        .limit(120),
+      supabase
+        .from("enrolments")
+        .select("beneficiary_id")
+        .eq("programme_id", programmeId),
+    ]);
+
+  if (beneficiariesError || enrolmentsError || !beneficiaries) {
+    return [];
+  }
+
+  const enrolledIds = new Set(
+    (enrolments ?? [])
+      .map((row) => row.beneficiary_id)
+      .filter((value): value is string => Boolean(value)),
+  );
+
+  return beneficiaries
+    .filter((row) => row.id && !enrolledIds.has(row.id))
+    .map((row) => ({
+      id: row.id,
+      beneficiary_code: row.beneficiary_code ?? "—",
+      full_name: row.full_name ?? "Unnamed beneficiary",
+    }));
 }

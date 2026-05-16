@@ -3,10 +3,7 @@ import { AppFrame } from "@/components/app-frame";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { getBeneficiaries, isEnrolmentActive } from "@/lib/beneficiaries";
-import { getEvidenceRecords } from "@/lib/evidence";
-import { getProgrammes } from "@/lib/programmes";
-import { getDashboardSignals } from "@/lib/dashboard";
+import { getDashboardSnapshot } from "@/lib/dashboard";
 import {
   AlertCircle,
   ArrowUpRight,
@@ -24,13 +21,11 @@ import {
 import { MetricTile, type MetricTone } from "@/components/metric-tile";
 import { InfoTooltip } from "@/components/info-tooltip";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 30;
 
 export default async function DashboardPage() {
-  const programmes = await getProgrammes();
-  const evidence = await getEvidenceRecords();
-  const beneficiaries = await getBeneficiaries(programmes.rows);
-  const signals = await getDashboardSignals();
+  const snapshot = await getDashboardSnapshot();
+  const { counters: summary, recentRecords, signals } = snapshot;
 
   const counters: Array<{
     label: string;
@@ -41,53 +36,33 @@ export default async function DashboardPage() {
   }> = [
     {
       label: "Programmes",
-      value: programmes.rows.length,
-      detail: `${programmes.rows.filter((item) => item.status === "active").length} active`,
+      value: summary.programmes.total,
+      detail: `${summary.programmes.active} active`,
       tone: "purple",
       icon: FolderKanban,
     },
     {
       label: "Beneficiaries",
-      value: beneficiaries.rows.length,
-      detail: `${beneficiaries.rows.filter(isEnrolmentActive).length} active`,
+      value: summary.beneficiaries.total,
+      detail: `${summary.beneficiaries.active} active`,
       tone: "teal",
       icon: Users,
     },
     {
       label: "Evidence",
-      value: evidence.rows.length,
-      detail: `${evidence.rows.filter((item) => item.status === "Confirmed").length} confirmed`,
+      value: summary.evidence.total,
+      detail: `${summary.evidence.confirmed} confirmed`,
       tone: "blue",
       icon: FileCheck2,
     },
     {
       label: "Needs attention",
-      value:
-        beneficiaries.rows.filter((item) => item.risk_flag === "review").length +
-        evidence.rows.filter((item) => item.status !== "Confirmed").length,
+      value: summary.needsAttention,
       detail: "Review and follow-up",
       tone: "amber",
       icon: AlertCircle,
     },
   ];
-
-  const recentRecords = [
-    ...programmes.rows.slice(0, 2).map((item) => ({
-      type: "Programme",
-      title: item.name,
-      detail: `${item.programme_code} • ${formatLabel(item.status)}`,
-    })),
-    ...beneficiaries.rows.slice(0, 2).map((item) => ({
-      type: "Beneficiary",
-      title: item.full_name,
-      detail: `${item.beneficiary_code} • ${item.programme_name}`,
-    })),
-    ...evidence.rows.slice(0, 2).map((item) => ({
-      type: "Evidence",
-      title: item.title,
-      detail: `${item.code} • ${item.status}`,
-    })),
-  ].slice(0, 6);
 
   return (
     <AppFrame
@@ -276,8 +251,4 @@ function QuickAction({
       </div>
     </Link>
   );
-}
-
-function formatLabel(value: string) {
-  return value.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
