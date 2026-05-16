@@ -3,7 +3,11 @@
 import { redirect } from "next/navigation";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { revalidatePath } from "next/cache";
-import { getDriveDebugSnapshot, testGoogleDriveSetup } from "@/lib/google-drive/server";
+import {
+  getDriveDebugSnapshot,
+  testGoogleDocsSetup,
+  testGoogleDriveSetup,
+} from "@/lib/google-drive/server";
 import { createClient } from "@/lib/supabase/server";
 import type { ProgrammeFieldType } from "@/lib/programme-config";
 
@@ -197,6 +201,28 @@ export async function testGoogleDriveConnectionAction() {
         : "Unknown Google Drive setup error.";
     redirect(
       `/settings?drive_test=error&drive_error=${encodeURIComponent(message)}&drive_mode=${encodeURIComponent(snapshot?.mode ?? "")}&drive_token_email=${encodeURIComponent(snapshot?.tokenEmail ?? "")}&drive_user_email=${encodeURIComponent(snapshot?.driveUserEmail ?? "")}&drive_scope=${encodeURIComponent(snapshot?.scopes.join(", ") ?? "")}&drive_root_status=${encodeURIComponent(snapshot?.rootLookupMessage ?? "")}`,
+    );
+  }
+}
+
+export async function testGoogleDocsConnectionAction() {
+  try {
+    await testGoogleDocsSetup();
+    const snapshot = await getDriveDebugSnapshot();
+    redirect(
+      `/settings?doc_test=ok&drive_mode=${encodeURIComponent(snapshot.mode ?? "")}&drive_token_email=${encodeURIComponent(snapshot.tokenEmail)}&drive_user_email=${encodeURIComponent(snapshot.driveUserEmail)}&drive_scope=${encodeURIComponent(snapshot.scopes.join(", "))}&drive_root_status=${encodeURIComponent(snapshot.rootLookupMessage)}`,
+    );
+  } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+
+    console.error("Google Docs readiness test failed", error);
+    const snapshot = await getDriveDebugSnapshot().catch(() => null);
+    const message =
+      error instanceof Error ? error.message.slice(0, 220) : "Unknown Google Docs setup error.";
+    redirect(
+      `/settings?doc_test=error&doc_error=${encodeURIComponent(message)}&drive_mode=${encodeURIComponent(snapshot?.mode ?? "")}&drive_token_email=${encodeURIComponent(snapshot?.tokenEmail ?? "")}&drive_user_email=${encodeURIComponent(snapshot?.driveUserEmail ?? "")}&drive_scope=${encodeURIComponent(snapshot?.scopes.join(", ") ?? "")}&drive_root_status=${encodeURIComponent(snapshot?.rootLookupMessage ?? "")}`,
     );
   }
 }

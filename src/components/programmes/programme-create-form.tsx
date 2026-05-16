@@ -45,6 +45,7 @@ import { ArrowDown, ArrowUp, Loader2, Plus, Settings, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { SearchableSelect } from "@/components/searchable-select";
+import { ProgrammeReportingPanel } from "@/components/programmes/programme-reporting-panel";
 
 function typeAcceptsOptions(type: string) {
   return type === "select" || type === "multi_select";
@@ -626,6 +627,17 @@ export function ProgrammeCreateForm({
             </Accordion>
           </CardContent>
         </Card>
+
+        {mode === "edit" && initialProgramme?.id ? (
+          <ProgrammeReportingPanel
+            programmeId={initialProgramme.id}
+            programmeName={initialProgramme.name}
+            programmeCode={initialProgramme.programme_code}
+            programmeStatus={initialProgramme.status}
+            programmeEndDate={initialProgramme.end_date}
+            canManageOps={!isArchived}
+          />
+        ) : null}
 
         {mode === "edit" && initialProgramme?.id ? (
           <Card className={isArchived ? "border-muted" : "border-destructive/30"}>

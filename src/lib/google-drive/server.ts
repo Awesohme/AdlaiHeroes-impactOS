@@ -1,10 +1,16 @@
 import { createSign } from "node:crypto";
 
-const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
+const GOOGLE_DRIVE_SCOPES = [
+  "https://www.googleapis.com/auth/drive.file",
+  "https://www.googleapis.com/auth/documents",
+];
+const DRIVE_SCOPE = GOOGLE_DRIVE_SCOPES.join(" ");
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GOOGLE_DRIVE_API = "https://www.googleapis.com/drive/v3";
 const GOOGLE_DRIVE_UPLOAD_API = "https://www.googleapis.com/upload/drive/v3/files";
 const FOLDER_MIME_TYPE = "application/vnd.google-apps.folder";
+const GOOGLE_DOC_MIME_TYPE = "application/vnd.google-apps.document";
+const GOOGLE_DOCS_API = "https://docs.googleapis.com/v1/documents";
 
 type AccessTokenCache = {
   accessToken: string;
@@ -20,7 +26,7 @@ type DriveFileSummary = {
   webViewLink?: string;
 };
 
-type ProgrammeFolderRecord = {
+export type ProgrammeFolderRecord = {
   id: string;
   programme_code: string;
   name: string;
@@ -64,6 +70,11 @@ type DriveDebugSnapshot = {
   scopes: string[];
   rootLookupOk: boolean;
   rootLookupMessage: string;
+};
+
+type GoogleTokenErrorPayload = {
+  error_description?: string;
+  error?: string;
 };
 
 type ServiceAccountCredentials = {
@@ -128,6 +139,29 @@ export async function testGoogleDriveSetup() {
     rootFolderName: rootFolder.name,
     healthcheckFolderId: healthcheckFolder.id,
     healthcheckFolderName: healthcheckFolder.name,
+  };
+}
+
+export async function testGoogleDocsSetup() {
+  const rootFolderId = getRequiredRootFolderId();
+  const reportsFolder = await findOrCreateFolder({
+    folderName: "ImpactOps Reports Healthcheck",
+    parentId: rootFolderId,
+  });
+  const draft = await createGoogleDocFile({
+    title: `ImpactOps Docs Healthcheck ${new Date().toISOString()}`,
+    parentId: reportsFolder.id,
+  });
+  await writeGoogleDocContent({
+    documentId: draft.id,
+    content:
+      "ImpactOps successfully created and wrote to this Google Doc during the platform readiness check.",
+  });
+  await trashDriveFile(draft.id);
+
+  return {
+    reportsFolderId: reportsFolder.id,
+    reportDraftId: draft.id,
   };
 }
 
@@ -267,6 +301,32 @@ type UploadBeneficiaryPhotoResult = {
   webViewLink: string | null;
 };
 
+type CreateProgrammeReportDocInput = {
+  programme: ProgrammeFolderRecord;
+  title: string;
+  content: string;
+};
+
+type CreateProgrammeReportDocResult = {
+  fileId: string;
+  webViewLink: string | null;
+  driveFolderId: string;
+  programmeFolderId: string;
+};
+
+type UploadProgrammeReportDocxInput = {
+  programme: ProgrammeFolderRecord;
+  fileName: string;
+  buffer: Uint8Array;
+};
+
+type UploadProgrammeReportDocxResult = {
+  fileId: string;
+  webViewLink: string | null;
+  driveFolderId: string;
+  programmeFolderId: string;
+};
+
 export async function uploadProgrammeFlyerToDrive({
   file,
   programme,
@@ -300,6 +360,72 @@ export async function uploadProgrammeFlyerToDrive({
     driveFolderId: flyersFolder.id,
     programmeFolderId,
     webViewLink: uploaded.webViewLink ?? null,
+  };
+}
+
+export async function findOrCreateProgrammeReportsFolder(programme: ProgrammeFolderRecord) {
+  const programmeFolderId =
+    programme.drive_folder_id ||
+    (
+      await findOrCreateFolder({
+        folderName: formatProgrammeFolderName(programme.programme_code, programme.name),
+        parentId: getRequiredRootFolderId(),
+      })
+    ).id;
+
+  const reportsFolder = await findOrCreateFolder({
+    folderName: "Reports",
+    parentId: programmeFolderId,
+  });
+
+  return {
+    programmeFolderId,
+    reportsFolderId: reportsFolder.id,
+  };
+}
+
+export async function createProgrammeReportGoogleDoc({
+  programme,
+  title,
+  content,
+}: CreateProgrammeReportDocInput): Promise<CreateProgrammeReportDocResult> {
+  const { programmeFolderId, reportsFolderId } = await findOrCreateProgrammeReportsFolder(programme);
+  const draft = await createGoogleDocFile({
+    title,
+    parentId: reportsFolderId,
+  });
+  await writeGoogleDocContent({
+    documentId: draft.id,
+    content,
+  });
+
+  return {
+    fileId: draft.id,
+    webViewLink: draft.webViewLink ?? null,
+    driveFolderId: reportsFolderId,
+    programmeFolderId,
+  };
+}
+
+export async function uploadProgrammeReportDocxToDrive({
+  programme,
+  fileName,
+  buffer,
+}: UploadProgrammeReportDocxInput): Promise<UploadProgrammeReportDocxResult> {
+  const { programmeFolderId, reportsFolderId } = await findOrCreateProgrammeReportsFolder(programme);
+  const uploaded = await uploadBytesFile({
+    buffer,
+    fileName,
+    parentId: reportsFolderId,
+    mimeType:
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  });
+
+  return {
+    fileId: uploaded.id,
+    webViewLink: uploaded.webViewLink ?? null,
+    driveFolderId: reportsFolderId,
+    programmeFolderId,
   };
 }
 
@@ -449,6 +575,44 @@ async function uploadFile({
   );
 }
 
+async function uploadBytesFile({
+  buffer,
+  fileName,
+  parentId,
+  mimeType,
+}: {
+  buffer: Uint8Array;
+  fileName: string;
+  parentId: string;
+  mimeType: string;
+}) {
+  const boundary = `impactops-${Date.now().toString(36)}`;
+  const metadata = {
+    name: fileName,
+    parents: [parentId],
+  };
+  const encoder = new TextEncoder();
+  const prefix = encoder.encode(
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: ${mimeType}\r\n\r\n`,
+  );
+  const suffix = encoder.encode(`\r\n--${boundary}--`);
+  const body = new Uint8Array(prefix.length + buffer.length + suffix.length);
+  body.set(prefix, 0);
+  body.set(buffer, prefix.length);
+  body.set(suffix, prefix.length + buffer.length);
+
+  return driveRequest<DriveFileSummary>(
+    `${GOOGLE_DRIVE_UPLOAD_API}?uploadType=multipart&supportsAllDrives=true&fields=id,name,mimeType,size,parents,webViewLink`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": `multipart/related; boundary=${boundary}`,
+      },
+      body,
+    },
+  );
+}
+
 async function getDriveFile(fileId: string) {
   return driveRequest<DriveFileSummary>(
     `${GOOGLE_DRIVE_API}/files/${encodeURIComponent(fileId)}?fields=id,name,mimeType,parents&supportsAllDrives=true`,
@@ -541,6 +705,83 @@ async function findOrCreateFolder({
   });
 }
 
+async function createGoogleDocFile({
+  title,
+  parentId,
+}: {
+  title: string;
+  parentId: string;
+}) {
+  return driveRequest<DriveFileSummary>(
+    `${GOOGLE_DRIVE_API}/files?supportsAllDrives=true&fields=id,name,mimeType,parents,webViewLink`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: title,
+        mimeType: GOOGLE_DOC_MIME_TYPE,
+        parents: [parentId],
+      }),
+    },
+  );
+}
+
+async function writeGoogleDocContent({
+  documentId,
+  content,
+}: {
+  documentId: string;
+  content: string;
+}) {
+  const accessToken = await getAccessToken();
+  const response = await fetch(`${GOOGLE_DOCS_API}/${encodeURIComponent(documentId)}:batchUpdate`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      requests: [
+        {
+          insertText: {
+            location: { index: 1 },
+            text: content,
+          },
+        },
+      ],
+    }),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    let detail = response.statusText;
+
+    try {
+      const payload = (await response.json()) as { error?: { message?: string } };
+      detail = payload.error?.message || detail;
+    } catch {
+      // Keep status text fallback.
+    }
+
+    throw new Error(`Google Docs request failed: ${detail}`);
+  }
+}
+
+async function trashDriveFile(fileId: string) {
+  return driveRequest<DriveFileSummary>(
+    `${GOOGLE_DRIVE_API}/files/${encodeURIComponent(fileId)}?supportsAllDrives=true&fields=id,name`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ trashed: true }),
+    },
+  );
+}
+
 async function listFiles(query: string) {
   const params = new URLSearchParams({
     q: query,
@@ -607,10 +848,11 @@ async function getAccessToken() {
 
   if (!response.ok) {
     let detail = response.statusText;
+    let payload: GoogleTokenErrorPayload | null = null;
 
     try {
-      const payload = (await response.json()) as { error_description?: string; error?: string };
-      detail = payload.error_description || payload.error || detail;
+      payload = (await response.json()) as GoogleTokenErrorPayload;
+      detail = describeGoogleTokenExchangeError(payload) || detail;
     } catch {
       // Keep status text fallback.
     }
@@ -634,6 +876,34 @@ function buildOauthRefreshBody() {
     refresh_token: getRequiredEnv("GOOGLE_DRIVE_REFRESH_TOKEN"),
     grant_type: "refresh_token",
   });
+}
+
+function describeGoogleTokenExchangeError(payload: GoogleTokenErrorPayload) {
+  const errorCode = payload.error?.trim().toLowerCase() ?? "";
+  const description = payload.error_description?.trim() ?? "";
+  const combined = `${errorCode} ${description}`.trim().toLowerCase();
+
+  if (combined.includes("invalid_grant")) {
+    return "Refresh token was rejected. Confirm GOOGLE_DRIVE_REFRESH_TOKEN belongs to this exact OAuth client, then redeploy Vercel so the live app picks up the new value.";
+  }
+
+  if (combined.includes("invalid_client")) {
+    return "OAuth client ID or secret was rejected. Confirm GOOGLE_DRIVE_CLIENT_ID and GOOGLE_DRIVE_CLIENT_SECRET in Vercel match the client used to issue the refresh token.";
+  }
+
+  if (combined.includes("unauthorized_client")) {
+    return "This OAuth client cannot use the configured refresh-token flow. Confirm the Google Cloud OAuth client type and allowed APIs, then issue a fresh refresh token.";
+  }
+
+  if (combined.includes("invalid_scope")) {
+    return "The refresh token is missing one or more required Google scopes. Re-issue it with both Drive file access and Google Docs access.";
+  }
+
+  if (description) {
+    return description;
+  }
+
+  return payload.error || "";
 }
 
 function buildServiceAccountBody() {

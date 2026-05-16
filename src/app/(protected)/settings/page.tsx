@@ -4,7 +4,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getGoogleDriveEnvStatus, hasGoogleDriveServerEnv } from "@/lib/google-drive/server";
-import { testGoogleDriveConnectionAction } from "./actions";
+import {
+  testGoogleDocsConnectionAction,
+  testGoogleDriveConnectionAction,
+} from "./actions";
 import { CheckCircle2, AlertCircle } from "lucide-react";
 import { getFieldTemplates } from "@/lib/field-templates";
 import { FieldTemplatesTab } from "@/components/settings/field-templates-tab";
@@ -48,6 +51,8 @@ export default async function SettingsPage({
     drive_user_email?: string;
     drive_scope?: string;
     drive_root_status?: string;
+    doc_test?: string;
+    doc_error?: string;
   }>;
 }) {
   const params = (await searchParams) ?? {};
@@ -79,10 +84,17 @@ export default async function SettingsPage({
   const driveReady = hasGoogleDriveServerEnv();
   const driveOk = params.drive_test === "ok";
   const driveError = params.drive_test === "error";
+  const docsOk = params.doc_test === "ok";
+  const docsError = params.doc_test === "error";
   const driveStatus = driveOk
     ? "Drive root verified."
     : driveError
       ? params.drive_error || "Drive test failed. Check the configuration."
+      : undefined;
+  const docsStatus = docsOk
+    ? "Google Docs create/write verified."
+    : docsError
+      ? params.doc_error || "Google Docs test failed. Check Docs API access, Vercel env values, and redeploy state."
       : undefined;
 
   const driveItems = [
@@ -171,6 +183,23 @@ export default async function SettingsPage({
         </div>
       ) : null}
 
+      {docsStatus ? (
+        <div
+          className={
+            docsOk
+              ? "flex gap-2 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800"
+              : "flex gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
+          }
+        >
+          {docsOk ? (
+            <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
+          ) : (
+            <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+          )}
+          <span>{docsStatus}</span>
+        </div>
+      ) : null}
+
       <Tabs defaultValue="fields" className="space-y-4">
         <TabsList className="max-w-full overflow-x-auto" data-tour="settings-tabs">
           <TabsTrigger value="fields">Field templates</TabsTrigger>
@@ -210,6 +239,24 @@ export default async function SettingsPage({
               <form action={testGoogleDriveConnectionAction}>
                 <Button type="submit" size="sm">
                   Test Drive root
+                </Button>
+              </form>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+              <div>
+                <CardTitle className="text-base">Verify Google Docs generation</CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Confirms the workspace can create a native Google Doc, write draft content, and clean up the test document.
+                </p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  If this fails at token exchange, the usual cause is a refresh token or OAuth client mismatch in Vercel, or a missing redeploy after changing env vars.
+                </p>
+              </div>
+              <form action={testGoogleDocsConnectionAction}>
+                <Button type="submit" size="sm" variant="outline">
+                  Test Google Docs
                 </Button>
               </form>
             </CardHeader>

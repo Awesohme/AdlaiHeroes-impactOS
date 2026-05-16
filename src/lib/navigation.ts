@@ -4,6 +4,7 @@ import {
   Users,
   Workflow,
   FileCheck2,
+  FileText,
   Settings,
   type LucideIcon,
 } from "lucide-react";
@@ -20,5 +21,6 @@ export const navigation: NavItem[] = [
   { label: "Beneficiaries", href: "/beneficiaries", icon: Users },
   { label: "Pipeline", href: "/pipeline", icon: Workflow },
   { label: "Evidence", href: "/evidence", icon: FileCheck2 },
+  { label: "Reports", href: "/reports", icon: FileText },
   { label: "Settings", href: "/settings", icon: Settings },
 ];

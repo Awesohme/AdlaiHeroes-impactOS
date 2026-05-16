@@ -55,6 +55,7 @@ import { MediaPreview } from "@/components/media-preview";
 import { SearchableSelect } from "@/components/searchable-select";
 import { enrolBeneficiaryAction } from "@/app/(protected)/beneficiaries/actions";
 import { usesEducationScorecard } from "@/lib/programme-pipeline";
+import { ProgrammeReportingPanel } from "@/components/programmes/programme-reporting-panel";
 
 export function ProgrammeDetailSheet({
   programme,
@@ -244,6 +245,7 @@ export function ProgrammeDetailSheet({
             <TabsTrigger value="funds" className="flex-1 min-w-fit">Funds</TabsTrigger>
             <TabsTrigger value="pipeline" className="flex-1 min-w-fit">Pipeline</TabsTrigger>
             <TabsTrigger value="beneficiaries" className="flex-1 min-w-fit">People</TabsTrigger>
+            <TabsTrigger value="reporting" className="flex-1 min-w-fit">Reporting</TabsTrigger>
           </TabsList>
 
           {/* OVERVIEW */}
@@ -885,6 +887,23 @@ export function ProgrammeDetailSheet({
                 ) : null}
               </div>
             ) : null}
+          </TabsContent>
+
+          <TabsContent value="reporting" className="pt-4">
+            {!isMock ? (
+              <ProgrammeReportingPanel
+                programmeId={programme.id!}
+                programmeName={programme.name}
+                programmeCode={programme.programme_code}
+                programmeStatus={programme.status}
+                programmeEndDate={programme.end_date}
+                canManageOps={canManageOps}
+              />
+            ) : (
+              <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                Reporting tools are available once this programme is saved to the live workspace.
+              </div>
+            )}
           </TabsContent>
         </Tabs>
 
