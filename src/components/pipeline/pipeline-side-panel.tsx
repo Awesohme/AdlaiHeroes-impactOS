@@ -33,10 +33,12 @@ export function PipelineSidePanel({
   enrolment,
   stages,
   programmeId,
+  scorecardEnabled,
 }: {
   enrolment: EnrolmentSummary | null;
   stages: StageOption[];
   programmeId: string | null;
+  scorecardEnabled: boolean;
 }) {
   const router = useRouter();
   const [scorecard, setScorecard] = useState({
@@ -237,14 +239,15 @@ export function PipelineSidePanel({
         </div>
       </Section>
 
-      <Section
-        title={
-          <span className="inline-flex items-center gap-2">
-            Scorecard
-            <InfoTooltip content="Five weighted areas summing to 100. Bands are guidance, not strict rules." />
-          </span>
-        }
-      >
+      {scorecardEnabled ? (
+        <Section
+          title={
+            <span className="inline-flex items-center gap-2">
+              Scorecard
+              <InfoTooltip content="Five weighted areas summing to 100. Bands are guidance, not strict rules." />
+            </span>
+          }
+        >
         <ScoreField
           label="Financial need"
           max={SCORECARD_WEIGHTS.financial_need}
@@ -304,7 +307,8 @@ export function PipelineSidePanel({
         <Button type="button" size="sm" onClick={saveScorecard} disabled={pending}>
           {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save scorecard"}
         </Button>
-      </Section>
+        </Section>
+      ) : null}
 
       <BeneficiaryNotesSection
         beneficiaryId={enrolment.beneficiary_id}

@@ -9,6 +9,7 @@ import {
   type ProgrammeReachTrackingMode,
   type ProgrammeStatus,
 } from "@/lib/programme-config";
+import { EDUCATION_SPONSORSHIP_TEMPLATE_KEY } from "@/lib/programme-pipeline";
 
 export type ProgrammeDataFieldRow = {
   field_key: string;
@@ -51,6 +52,7 @@ export type ProgrammeRow = {
   archived_at: string | null;
   archived_by: string | null;
   archive_reason: string | null;
+  pipeline_template_key: string | null;
 };
 
 type ProgrammeRecord = {
@@ -81,6 +83,7 @@ type ProgrammeRecord = {
   archived_at?: string | null;
   archived_by?: string | null;
   archive_reason?: string | null;
+  pipeline_template_key?: string | null;
   programme_data_fields?: ProgrammeDataFieldRow[] | null;
 };
 
@@ -114,6 +117,7 @@ const programmeSelect = `
   archived_at,
   archived_by,
   archive_reason,
+  pipeline_template_key,
   programme_data_fields (
     field_key,
     label,
@@ -276,7 +280,8 @@ function needsLegacyProgrammeFallback(message: string | undefined) {
     message.includes("reach_tracking_mode") ||
     message.includes("reach_unit_label") ||
     message.includes("target_reach_count") ||
-    message.includes("manual_actual_reach_count")
+    message.includes("manual_actual_reach_count") ||
+    message.includes("pipeline_template_key")
   );
 }
 
@@ -332,6 +337,7 @@ function formatProgramme(programme: ProgrammeRecord): ProgrammeRow {
     archived_at: programme.archived_at ?? null,
     archived_by: programme.archived_by ?? null,
     archive_reason: programme.archive_reason ?? null,
+    pipeline_template_key: programme.pipeline_template_key ?? null,
   };
 }
 
@@ -529,5 +535,7 @@ function mockProgrammes(): ProgrammeRow[] {
     archived_at: null,
     archived_by: null,
     archive_reason: null,
+    pipeline_template_key:
+      String(name).includes("Education Sponsorship") ? EDUCATION_SPONSORSHIP_TEMPLATE_KEY : null,
   }));
 }

@@ -2,7 +2,7 @@ import { hasSupabaseBrowserEnv } from "@/lib/env";
 import type { ProgrammeModuleKey } from "@/lib/programme-config";
 import type { ProgrammeRow } from "@/lib/programmes";
 import { createClient } from "@/lib/supabase/server";
-import { TERMINAL_STAGE_LABELS } from "@/lib/programme-pipeline";
+import { TERMINAL_STAGE_LABELS, usesEducationScorecard } from "@/lib/programme-pipeline";
 
 export function isEnrolmentActive(row: {
   enrolment_id: string | null;
@@ -23,6 +23,7 @@ export type BeneficiaryRow = {
   programme_id: string | null;
   programme_name: string;
   programme_code?: string;
+  programme_pipeline_template_key: string | null;
   programme_modules: ProgrammeModuleKey[];
   community: string;
   state: string;
@@ -80,6 +81,7 @@ type ProgrammeRel = {
   id: string;
   name: string;
   programme_code: string;
+  pipeline_template_key: string | null;
   enabled_modules: ProgrammeModuleKey[] | null;
 };
 
@@ -129,7 +131,7 @@ export async function getBeneficiaries(programmes: ProgrammeRow[]) {
       supabase
         .from("enrolments")
         .select(
-          "id,beneficiary_id,status,stage_id,decision,decision_reason,programmes(id,name,programme_code,enabled_modules),programme_stages:stage_id(id,label),enrolment_scorecards(financial_need,academic_record,attendance_score,cbt_readiness,commitment,notes)",
+          "id,beneficiary_id,status,stage_id,decision,decision_reason,programmes(id,name,programme_code,pipeline_template_key,enabled_modules),programme_stages:stage_id(id,label),enrolment_scorecards(financial_need,academic_record,attendance_score,cbt_readiness,commitment,notes)",
         )
         .order("enrolled_at", { ascending: false })
         .limit(80),
@@ -177,6 +179,7 @@ function formatBeneficiary(
   const scoreRel = Array.isArray(enrolment?.enrolment_scorecards)
     ? enrolment?.enrolment_scorecards[0]
     : enrolment?.enrolment_scorecards;
+  const scorecardEnabled = usesEducationScorecard(programme?.pipeline_template_key);
 
   return {
     id: beneficiary.id,
@@ -186,6 +189,7 @@ function formatBeneficiary(
     programme_id: programme?.id ?? null,
     programme_name: programme?.name ?? "Not linked yet",
     programme_code: programme?.programme_code,
+    programme_pipeline_template_key: programme?.pipeline_template_key ?? null,
     programme_modules: programme?.enabled_modules ?? [],
     community: beneficiary.community ?? "Unknown community",
     state: beneficiary.state ?? "Unknown state",
@@ -201,7 +205,7 @@ function formatBeneficiary(
     stage_label: stage?.label ?? null,
     decision: enrolment?.decision ?? null,
     decision_reason: enrolment?.decision_reason ?? null,
-    scorecard: scoreRel ? { ...scoreRel } : null,
+    scorecard: scorecardEnabled && scoreRel ? { ...scoreRel } : null,
     consent_received: beneficiary.consent_received ?? false,
     consent_evidence_drive_file_id: beneficiary.consent_evidence_drive_file_id ?? null,
     consent_recorded_at: beneficiary.consent_recorded_at ?? null,
@@ -260,6 +264,7 @@ function buildMockBeneficiaries(programmes: ProgrammeRow[]): BeneficiaryRow[] {
       full_name: "Chinedu I. Okafor",
       programme_name: references[0]?.name ?? "Girls' Education & Dignity Initiative",
       programme_code: references[0]?.programme_code ?? "PRG-2026-0001",
+      programme_pipeline_template_key: references[0]?.pipeline_template_key ?? null,
       programme_modules: references[0]?.enabled_modules ?? ["beneficiaries", "activities", "evidence"],
       community: "Karu",
       state: "Abuja, FCT",
@@ -278,6 +283,7 @@ function buildMockBeneficiaries(programmes: ProgrammeRow[]): BeneficiaryRow[] {
       full_name: "Amina S. Ibrahim",
       programme_name: references[1]?.name ?? "Back to School",
       programme_code: references[1]?.programme_code ?? "PRG-2026-0002",
+      programme_pipeline_template_key: references[1]?.pipeline_template_key ?? null,
       programme_modules: references[1]?.enabled_modules ?? ["beneficiaries", "evidence"],
       community: "Kubwa",
       state: "Abuja, FCT",
@@ -296,6 +302,7 @@ function buildMockBeneficiaries(programmes: ProgrammeRow[]): BeneficiaryRow[] {
       full_name: "Maryam B. Aliyu",
       programme_name: references[2]?.name ?? "Pad-Up Campaign",
       programme_code: references[2]?.programme_code ?? "PRG-2026-0003",
+      programme_pipeline_template_key: references[2]?.pipeline_template_key ?? null,
       programme_modules: references[2]?.enabled_modules ?? ["beneficiaries", "activities", "evidence"],
       community: "Gwagwalada",
       state: "Abuja, FCT",

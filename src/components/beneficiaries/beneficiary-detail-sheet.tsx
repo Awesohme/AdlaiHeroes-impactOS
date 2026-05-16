@@ -20,6 +20,7 @@ import {
   SCORECARD_RUBRICS,
   SCORECARD_WEIGHTS,
   scorecardSuggestion,
+  usesEducationScorecard,
 } from "@/lib/programme-pipeline";
 import {
   clearBeneficiaryConsentAction,
@@ -106,6 +107,7 @@ export function BeneficiaryDetailSheet({
   const [pending, startTransition] = useTransition();
 
   const isLive = Boolean(beneficiary?.enrolment_id);
+  const scorecardEnabled = usesEducationScorecard(beneficiary?.programme_pipeline_template_key);
 
   useEffect(() => {
     if (!open || !beneficiary) return;
@@ -621,7 +623,7 @@ export function BeneficiaryDetailSheet({
           />
         ) : null}
 
-        {isLive ? (
+        {isLive && scorecardEnabled ? (
           <DetailSection
             title={
               <span className="inline-flex items-center gap-2">
@@ -708,6 +710,10 @@ export function BeneficiaryDetailSheet({
         {!isLive ? (
           <p className="text-xs text-muted-foreground mt-6">
             Stage and scorecard appear once this beneficiary is enrolled in a programme.
+          </p>
+        ) : isLive && !scorecardEnabled ? (
+          <p className="text-xs text-muted-foreground mt-6">
+            This programme does not use the education selection scorecard.
           </p>
         ) : null}
 

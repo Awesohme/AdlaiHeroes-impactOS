@@ -8,6 +8,7 @@ import {
   listStagesAction,
 } from "@/app/(protected)/programmes/actions";
 import { PipelineBoard } from "@/components/pipeline/pipeline-board";
+import { usesEducationScorecard } from "@/lib/programme-pipeline";
 
 export const dynamic = "force-dynamic";
 
@@ -72,6 +73,7 @@ export default async function PipelinePage({
         selectedCode={selected?.programme_code ?? null}
         stages={stages}
         enrolments={enrolments}
+        scorecardEnabled={usesEducationScorecard(selected?.pipeline_template_key)}
       />
     </AppFrame>
   );

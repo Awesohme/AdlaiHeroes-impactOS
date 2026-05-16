@@ -10,10 +10,12 @@ export function PipelineCard({
   enrolment,
   selected,
   onSelect,
+  scorecardEnabled,
 }: {
   enrolment: EnrolmentSummary;
   selected: boolean;
   onSelect: () => void;
+  scorecardEnabled: boolean;
 }) {
   return (
     <button
@@ -45,7 +47,7 @@ export function PipelineCard({
           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" aria-label="Consent received" />
         ) : null}
       </div>
-      {enrolment.scorecard_total !== null ? (
+      {scorecardEnabled && enrolment.scorecard_total !== null ? (
         <Badge variant="outline" className="font-normal text-xs">
           {enrolment.scorecard_total}/100
         </Badge>

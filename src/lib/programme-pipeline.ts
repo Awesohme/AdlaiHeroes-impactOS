@@ -1,3 +1,5 @@
+export const EDUCATION_SPONSORSHIP_TEMPLATE_KEY = "education_sponsorship" as const;
+
 export const EDUCATION_SPONSORSHIP_STAGES = [
   { key: "nominated", label: "Nominated", is_terminal: false },
   { key: "validated", label: "Validated", is_terminal: false },
@@ -82,6 +84,10 @@ export const SCORECARD_RUBRICS: Record<
 };
 
 export const TERMINAL_STAGE_LABELS = new Set(["Completed", "Declined", "Exited"]);
+
+export function usesEducationScorecard(pipelineTemplateKey: string | null | undefined) {
+  return pipelineTemplateKey === EDUCATION_SPONSORSHIP_TEMPLATE_KEY;
+}
 
 export function scorecardSuggestion(total: number): {
   decision: "approved" | "deferred" | "declined";

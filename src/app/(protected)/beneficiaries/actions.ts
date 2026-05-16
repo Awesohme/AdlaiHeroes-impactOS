@@ -9,6 +9,7 @@ import {
 } from "@/lib/google-drive/server";
 import { isReservedBeneficiaryProfileField } from "@/lib/programme-config";
 import { generateEvidenceCode } from "@/lib/evidence-codes";
+import { usesEducationScorecard } from "@/lib/programme-pipeline";
 
 const validSafeguarding = new Set(["none", "reviewed", "follow_up_needed"]);
 const validImageTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -739,6 +740,22 @@ export async function upsertScorecardAction(
     updated_at: new Date().toISOString(),
   };
   const supabase = await createClient();
+  const { data: enrolment, error: enrolmentError } = await supabase
+    .from("enrolments")
+    .select("programmes:programme_id(pipeline_template_key)")
+    .eq("id", enrolmentId)
+    .maybeSingle();
+  if (enrolmentError) {
+    return {
+      ok: false,
+      error: mapDbError(enrolmentError.message, "Could not load the enrolment."),
+    };
+  }
+  const programmeRel = (enrolment as { programmes?: { pipeline_template_key: string | null } | { pipeline_template_key: string | null }[] | null } | null)?.programmes;
+  const programme = Array.isArray(programmeRel) ? programmeRel[0] : programmeRel;
+  if (!usesEducationScorecard(programme?.pipeline_template_key)) {
+    return { ok: false, error: "This programme does not use the education selection scorecard." };
+  }
   const { error } = await supabase
     .from("enrolment_scorecards")
     .upsert(payload, { onConflict: "enrolment_id" });

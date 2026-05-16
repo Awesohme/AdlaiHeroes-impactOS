@@ -25,11 +25,13 @@ export function PipelineBoard({
   selectedCode,
   stages,
   enrolments,
+  scorecardEnabled,
 }: {
   programmes: ProgrammeOption[];
   selectedCode: string | null;
   stages: StageOption[];
   enrolments: EnrolmentSummary[];
+  scorecardEnabled: boolean;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -139,6 +141,7 @@ export function PipelineBoard({
                   enrolments={byStage.get("_unstaged") ?? []}
                   selectedId={selected?.enrolment_id ?? null}
                   onSelect={selectEnrolment}
+                  scorecardEnabled={scorecardEnabled}
                 />
               ) : null}
               {stages.map((stage) => (
@@ -148,6 +151,7 @@ export function PipelineBoard({
                   enrolments={byStage.get(stage.id) ?? []}
                   selectedId={selected?.enrolment_id ?? null}
                   onSelect={selectEnrolment}
+                  scorecardEnabled={scorecardEnabled}
                 />
               ))}
             </div>
@@ -163,6 +167,7 @@ export function PipelineBoard({
                 enrolment={selected}
                 stages={stages}
                 programmeId={selectedProgramme?.id ?? null}
+                scorecardEnabled={scorecardEnabled}
               />
             </CardContent>
           </Card>
@@ -183,6 +188,7 @@ export function PipelineBoard({
                   enrolment={selected}
                   stages={stages}
                   programmeId={selectedProgramme?.id ?? null}
+                  scorecardEnabled={scorecardEnabled}
                 />
               </div>
             </SheetContent>
@@ -198,11 +204,13 @@ function ColumnView({
   enrolments,
   selectedId,
   onSelect,
+  scorecardEnabled,
 }: {
   label: string;
   enrolments: EnrolmentSummary[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  scorecardEnabled: boolean;
 }) {
   return (
     <Card className="w-64 shrink-0 bg-muted/30">
@@ -224,6 +232,7 @@ function ColumnView({
               enrolment={enrolment}
               selected={selectedId === enrolment.enrolment_id}
               onSelect={() => onSelect(enrolment.enrolment_id)}
+              scorecardEnabled={scorecardEnabled}
             />
           ))
         )}

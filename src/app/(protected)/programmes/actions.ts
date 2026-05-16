@@ -2,7 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { EDUCATION_SPONSORSHIP_STAGES } from "@/lib/programme-pipeline";
+import {
+  EDUCATION_SPONSORSHIP_STAGES,
+  EDUCATION_SPONSORSHIP_TEMPLATE_KEY,
+  usesEducationScorecard,
+} from "@/lib/programme-pipeline";
 
 export type ActionResult<T = unknown> = { ok: true; data?: T } | { ok: false; error: string };
 
@@ -432,6 +436,13 @@ export async function seedEducationStagesAction(
   }));
   const { error } = await supabase.from("programme_stages").insert(rows);
   if (error) return { ok: false, error: mapRlsError(error.message, "Could not seed stages.") };
+  await supabase
+    .from("programmes")
+    .update({
+      pipeline_template_key: EDUCATION_SPONSORSHIP_TEMPLATE_KEY,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", programmeId);
   const stages = await listStagesAction(programmeId);
   return { ok: true, data: stages };
 }
@@ -447,6 +458,7 @@ export type EnrolmentSummary = {
   stage_label: string | null;
   decision: string | null;
   scorecard_total: number | null;
+  scorecard_enabled: boolean;
   consent_received: boolean;
   consent_drive_file_id: string | null;
   consent_recorded_at: string | null;
@@ -467,7 +479,7 @@ export async function listEnrolmentsByProgrammeAction(
   const { data, error } = await supabase
     .from("enrolments")
     .select(
-      "id,stage_id,decision,beneficiaries(id,beneficiary_code,full_name,consent_received,consent_evidence_drive_file_id,consent_recorded_at,profile_image_drive_file_id),programme_stages:stage_id(label),enrolment_scorecards(financial_need,academic_record,attendance_score,cbt_readiness,commitment)",
+      "id,stage_id,decision,beneficiaries(id,beneficiary_code,full_name,consent_received,consent_evidence_drive_file_id,consent_recorded_at,profile_image_drive_file_id),programmes:programme_id(pipeline_template_key),programme_stages:stage_id(label),enrolment_scorecards(financial_need,academic_record,attendance_score,cbt_readiness,commitment)",
     )
     .eq("programme_id", programmeId)
     .order("enrolled_at", { ascending: false });
@@ -481,6 +493,7 @@ export async function listEnrolmentsByProgrammeAction(
     consent_recorded_at: string | null;
     profile_image_drive_file_id: string | null;
   };
+  type ProgrammeRel = { pipeline_template_key: string | null };
   type StageRel = { label: string };
   type ScoreRel = {
     financial_need: number;
@@ -494,6 +507,7 @@ export async function listEnrolmentsByProgrammeAction(
     stage_id: string | null;
     decision: string | null;
     beneficiaries: BeneficiaryRel | BeneficiaryRel[] | null;
+    programmes?: ProgrammeRel | ProgrammeRel[] | null;
     programme_stages?: StageRel | StageRel[] | null;
     enrolment_scorecards?: ScoreRel | ScoreRel[] | null;
   };
@@ -501,11 +515,14 @@ export async function listEnrolmentsByProgrammeAction(
     const beneficiary = Array.isArray(row.beneficiaries)
       ? row.beneficiaries[0]
       : row.beneficiaries;
+    const programmeRel = row.programmes;
+    const programme = Array.isArray(programmeRel) ? programmeRel[0] : programmeRel;
     const stageRel = row.programme_stages;
     const stage = Array.isArray(stageRel) ? stageRel[0] : stageRel;
     const score = Array.isArray(row.enrolment_scorecards)
       ? row.enrolment_scorecards[0]
       : row.enrolment_scorecards ?? null;
+    const scorecardEnabled = usesEducationScorecard(programme?.pipeline_template_key);
     const total = score
       ? score.financial_need +
         score.academic_record +
@@ -521,12 +538,13 @@ export async function listEnrolmentsByProgrammeAction(
       stage_id: row.stage_id ?? null,
       stage_label: stage?.label ?? null,
       decision: row.decision ?? null,
-      scorecard_total: total,
+      scorecard_total: scorecardEnabled ? total : null,
+      scorecard_enabled: scorecardEnabled,
       consent_received: beneficiary?.consent_received ?? false,
       consent_drive_file_id: beneficiary?.consent_evidence_drive_file_id ?? null,
       consent_recorded_at: beneficiary?.consent_recorded_at ?? null,
       profile_image_drive_file_id: beneficiary?.profile_image_drive_file_id ?? null,
-      scorecard: score
+      scorecard: scorecardEnabled && score
         ? {
             financial_need: score.financial_need,
             academic_record: score.academic_record,

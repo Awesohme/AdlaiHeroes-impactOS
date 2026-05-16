@@ -53,6 +53,7 @@ import { cn } from "@/lib/utils";
 import { MediaPreview } from "@/components/media-preview";
 import { SearchableSelect } from "@/components/searchable-select";
 import { enrolBeneficiaryAction } from "@/app/(protected)/beneficiaries/actions";
+import { usesEducationScorecard } from "@/lib/programme-pipeline";
 
 export function ProgrammeDetailSheet({
   programme,
@@ -187,6 +188,7 @@ export function ProgrammeDetailSheet({
   const isArchived = Boolean(programme.archived_at);
   const canQuickUpdateManualReach =
     programme.reach_tracking_mode === "manual" && !isArchived && !isMock && canManageOps;
+  const scorecardEnabled = usesEducationScorecard(programme.pipeline_template_key);
   const enrolledBeneficiaryIds = new Set(enrolments.map((row) => row.beneficiary_id));
   const enrolmentOptions = beneficiaries
     .filter((row) => row.id && !enrolledBeneficiaryIds.has(row.id))
@@ -791,7 +793,7 @@ export function ProgrammeDetailSheet({
                       ) : (
                         <span className="text-xs text-muted-foreground">Not staged</span>
                       )}
-                      {row.scorecard_total !== null ? (
+                      {scorecardEnabled && row.scorecard_total !== null ? (
                         <Badge variant="outline" className="font-normal">
                           {row.scorecard_total}/100
                         </Badge>
