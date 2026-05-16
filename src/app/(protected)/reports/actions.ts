@@ -159,6 +159,7 @@ export async function generateProgrammeReportAction(
   payload: {
     reportType: string;
     includeBeneficiaryList?: boolean;
+    selectedNoteIds?: string[];
   },
 ): Promise<
   ReportActionResult<{
@@ -182,6 +183,7 @@ export async function generateProgrammeReportAction(
   const context = await buildProgrammeReportContext(programmeId, {
     reportType,
     includeBeneficiaryList: Boolean(payload.includeBeneficiaryList),
+    selectedNoteIds: (payload.selectedNoteIds ?? []).filter(Boolean),
   });
 
   if (reportType === "final" && !canGenerateFinalReport(context.programme)) {

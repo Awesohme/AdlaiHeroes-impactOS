@@ -6,22 +6,15 @@ import { ExternalLink, FileText, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { SearchableSelect } from "@/components/searchable-select";
 import {
-  addProgrammeNoteAction,
   generateProgrammeReportAction,
   listProgrammeNotesAction,
   listProgrammeReportsAction,
   updateProgrammeReportStatusAction,
 } from "@/app/(protected)/reports/actions";
+import type { ProgrammeNoteRow, ProgrammeReportRow } from "@/lib/reports";
 import {
-  type ProgrammeNoteRow,
-  type ProgrammeReportRow,
-} from "@/lib/reports";
-import {
-  REPORT_NOTE_CATEGORIES,
   canGenerateFinalReport,
   type ProgrammeReportStatus,
 } from "@/lib/reporting-config";
@@ -32,6 +25,12 @@ const reportStatusOptions = [
   { value: "approved", label: "Approved" },
   { value: "archived", label: "Archived" },
 ] as const;
+
+type GenerationState = {
+  reportType: "interim" | "final";
+  includeBeneficiaryList: boolean;
+  selectedNoteIds: string[];
+};
 
 export function ProgrammeReportingPanel({
   programmeId,
@@ -51,16 +50,8 @@ export function ProgrammeReportingPanel({
   const [notes, setNotes] = useState<ProgrammeNoteRow[]>([]);
   const [reports, setReports] = useState<ProgrammeReportRow[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const [noteCategory, setNoteCategory] = useState<string>("update");
-  const [noteBody, setNoteBody] = useState("");
-  const [includeInReport, setIncludeInReport] = useState(true);
-  const [noteFeedback, setNoteFeedback] = useState<string | null>(null);
-
-  const [includeBeneficiaryList, setIncludeBeneficiaryList] = useState(false);
   const [reportFeedback, setReportFeedback] = useState<string | null>(null);
-
-  const [notesPending, startNotesTransition] = useTransition();
+  const [generationModal, setGenerationModal] = useState<GenerationState | null>(null);
   const [reportPending, startReportTransition] = useTransition();
   const [statusPending, startStatusTransition] = useTransition();
 
@@ -87,40 +78,45 @@ export function ProgrammeReportingPanel({
     };
   }, [programmeId]);
 
-  function addNote() {
-    if (!canManageOps) return;
-    setNoteFeedback(null);
-    startNotesTransition(async () => {
-      const result = await addProgrammeNoteAction(programmeId, {
-        category: noteCategory,
-        body: noteBody,
-        includeInReport,
-      });
-      if (!result.ok) {
-        setNoteFeedback(result.error);
-        return;
-      }
-      setNotes(result.data);
-      setNoteBody("");
-      setIncludeInReport(true);
-      setNoteFeedback("Programme note saved.");
+  function openGenerator(reportType: "interim" | "final") {
+    setReportFeedback(null);
+    setGenerationModal({
+      reportType,
+      includeBeneficiaryList: false,
+      selectedNoteIds: notes.filter((note) => note.include_in_report).map((note) => note.id),
     });
   }
 
-  function generateReport(reportType: "interim" | "final") {
-    if (!canManageOps) return;
+  function toggleNote(noteId: string) {
+    setGenerationModal((current) => {
+      if (!current) return current;
+      const selected = current.selectedNoteIds.includes(noteId)
+        ? current.selectedNoteIds.filter((id) => id !== noteId)
+        : [...current.selectedNoteIds, noteId];
+      return { ...current, selectedNoteIds: selected };
+    });
+  }
+
+  function generateReport() {
+    if (!canManageOps || !generationModal) return;
     setReportFeedback(null);
     startReportTransition(async () => {
       const result = await generateProgrammeReportAction(programmeId, {
-        reportType,
-        includeBeneficiaryList,
+        reportType: generationModal.reportType,
+        includeBeneficiaryList: generationModal.includeBeneficiaryList,
+        selectedNoteIds: generationModal.selectedNoteIds,
       });
       if (!result.ok) {
         setReportFeedback(result.error);
         return;
       }
-      const refreshed = await listProgrammeReportsAction({ programmeId });
-      setReports(refreshed);
+      const [freshNotes, freshReports] = await Promise.all([
+        listProgrammeNotesAction(programmeId),
+        listProgrammeReportsAction({ programmeId }),
+      ]);
+      setNotes(freshNotes);
+      setReports(freshReports);
+      setGenerationModal(null);
       setReportFeedback(
         result.data.generatedVia === "snapshot_only"
           ? "The report draft was saved in ImpactOps, but Drive export failed. Retry after fixing Google Docs setup."
@@ -162,33 +158,22 @@ export function ProgrammeReportingPanel({
             </p>
           </div>
 
-          <label className="flex items-start gap-2 text-sm">
-            <input
-              checked={includeBeneficiaryList}
-              className="mt-1"
-              onChange={(event) => setIncludeBeneficiaryList(event.target.checked)}
-              type="checkbox"
-            />
-            <span>
-              Include beneficiary names in the generated draft
-              <span className="block text-xs text-muted-foreground">
-                Leave this off by default for donor privacy and safer sharing.
-              </span>
-            </span>
-          </label>
-
           <div className="flex flex-wrap gap-2">
             <Button
               disabled={!canManageOps || reportPending}
-              onClick={() => generateReport("interim")}
+              onClick={() => openGenerator("interim")}
               type="button"
             >
-              {reportPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+              {reportPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="mr-2 h-4 w-4" />
+              )}
               Generate interim report
             </Button>
             <Button
               disabled={!canManageOps || reportPending || !canGenerateFinal}
-              onClick={() => generateReport("final")}
+              onClick={() => openGenerator("final")}
               type="button"
               variant="outline"
             >
@@ -202,100 +187,7 @@ export function ProgrammeReportingPanel({
             </p>
           ) : null}
 
-          {reportFeedback ? (
-            <p className="text-sm text-muted-foreground">{reportFeedback}</p>
-          ) : null}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Programme notes</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Log donor-relevant context, risks, outcomes, and next steps. Mark notes that should feed generated reports.
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-[220px_1fr]">
-            <div className="space-y-2">
-              <Label>Category</Label>
-              <SearchableSelect
-                value={noteCategory}
-                onChange={setNoteCategory}
-                options={REPORT_NOTE_CATEGORIES.map((option) => ({
-                  value: option.value,
-                  label: option.label,
-                }))}
-                placeholder="Choose note category"
-                searchPlaceholder="Search note categories..."
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Note</Label>
-              <Textarea
-                onChange={(event) => setNoteBody(event.target.value)}
-                placeholder="Capture a delivery update, risk, outcome, partner observation, or next step..."
-                rows={3}
-                value={noteBody}
-              />
-            </div>
-          </div>
-
-          <label className="flex items-start gap-2 text-sm">
-            <input
-              checked={includeInReport}
-              className="mt-1"
-              onChange={(event) => setIncludeInReport(event.target.checked)}
-              type="checkbox"
-            />
-            <span>
-              Include this note in generated reports
-              <span className="block text-xs text-muted-foreground">
-                Turn this off for internal-only observations.
-              </span>
-            </span>
-          </label>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <Button
-              disabled={!canManageOps || notesPending}
-              onClick={addNote}
-              type="button"
-            >
-              {notesPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Save note
-            </Button>
-            {noteFeedback ? (
-              <p className="text-sm text-muted-foreground">{noteFeedback}</p>
-            ) : null}
-          </div>
-
-          <div className="space-y-3">
-            {loading ? (
-              <p className="text-sm text-muted-foreground">Loading programme notes…</p>
-            ) : notes.length ? (
-              notes.map((note) => (
-                <div key={note.id} className="rounded-md border p-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="outline">{formatLabel(note.category)}</Badge>
-                    {note.include_in_report ? <Badge>Included in report</Badge> : null}
-                    <span className="text-xs text-muted-foreground">
-                      {formatDate(note.created_at)}
-                      {note.created_by_name || note.created_by_email
-                        ? ` · ${note.created_by_name || note.created_by_email}`
-                        : ""}
-                    </span>
-                  </div>
-                  <p className="mt-2 text-sm whitespace-pre-wrap">{note.body}</p>
-                </div>
-              ))
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No programme notes yet.
-              </p>
-            )}
-          </div>
+          {reportFeedback ? <p className="text-sm text-muted-foreground">{reportFeedback}</p> : null}
         </CardContent>
       </Card>
 
@@ -318,37 +210,42 @@ export function ProgrammeReportingPanel({
                       <FileText className="h-4 w-4 text-muted-foreground" />
                       <p className="text-sm font-medium">{report.title}</p>
                     </div>
-                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
                       <Badge variant="outline">{formatLabel(report.report_type)}</Badge>
-                      <Badge>{formatLabel(report.status)}</Badge>
-                      <span>{report.document_format === "docx" ? "DOCX fallback" : "Google Doc"}</span>
-                      <span>{formatDate(report.updated_at)}</span>
+                      <Badge variant={report.generated_with_ai ? "default" : "secondary"}>
+                        {report.generated_with_ai ? "AI-polished" : "Template draft"}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        Updated {formatDate(report.updated_at)}
+                        {report.generated_by_name || report.generated_by_email
+                          ? ` · ${report.generated_by_name || report.generated_by_email}`
+                          : ""}
+                      </span>
                     </div>
                     {report.generation_error ? (
                       <p className="mt-2 text-xs text-amber-700">
-                        Last generation issue: {report.generation_error}
+                        Export fallback used: {report.generation_error}
                       </p>
                     ) : null}
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2">
-                    {canManageOps ? (
+                  <div className="flex flex-col gap-2 sm:items-end">
                     <SearchableSelect
                       value={report.status}
-                      onChange={(value) => updateStatus(report.id, value as ProgrammeReportStatus)}
+                      onChange={(value) =>
+                        updateStatus(report.id, value as ProgrammeReportStatus)
+                      }
                       options={reportStatusOptions.map((option) => ({
                         value: option.value,
-                          label: option.label,
-                        }))}
-                      placeholder="Status"
+                        label: option.label,
+                      }))}
+                      placeholder="Choose status"
                       searchPlaceholder="Search report statuses..."
-                      disabled={statusPending}
-                      className="w-[180px]"
+                      disabled={!canManageOps || statusPending}
                     />
-                    ) : null}
                     {report.drive_web_link ? (
                       <Button asChild size="sm" variant="outline">
-                        <Link href={report.drive_web_link} rel="noopener noreferrer" target="_blank">
+                        <Link href={report.drive_web_link} target="_blank" rel="noreferrer">
                           Open document
                           <ExternalLink className="ml-2 h-4 w-4" />
                         </Link>
@@ -360,27 +257,123 @@ export function ProgrammeReportingPanel({
             ))
           ) : (
             <p className="text-sm text-muted-foreground">
-              No reports generated for this programme yet.
+              No reports generated yet.
             </p>
           )}
         </CardContent>
       </Card>
+
+      {generationModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+          <div className="w-full max-w-2xl rounded-2xl border bg-background p-5 shadow-xl">
+            <div className="space-y-1">
+              <h3 className="text-lg font-semibold">
+                Generate {generationModal.reportType === "final" ? "final" : "interim"} report
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Choose which programme notes to include in this report draft.
+              </p>
+            </div>
+
+            <div className="mt-4 space-y-4">
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  checked={generationModal.includeBeneficiaryList}
+                  className="mt-1"
+                  onChange={(event) =>
+                    setGenerationModal((current) =>
+                      current
+                        ? { ...current, includeBeneficiaryList: event.target.checked }
+                        : current,
+                    )
+                  }
+                  type="checkbox"
+                />
+                <span>
+                  Include beneficiary names in the generated draft
+                  <span className="block text-xs text-muted-foreground">
+                    Leave this off by default for donor privacy and safer sharing.
+                  </span>
+                </span>
+              </label>
+
+              <div className="rounded-md border">
+                <div className="flex items-center justify-between border-b px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium">Programme notes</p>
+                    <p className="text-xs text-muted-foreground">
+                      {generationModal.selectedNoteIds.length} selected
+                    </p>
+                  </div>
+                </div>
+                <div className="max-h-72 space-y-3 overflow-y-auto p-4">
+                  {notes.length ? (
+                    notes.map((note) => {
+                      const checked = generationModal.selectedNoteIds.includes(note.id);
+                      return (
+                        <label
+                          key={note.id}
+                          className="flex cursor-pointer items-start gap-3 rounded-md border p-3"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleNote(note.id)}
+                            className="mt-1 h-4 w-4 rounded border-input"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant="outline">{formatLabel(note.category)}</Badge>
+                              {note.include_in_report ? <Badge variant="secondary">Default include</Badge> : null}
+                              <span className="text-xs text-muted-foreground">
+                                {formatDate(note.created_at)}
+                              </span>
+                            </div>
+                            <p className="mt-2 whitespace-pre-wrap text-sm">{note.body}</p>
+                          </div>
+                        </label>
+                      );
+                    })
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No programme notes yet. You can still generate a report without notes.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setGenerationModal(null)}
+                disabled={reportPending}
+              >
+                Cancel
+              </Button>
+              <Button type="button" onClick={generateReport} disabled={reportPending}>
+                {reportPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Generate report
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function formatLabel(value: string) {
-  return value.replace(/_/g, " ").replace(/\b\w/g, (match) => match.toUpperCase());
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("en-NG", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
 }
 
-function formatDate(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("en-NG", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(date);
+function formatLabel(value: string) {
+  return value
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }

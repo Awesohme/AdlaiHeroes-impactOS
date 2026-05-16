@@ -46,6 +46,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { SearchableSelect } from "@/components/searchable-select";
 import { ProgrammeReportingPanel } from "@/components/programmes/programme-reporting-panel";
+import { ProgrammeNotesPanel } from "@/components/programmes/programme-notes-panel";
 
 function typeAcceptsOptions(type: string) {
   return type === "select" || type === "multi_select";
@@ -627,6 +628,13 @@ export function ProgrammeCreateForm({
             </Accordion>
           </CardContent>
         </Card>
+
+        {mode === "edit" && initialProgramme?.id ? (
+          <ProgrammeNotesPanel
+            programmeId={initialProgramme.id}
+            canManageOps={!isArchived}
+          />
+        ) : null}
 
         {mode === "edit" && initialProgramme?.id ? (
           <ProgrammeReportingPanel

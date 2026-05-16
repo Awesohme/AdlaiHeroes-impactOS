@@ -12,6 +12,7 @@ import {
   type ProgrammeReportType,
   type ReportNoteCategory,
 } from "@/lib/reporting-config";
+import { resolveReportAiConfig } from "@/lib/report-ai-settings";
 
 export type ProgrammeNoteRow = {
   id: string;
@@ -149,13 +150,6 @@ type ProgrammeReportRecord = {
     | null;
 };
 
-type ReportAiEnv = {
-  enabled: boolean;
-  endpoint: string;
-  apiKey: string;
-  model: string;
-};
-
 export async function listProgrammeNotes(programmeId: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -253,7 +247,11 @@ export async function listProgrammeReports(filters?: {
 
 export async function buildProgrammeReportContext(
   programmeId: string,
-  options?: { reportType?: ProgrammeReportType; includeBeneficiaryList?: boolean },
+  options?: {
+    reportType?: ProgrammeReportType;
+    includeBeneficiaryList?: boolean;
+    selectedNoteIds?: string[];
+  },
 ): Promise<ReportContext> {
   const reportType = options?.reportType ?? "interim";
   const includeBeneficiaryList = Boolean(options?.includeBeneficiaryList);
@@ -270,6 +268,8 @@ export async function buildProgrammeReportContext(
   if (programmeError || !programmeRaw) {
     throw new Error("Programme not found for report generation.");
   }
+
+  const selectedNoteIds = (options?.selectedNoteIds ?? []).filter(Boolean);
 
   const [
     fundsResponse,
@@ -294,7 +294,7 @@ export async function buildProgrammeReportContext(
       .from("programme_notes")
       .select("category,body,include_in_report,created_at,profiles:created_by(full_name,email)")
       .eq("programme_id", programmeId)
-      .eq("include_in_report", true)
+      .in("id", selectedNoteIds.length ? selectedNoteIds : ["00000000-0000-0000-0000-000000000000"])
       .order("created_at", { ascending: true }),
     supabase
       .from("evidence")
@@ -578,7 +578,7 @@ export function renderProgrammeReportDraft(context: ReportContext) {
 }
 
 export async function maybePolishReportDraftWithAi(context: ReportContext, draft: string) {
-  const config = getReportAiEnv();
+  const config = await resolveReportAiConfig();
   if (!config.enabled) {
     return {
       content: draft,
@@ -685,15 +685,6 @@ export async function buildProgrammeReportDocxBuffer(title: string, content: str
   });
 
   return Packer.toBuffer(document);
-}
-
-function getReportAiEnv(): ReportAiEnv {
-  return {
-    enabled: String(process.env.REPORT_AI_ENABLED ?? "").trim().toLowerCase() === "true",
-    endpoint: String(process.env.REPORT_AI_ENDPOINT ?? "").trim(),
-    apiKey: String(process.env.REPORT_AI_API_KEY ?? "").trim(),
-    model: String(process.env.REPORT_AI_MODEL ?? "").trim() || "gpt-4.1-mini",
-  };
 }
 
 function buildExecutiveSummary(context: ReportContext, progressLine: string, gapLine: string) {

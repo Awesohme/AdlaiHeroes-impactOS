@@ -14,8 +14,10 @@ import { FieldTemplatesTab } from "@/components/settings/field-templates-tab";
 import { getProgrammeTypes } from "@/lib/programme-types";
 import { ProgrammeTypesTab } from "@/components/settings/programme-types-tab";
 import { UsersTab, type UserRow } from "@/components/settings/users-tab";
+import { AiSettingsTab } from "@/components/settings/ai-settings-tab";
 import { getCurrentProfile } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getStoredReportAiSettings } from "@/lib/report-ai-settings";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +65,7 @@ export default async function SettingsPage({
     getCurrentProfile(),
   ]);
   const isAdmin = currentProfile?.role === "admin" && currentProfile.is_active;
+  const aiSettings = isAdmin ? await getStoredReportAiSettings() : null;
   let users: UserRow[] = [];
   let usersFetchError: string | null = null;
   if (isAdmin) {
@@ -205,6 +208,7 @@ export default async function SettingsPage({
           <TabsTrigger value="fields">Field templates</TabsTrigger>
           <TabsTrigger value="programme-types">Programme types</TabsTrigger>
           {isAdmin ? <TabsTrigger value="users">Users</TabsTrigger> : null}
+          {isAdmin ? <TabsTrigger value="ai">AI</TabsTrigger> : null}
           <TabsTrigger value="platform">Platform</TabsTrigger>
           {diagnostics ? <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger> : null}
         </TabsList>
@@ -224,6 +228,12 @@ export default async function SettingsPage({
               currentUserId={currentProfile.id}
               configError={usersFetchError}
             />
+          </TabsContent>
+        ) : null}
+
+        {isAdmin ? (
+          <TabsContent value="ai">
+            <AiSettingsTab initial={aiSettings} />
           </TabsContent>
         ) : null}
 

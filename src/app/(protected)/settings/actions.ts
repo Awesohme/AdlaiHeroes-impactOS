@@ -8,7 +8,13 @@ import {
   testGoogleDocsSetup,
   testGoogleDriveSetup,
 } from "@/lib/google-drive/server";
+import {
+  hasReportAiEncryptionKey,
+  resolveReportAiConfig,
+  saveStoredReportAiSettings,
+} from "@/lib/report-ai-settings";
 import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth";
 import type { ProgrammeFieldType } from "@/lib/programme-config";
 
 const validFieldTypes = new Set<ProgrammeFieldType>([
@@ -28,6 +34,10 @@ export type FieldTemplateActionResult =
 
 export type ProgrammeTypeActionResult =
   | { ok: true }
+  | { ok: false; error: string };
+
+export type ReportAiSettingsActionResult =
+  | { ok: true; message: string }
   | { ok: false; error: string };
 
 function mapDbError(message: string | undefined, fallback: string) {
@@ -224,5 +234,104 @@ export async function testGoogleDocsConnectionAction() {
     redirect(
       `/settings?doc_test=error&doc_error=${encodeURIComponent(message)}&drive_mode=${encodeURIComponent(snapshot?.mode ?? "")}&drive_token_email=${encodeURIComponent(snapshot?.tokenEmail ?? "")}&drive_user_email=${encodeURIComponent(snapshot?.driveUserEmail ?? "")}&drive_scope=${encodeURIComponent(snapshot?.scopes.join(", ") ?? "")}&drive_root_status=${encodeURIComponent(snapshot?.rootLookupMessage ?? "")}`,
     );
+  }
+}
+
+export async function saveReportAiSettingsAction(
+  payload: {
+    enabled: boolean;
+    endpoint: string;
+    model: string;
+    apiKey?: string;
+  },
+): Promise<ReportAiSettingsActionResult> {
+  const profile = await requireAdmin().catch(() => null);
+  if (!profile) {
+    return { ok: false, error: "Only admins can update AI settings." };
+  }
+
+  if (payload.apiKey?.trim() && !hasReportAiEncryptionKey()) {
+    return {
+      ok: false,
+      error: "APP_CONFIG_ENCRYPTION_KEY is missing on the server, so the API key cannot be stored safely yet.",
+    };
+  }
+
+  const { error } = await saveStoredReportAiSettings({
+    enabled: payload.enabled,
+    endpoint: payload.endpoint,
+    model: payload.model,
+    apiKey: payload.apiKey,
+    updatedBy: profile.id,
+  });
+
+  if (error) {
+    return {
+      ok: false,
+      error: mapDbError(error.message, "Could not save AI settings."),
+    };
+  }
+
+  revalidatePath("/settings");
+  return {
+    ok: true,
+    message: "AI settings saved.",
+  };
+}
+
+export async function testReportAiConnectionAction(): Promise<ReportAiSettingsActionResult> {
+  const profile = await requireAdmin().catch(() => null);
+  if (!profile) {
+    return { ok: false, error: "Only admins can test AI settings." };
+  }
+
+  const config = await resolveReportAiConfig();
+  if (!config.enabled) {
+    return {
+      ok: false,
+      error: "AI is not enabled yet. Save an in-app config or enable the fallback env settings first.",
+    };
+  }
+
+  try {
+    const response = await fetch(config.endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${config.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: config.model,
+        temperature: 0,
+        messages: [
+          {
+            role: "system",
+            content: "Reply with the single word OK.",
+          },
+          {
+            role: "user",
+            content: "Health check",
+          },
+        ],
+      }),
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        return { ok: false, error: "The AI endpoint rejected the key. Check the configured API key and endpoint pairing." };
+      }
+      return { ok: false, error: `The AI endpoint responded with status ${response.status}.` };
+    }
+
+    return {
+      ok: true,
+      message: `AI connection verified using ${config.source === "db" ? "in-app settings" : "server env fallback"}.`,
+    };
+  } catch {
+    return {
+      ok: false,
+      error: "ImpactOps could not reach the AI endpoint. Check the endpoint URL, server network access, and API key.",
+    };
   }
 }
