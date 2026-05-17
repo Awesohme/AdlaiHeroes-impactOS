@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import NextTopLoader from "nextjs-toploader";
+import { ClarityProvider } from "@/components/analytics/clarity-provider";
 import "./globals.css";
 
 const inter = Inter({
@@ -21,6 +22,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable}>
       <body className="min-h-screen bg-background font-sans antialiased">
+        <ClarityProvider />
         <NextTopLoader color="#9333ea" height={2.5} showSpinner={false} shadow={false} />
         {children}
       </body>

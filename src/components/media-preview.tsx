@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -46,7 +47,7 @@ export function MediaPreview({
           No preview
         </div>
       ) : (
-        <img
+        <Image
           src={thumb}
           alt={label ?? "Drive preview"}
           width={dim}
@@ -54,7 +55,7 @@ export function MediaPreview({
           onError={() => setImageFailed(true)}
           className="shrink-0 rounded-md border object-cover ring-1 ring-border"
           style={{ width: dim, height: dim }}
-          loading="lazy"
+          unoptimized
         />
       )}
       <div className="min-w-0 space-y-1">

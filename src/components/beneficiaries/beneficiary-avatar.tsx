@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -23,11 +24,14 @@ export function BeneficiaryAvatar({
 
   if (driveFileId && !failed) {
     return (
-      <img
+      <Image
         src={`https://drive.google.com/thumbnail?id=${encodeURIComponent(driveFileId)}&sz=w200`}
         alt={`${name} profile`}
+        width={40}
+        height={40}
         className={cn("h-10 w-10 rounded-full object-cover ring-1 ring-border", className)}
         onError={() => setFailed(true)}
+        unoptimized
       />
     );
   }

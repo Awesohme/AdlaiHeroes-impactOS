@@ -911,7 +911,9 @@ export function ProgrammeDetailSheet({
                 programmeName={programme.name}
                 programmeCode={programme.programme_code}
                 programmeStatus={programme.status}
+                programmeStartDate={programme.start_date}
                 programmeEndDate={programme.end_date}
+                donorFunder={programme.donor_funder}
                 canManageOps={canManageOps && !isArchived}
               />
             ) : (

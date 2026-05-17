@@ -642,7 +642,9 @@ export function ProgrammeCreateForm({
             programmeName={initialProgramme.name}
             programmeCode={initialProgramme.programme_code}
             programmeStatus={initialProgramme.status}
+            programmeStartDate={initialProgramme.start_date}
             programmeEndDate={initialProgramme.end_date}
+            donorFunder={initialProgramme.donor_funder}
             canManageOps={!isArchived}
           />
         ) : null}

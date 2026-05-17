@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SearchableSelect } from "@/components/searchable-select";
 import {
+  exportApprovedProgrammeReportAction,
   generateProgrammeReportAction,
   listProgrammeNotesAction,
   listProgrammeReportsAction,
@@ -29,6 +30,9 @@ const reportStatusOptions = [
 type GenerationState = {
   reportType: "interim" | "final";
   includeBeneficiaryList: boolean;
+  includeEvidenceAppendix: boolean;
+  reportPeriodLabel: string;
+  audienceLabel: string;
   selectedNoteIds: string[];
 };
 
@@ -38,6 +42,8 @@ export function ProgrammeReportingPanel({
   programmeCode,
   programmeStatus,
   programmeEndDate,
+  programmeStartDate,
+  donorFunder,
   canManageOps,
 }: {
   programmeId: string;
@@ -45,6 +51,8 @@ export function ProgrammeReportingPanel({
   programmeCode: string;
   programmeStatus: string;
   programmeEndDate: string | null;
+  programmeStartDate: string | null;
+  donorFunder: string | null;
   canManageOps: boolean;
 }) {
   const [notes, setNotes] = useState<ProgrammeNoteRow[]>([]);
@@ -54,6 +62,7 @@ export function ProgrammeReportingPanel({
   const [generationModal, setGenerationModal] = useState<GenerationState | null>(null);
   const [reportPending, startReportTransition] = useTransition();
   const [statusPending, startStatusTransition] = useTransition();
+  const [exportPending, startExportTransition] = useTransition();
 
   const canGenerateFinal = useMemo(
     () => canGenerateFinalReport({ status: programmeStatus, end_date: programmeEndDate }),
@@ -83,6 +92,9 @@ export function ProgrammeReportingPanel({
     setGenerationModal({
       reportType,
       includeBeneficiaryList: false,
+      includeEvidenceAppendix: false,
+      reportPeriodLabel: defaultReportPeriod(programmeStartDate, programmeEndDate),
+      audienceLabel: donorFunder?.trim() || "Adlai Heroes Foundation",
       selectedNoteIds: notes.filter((note) => note.include_in_report).map((note) => note.id),
     });
   }
@@ -104,6 +116,9 @@ export function ProgrammeReportingPanel({
       const result = await generateProgrammeReportAction(programmeId, {
         reportType: generationModal.reportType,
         includeBeneficiaryList: generationModal.includeBeneficiaryList,
+        includeEvidenceAppendix: generationModal.includeEvidenceAppendix,
+        reportPeriodLabel: generationModal.reportPeriodLabel,
+        audienceLabel: generationModal.audienceLabel,
         selectedNoteIds: generationModal.selectedNoteIds,
       });
       if (!result.ok) {
@@ -123,6 +138,25 @@ export function ProgrammeReportingPanel({
           : result.data.generatedVia === "docx"
             ? "Report generated with DOCX fallback and saved to Drive."
             : "Google Doc draft generated successfully.",
+      );
+    });
+  }
+
+  function exportReport(reportId: string) {
+    if (!canManageOps) return;
+    setReportFeedback(null);
+    startExportTransition(async () => {
+      const result = await exportApprovedProgrammeReportAction(reportId);
+      if (!result.ok) {
+        setReportFeedback(result.error);
+        return;
+      }
+      const freshReports = await listProgrammeReportsAction({ programmeId });
+      setReports(freshReports);
+      setReportFeedback(
+        result.data.driveWebLink
+          ? "Branded DOCX exported to the programme Reports folder."
+          : "Branded DOCX export completed.",
       );
     });
   }
@@ -215,6 +249,9 @@ export function ProgrammeReportingPanel({
                       <Badge variant={report.generated_with_ai ? "default" : "secondary"}>
                         {report.generated_with_ai ? "AI-polished" : "Template draft"}
                       </Badge>
+                      {report.report_period_label ? (
+                        <Badge variant="outline">{report.report_period_label}</Badge>
+                      ) : null}
                       <span className="text-xs text-muted-foreground">
                         Updated {formatDate(report.updated_at)}
                         {report.generated_by_name || report.generated_by_email
@@ -247,6 +284,26 @@ export function ProgrammeReportingPanel({
                       <Button asChild size="sm" variant="outline">
                         <Link href={report.drive_web_link} target="_blank" rel="noreferrer">
                           Open document
+                          <ExternalLink className="ml-2 h-4 w-4" />
+                        </Link>
+                      </Button>
+                    ) : null}
+                    {canManageOps && report.status === "approved" ? (
+                      <Button
+                        size="sm"
+                        variant={report.final_export_web_link ? "outline" : "default"}
+                        onClick={() => exportReport(report.id)}
+                        type="button"
+                        disabled={exportPending}
+                      >
+                        {exportPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        {report.final_export_web_link ? "Refresh branded DOCX" : "Export branded DOCX"}
+                      </Button>
+                    ) : null}
+                    {report.final_export_web_link ? (
+                      <Button asChild size="sm" variant="outline">
+                        <Link href={report.final_export_web_link} target="_blank" rel="noreferrer">
+                          Open branded DOCX
                           <ExternalLink className="ml-2 h-4 w-4" />
                         </Link>
                       </Button>
@@ -297,6 +354,61 @@ export function ProgrammeReportingPanel({
                 </span>
               </label>
 
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="space-y-2 text-sm">
+                  <span className="font-medium">Report period</span>
+                  <input
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={generationModal.reportPeriodLabel}
+                    onChange={(event) =>
+                      setGenerationModal((current) =>
+                        current
+                          ? { ...current, reportPeriodLabel: event.target.value }
+                          : current,
+                      )
+                    }
+                    placeholder="e.g. Jan - Mar 2026"
+                  />
+                </label>
+
+                <label className="space-y-2 text-sm">
+                  <span className="font-medium">Donor / audience</span>
+                  <input
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={generationModal.audienceLabel}
+                    onChange={(event) =>
+                      setGenerationModal((current) =>
+                        current
+                          ? { ...current, audienceLabel: event.target.value }
+                          : current,
+                      )
+                    }
+                    placeholder="Who this report is for"
+                  />
+                </label>
+              </div>
+
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  checked={generationModal.includeEvidenceAppendix}
+                  className="mt-1"
+                  onChange={(event) =>
+                    setGenerationModal((current) =>
+                      current
+                        ? { ...current, includeEvidenceAppendix: event.target.checked }
+                        : current,
+                    )
+                  }
+                  type="checkbox"
+                />
+                <span>
+                  Add evidence appendix
+                  <span className="block text-xs text-muted-foreground">
+                    Attach a fuller list of recent evidence links to the generated report.
+                  </span>
+                </span>
+              </label>
+
               <div className="rounded-md border">
                 <div className="flex items-center justify-between border-b px-4 py-3">
                   <div>
@@ -324,7 +436,6 @@ export function ProgrammeReportingPanel({
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
                               <Badge variant="outline">{formatLabel(note.category)}</Badge>
-                              {note.include_in_report ? <Badge variant="secondary">Default include</Badge> : null}
                               <span className="text-xs text-muted-foreground">
                                 {formatDate(note.created_at)}
                               </span>
@@ -376,4 +487,21 @@ function formatLabel(value: string) {
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+function defaultReportPeriod(startDate: string | null, endDate: string | null) {
+  if (startDate && endDate) {
+    return `${formatDateOnly(startDate)} - ${formatDateOnly(endDate)}`;
+  }
+  if (startDate) return `From ${formatDateOnly(startDate)}`;
+  if (endDate) return `Until ${formatDateOnly(endDate)}`;
+  return "";
+}
+
+function formatDateOnly(value: string) {
+  return new Intl.DateTimeFormat("en-NG", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(value));
 }

@@ -160,6 +160,9 @@ export async function generateProgrammeReportAction(
     reportType: string;
     includeBeneficiaryList?: boolean;
     selectedNoteIds?: string[];
+    includeEvidenceAppendix?: boolean;
+    reportPeriodLabel?: string;
+    audienceLabel?: string;
   },
 ): Promise<
   ReportActionResult<{
@@ -184,6 +187,9 @@ export async function generateProgrammeReportAction(
     reportType,
     includeBeneficiaryList: Boolean(payload.includeBeneficiaryList),
     selectedNoteIds: (payload.selectedNoteIds ?? []).filter(Boolean),
+    reportPeriodLabel: payload.reportPeriodLabel,
+    audienceLabel: payload.audienceLabel,
+    includeEvidenceAppendix: Boolean(payload.includeEvidenceAppendix),
   });
 
   if (reportType === "final" && !canGenerateFinalReport(context.programme)) {
@@ -224,7 +230,7 @@ export async function generateProgrammeReportAction(
         : "Google Docs generation failed.";
 
     try {
-      const buffer = await buildProgrammeReportDocxBuffer(title, polished.content);
+      const buffer = await buildProgrammeReportDocxBuffer(title, polished.content, context);
       const docx = await uploadProgrammeReportDocxToDrive({
         programme: programmeDriveRecord,
         fileName: `${slugifyFileName(title)}.docx`,
@@ -253,6 +259,9 @@ export async function generateProgrammeReportAction(
       title,
       content_snapshot: polished.content,
       context_snapshot: context,
+      report_period_label: context.report_period_label,
+      audience_label: context.audience_label,
+      include_evidence_appendix: context.include_evidence_appendix,
       drive_file_id: driveFileId,
       drive_web_link: driveWebLink,
       document_format: documentFormat,
@@ -283,6 +292,88 @@ export async function generateProgrammeReportAction(
     data: {
       report: report ?? null,
       generatedVia,
+    },
+  };
+}
+
+export async function exportApprovedProgrammeReportAction(
+  reportId: string,
+): Promise<
+  ReportActionResult<{
+    report: ProgrammeReportRow | null;
+    driveWebLink: string | null;
+  }>
+> {
+  const supabase = await createClient();
+  const { data: report, error } = await supabase
+    .from("programme_reports")
+    .select(
+      "id,programme_id,status,title,content_snapshot,context_snapshot,programmes(id,programme_code,name,drive_folder_id)",
+    )
+    .eq("id", reportId)
+    .maybeSingle();
+
+  if (error || !report) {
+    return { ok: false, error: mapReportError(error?.message, "Report not found.") };
+  }
+
+  if (report.status !== "approved") {
+    return { ok: false, error: "Approve the report before exporting the branded DOCX." };
+  }
+
+  const programme = Array.isArray(report.programmes) ? report.programmes[0] : report.programmes;
+  if (!programme?.id || !programme.programme_code || !programme.name) {
+    return { ok: false, error: "The linked programme could not be resolved for export." };
+  }
+
+  const programmeDriveRecord: ProgrammeFolderRecord = {
+    id: programme.id,
+    programme_code: programme.programme_code,
+    name: programme.name,
+    drive_folder_id: programme.drive_folder_id ?? null,
+  };
+
+  const context = (report.context_snapshot ?? null) as Awaited<ReturnType<typeof buildProgrammeReportContext>> | null;
+  const buffer = await buildProgrammeReportDocxBuffer(
+    report.title,
+    report.content_snapshot ?? "",
+    context,
+  );
+  const exported = await uploadProgrammeReportDocxToDrive({
+    programme: programmeDriveRecord,
+    fileName: `${slugifyFileName(report.title)}-final.docx`,
+    buffer: new Uint8Array(buffer),
+  });
+
+  const { error: updateError } = await supabase
+    .from("programme_reports")
+    .update({
+      final_export_file_id: exported.fileId,
+      final_export_web_link: exported.webViewLink,
+      final_export_format: "docx",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", reportId);
+
+  if (updateError) {
+    return {
+      ok: false,
+      error: mapReportError(updateError.message, "The branded export was created, but ImpactOps could not save its link."),
+    };
+  }
+
+  revalidatePath("/reports");
+  revalidatePath("/programmes");
+
+  const [freshReport] = await listProgrammeReports({ programmeId: report.programme_id }).then((rows) =>
+    rows.filter((row) => row.id === reportId),
+  );
+
+  return {
+    ok: true,
+    data: {
+      report: freshReport ?? null,
+      driveWebLink: exported.webViewLink ?? null,
     },
   };
 }

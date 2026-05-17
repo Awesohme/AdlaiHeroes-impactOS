@@ -1,9 +1,22 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import {
+  AlignmentType,
+  Footer,
   Document,
   HeadingLevel,
+  Header,
+  ImageRun,
   Packer,
+  PageNumber,
   Paragraph,
+  ShadingType,
+  Table,
+  TableCell,
+  TableLayoutType,
+  TableRow,
   TextRun,
+  WidthType,
 } from "docx";
 import { createClient } from "@/lib/supabase/server";
 import { usesEducationScorecard } from "@/lib/programme-pipeline";
@@ -36,9 +49,15 @@ export type ProgrammeReportRow = {
   title: string;
   content_snapshot: string;
   context_snapshot: ReportContext | null;
+  report_period_label: string | null;
+  audience_label: string | null;
+  include_evidence_appendix: boolean;
   drive_file_id: string | null;
   drive_web_link: string | null;
   document_format: "google_doc" | "docx";
+  final_export_file_id: string | null;
+  final_export_web_link: string | null;
+  final_export_format: "docx" | "pdf" | null;
   generated_with_ai: boolean;
   generation_error: string | null;
   generated_by: string | null;
@@ -51,6 +70,9 @@ export type ProgrammeReportRow = {
 export type ReportContext = {
   generated_at: string;
   report_type: ProgrammeReportType;
+  report_period_label: string | null;
+  audience_label: string | null;
+  include_evidence_appendix: boolean;
   programme: {
     id: string;
     programme_code: string;
@@ -132,9 +154,15 @@ type ProgrammeReportRecord = {
   title: string;
   content_snapshot: string | null;
   context_snapshot: ReportContext | null;
+  report_period_label: string | null;
+  audience_label: string | null;
+  include_evidence_appendix: boolean | null;
   drive_file_id: string | null;
   drive_web_link: string | null;
   document_format: "google_doc" | "docx" | null;
+  final_export_file_id: string | null;
+  final_export_web_link: string | null;
+  final_export_format: "docx" | "pdf" | null;
   generated_with_ai: boolean | null;
   generation_error: string | null;
   generated_by: string | null;
@@ -199,7 +227,7 @@ export async function listProgrammeReports(filters?: {
   let query = supabase
     .from("programme_reports")
     .select(
-      "id,programme_id,report_type,status,title,content_snapshot,context_snapshot,drive_file_id,drive_web_link,document_format,generated_with_ai,generation_error,generated_by,created_at,updated_at,programmes(name,programme_code),profiles:generated_by(full_name,email)",
+      "id,programme_id,report_type,status,title,content_snapshot,context_snapshot,report_period_label,audience_label,include_evidence_appendix,drive_file_id,drive_web_link,document_format,final_export_file_id,final_export_web_link,final_export_format,generated_with_ai,generation_error,generated_by,created_at,updated_at,programmes(name,programme_code),profiles:generated_by(full_name,email)",
     )
     .order("updated_at", { ascending: false });
 
@@ -225,9 +253,15 @@ export async function listProgrammeReports(filters?: {
       title: row.title,
       content_snapshot: row.content_snapshot ?? "",
       context_snapshot: row.context_snapshot ?? null,
+      report_period_label: row.report_period_label ?? null,
+      audience_label: row.audience_label ?? null,
+      include_evidence_appendix: Boolean(row.include_evidence_appendix),
       drive_file_id: row.drive_file_id,
       drive_web_link: row.drive_web_link,
       document_format: row.document_format ?? "google_doc",
+      final_export_file_id: row.final_export_file_id ?? null,
+      final_export_web_link: row.final_export_web_link ?? null,
+      final_export_format: row.final_export_format ?? null,
       generated_with_ai: Boolean(row.generated_with_ai),
       generation_error: row.generation_error,
       generated_by: row.generated_by,
@@ -251,10 +285,16 @@ export async function buildProgrammeReportContext(
     reportType?: ProgrammeReportType;
     includeBeneficiaryList?: boolean;
     selectedNoteIds?: string[];
+    reportPeriodLabel?: string;
+    audienceLabel?: string;
+    includeEvidenceAppendix?: boolean;
   },
 ): Promise<ReportContext> {
   const reportType = options?.reportType ?? "interim";
   const includeBeneficiaryList = Boolean(options?.includeBeneficiaryList);
+  const reportPeriodLabel = options?.reportPeriodLabel?.trim() || null;
+  const audienceLabel = options?.audienceLabel?.trim() || null;
+  const includeEvidenceAppendix = Boolean(options?.includeEvidenceAppendix);
   const supabase = await createClient();
 
   const { data: programmeRaw, error: programmeError } = await supabase
@@ -423,6 +463,9 @@ export async function buildProgrammeReportContext(
   return {
     generated_at: new Date().toISOString(),
     report_type: reportType,
+    report_period_label: reportPeriodLabel,
+    audience_label: audienceLabel,
+    include_evidence_appendix: includeEvidenceAppendix,
     programme: {
       id: programmeRaw.id,
       programme_code: programmeRaw.programme_code,
@@ -531,6 +574,9 @@ export function renderProgrammeReportDraft(context: ReportContext) {
       ? `${context.programme.name} Final Report`
       : `${context.programme.name} Interim Report`,
     `${context.programme.programme_code} · ${context.programme.programme_type}`,
+    context.report_period_label ? `Report period: ${context.report_period_label}` : "",
+    `Audience: ${context.audience_label || context.programme.donor_funder}`,
+    `Generated on: ${formatDate(context.generated_at)}`,
     "",
     "Executive Summary",
     buildExecutiveSummary(context, progressLine, gapLine),
@@ -569,6 +615,10 @@ export function renderProgrammeReportDraft(context: ReportContext) {
     "Conclusion / Appreciation",
     buildConclusionSection(context),
   ];
+
+  if (context.include_evidence_appendix) {
+    lines.push("", "Evidence Appendix", buildEvidenceAppendix(context));
+  }
 
   if (context.beneficiaries.include_names && context.beneficiaries.names.length > 0) {
     lines.push("", "Beneficiary List", context.beneficiaries.names.map((name) => `- ${name}`).join("\n"));
@@ -640,19 +690,70 @@ export async function maybePolishReportDraftWithAi(context: ReportContext, draft
   }
 }
 
-export async function buildProgrammeReportDocxBuffer(title: string, content: string) {
+export async function buildProgrammeReportDocxBuffer(
+  title: string,
+  content: string,
+  context?: ReportContext | null,
+) {
   const lines = content.split(/\r?\n/);
-  const children = [
+  const logoBytes = await loadAdlaiLogoBytes();
+  const headerChildren = logoBytes
+    ? [
+        new Paragraph({
+          alignment: AlignmentType.RIGHT,
+          spacing: { after: 120 },
+          children: [
+            new ImageRun({
+              data: logoBytes,
+              type: "jpg",
+              transformation: {
+                width: 88,
+                height: 52,
+              },
+            }),
+          ],
+        }),
+      ]
+    : [];
+
+  const metadataTable = context
+    ? new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        layout: TableLayoutType.FIXED,
+        rows: [
+          makeMetadataRow("Programme code", context.programme.programme_code, "Report type", formatLabel(context.report_type)),
+          makeMetadataRow("Donor / audience", context.audience_label || context.programme.donor_funder, "Report period", context.report_period_label || formatDateRangeLabel(context.programme.start_date, context.programme.end_date) || "Not specified"),
+          makeMetadataRow("Generated on", formatDate(context.generated_at), "Prepared in", "ImpactOps reporting workflow"),
+        ],
+      })
+    : null;
+
+  const children: Array<Paragraph | Table> = [
+    new Paragraph({
+      children: [new TextRun({ text: "ADLAI IMPACTOPS", color: BRAND_COLORS.navy, bold: true, size: 20, font: "Comfortaa" })],
+      spacing: { after: 80 },
+    }),
     new Paragraph({
       heading: HeadingLevel.TITLE,
-      children: [new TextRun({ text: title, bold: true })],
+      spacing: { after: 120 },
+      children: [new TextRun({ text: title, bold: true, color: BRAND_COLORS.navy, font: "Comfortaa" })],
     }),
   ];
+
+  if (metadataTable) {
+    children.push(metadataTable);
+    children.push(
+      new Paragraph({
+        text: "",
+        spacing: { after: 140 },
+      }),
+    );
+  }
 
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed) {
-      children.push(new Paragraph({ text: "" }));
+      children.push(new Paragraph({ text: "", spacing: { after: 120 } }));
       continue;
     }
 
@@ -662,14 +763,27 @@ export async function buildProgrammeReportDocxBuffer(title: string, content: str
       trimmed === trimmed.replace(/\s+/g, " ").trim() &&
       trimmed === capitalizeWords(trimmed);
 
+    if (trimmed.startsWith("- ")) {
+      children.push(
+        new Paragraph({
+          text: trimmed.slice(2),
+          bullet: { level: 0 },
+          spacing: { after: 100 },
+        }),
+      );
+      continue;
+    }
+
     children.push(
       new Paragraph(
         isSectionHeading
           ? {
               heading: HeadingLevel.HEADING_2,
-              children: [new TextRun({ text: trimmed, bold: true })],
+              spacing: { before: 200, after: 120 },
+              children: [new TextRun({ text: trimmed, bold: true, color: BRAND_COLORS.navy, font: "Comfortaa" })],
             }
           : {
+              spacing: { after: 110 },
               children: [new TextRun(trimmed)],
             },
       ),
@@ -679,12 +793,119 @@ export async function buildProgrammeReportDocxBuffer(title: string, content: str
   const document = new Document({
     sections: [
       {
+        headers: {
+          default: new Header({
+            children: headerChildren,
+          }),
+        },
+        footers: {
+          default: new Footer({
+            children: buildBrandedFooterChildren(),
+          }),
+        },
         children,
       },
     ],
   });
 
   return Packer.toBuffer(document);
+}
+
+const BRAND_COLORS = {
+  navy: "1E3A8A",
+  orange: "F97316",
+  teal: "14B8A6",
+  pink: "EC4899",
+  slate: "64748B",
+} as const;
+
+function makeMetadataRow(leftLabel: string, leftValue: string, rightLabel: string, rightValue: string) {
+  return new TableRow({
+    children: [
+      makeMetadataCell(leftLabel, leftValue),
+      makeMetadataCell(rightLabel, rightValue),
+    ],
+  });
+}
+
+function makeMetadataCell(label: string, value: string) {
+  return new TableCell({
+    shading: {
+      fill: "F8FAFC",
+      type: ShadingType.CLEAR,
+      color: "auto",
+    },
+    width: { size: 50, type: WidthType.PERCENTAGE },
+    children: [
+      new Paragraph({
+        spacing: { after: 50 },
+        children: [
+          new TextRun({
+            text: label.toUpperCase(),
+            bold: true,
+            color: BRAND_COLORS.slate,
+            size: 18,
+          }),
+        ],
+      }),
+      new Paragraph({
+        children: [new TextRun({ text: value, color: BRAND_COLORS.navy, bold: true })],
+      }),
+    ],
+  });
+}
+
+function buildBrandedFooterChildren() {
+  return [
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 60 },
+      children: [
+        new TextRun({
+          text: "Page ",
+          color: BRAND_COLORS.slate,
+        }),
+        new TextRun({
+          children: [PageNumber.CURRENT],
+          color: BRAND_COLORS.slate,
+        }),
+      ],
+    }),
+    new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      layout: TableLayoutType.FIXED,
+      rows: [
+        new TableRow({
+          children: [
+            makeFooterStripCell(BRAND_COLORS.orange),
+            makeFooterStripCell(BRAND_COLORS.navy),
+            makeFooterStripCell(BRAND_COLORS.teal),
+            makeFooterStripCell(BRAND_COLORS.pink),
+          ],
+        }),
+      ],
+    }),
+  ];
+}
+
+function makeFooterStripCell(color: string) {
+  return new TableCell({
+    shading: {
+      fill: color,
+      type: ShadingType.CLEAR,
+      color: "auto",
+    },
+    width: { size: 25, type: WidthType.PERCENTAGE },
+    children: [new Paragraph({ text: "" })],
+  });
+}
+
+async function loadAdlaiLogoBytes() {
+  try {
+    return await readFile(path.join(process.cwd(), "public", "adlai-logo.jpg"));
+  } catch {
+    return null;
+  }
 }
 
 function buildExecutiveSummary(context: ReportContext, progressLine: string, gapLine: string) {
@@ -785,8 +1006,7 @@ function buildEvidenceSection(context: ReportContext) {
     return "No evidence files are linked to this programme yet.";
   }
 
-  const recentLines = context.evidence.recent
-    .slice(0, 6)
+  const recentLines = context.evidence.recent.slice(0, context.include_evidence_appendix ? 3 : 6)
     .map((row) => {
       const link = row.drive_file_id
         ? `https://drive.google.com/file/d/${row.drive_file_id}/view`
@@ -795,7 +1015,28 @@ function buildEvidenceSection(context: ReportContext) {
     })
     .join("\n");
 
-  return `Evidence logged: ${context.evidence.total}. Confirmed: ${context.evidence.verified}. In review: ${context.evidence.in_review}. Pending: ${context.evidence.pending}.\n${recentLines}`;
+  const appendixLine = context.include_evidence_appendix
+    ? "A fuller evidence appendix is attached below."
+    : "";
+
+  return `Evidence logged: ${context.evidence.total}. Confirmed: ${context.evidence.verified}. In review: ${context.evidence.in_review}. Pending: ${context.evidence.pending}. ${appendixLine}`.trim() +
+    `\n${recentLines}`;
+}
+
+function buildEvidenceAppendix(context: ReportContext) {
+  if (!context.evidence.total) {
+    return "No evidence appendix items are available.";
+  }
+
+  return context.evidence.recent
+    .map((row) => {
+      const link = row.drive_file_id
+        ? `https://drive.google.com/file/d/${row.drive_file_id}/view`
+        : "";
+      const uploadedOn = row.uploaded_at ? ` · uploaded ${formatDate(row.uploaded_at)}` : "";
+      return `- ${row.title} (${row.evidence_type}, ${formatEvidenceStatus(row.verification_status)}${uploadedOn})${link ? ` — ${link}` : ""}`;
+    })
+    .join("\n");
 }
 
 function buildNextStepsSection(context: ReportContext) {
@@ -841,7 +1082,7 @@ function formatStatusLabel(value: string) {
 }
 
 function formatCategoryLabel(value: string) {
-  return value.replace(/_/g, " ");
+  return formatLabel(value);
 }
 
 function formatCount(value: number) {
@@ -877,6 +1118,19 @@ function formatDateRangeSentence(startDate: string | null, endDate: string | nul
   return "";
 }
 
+function formatDateRangeLabel(startDate: string | null, endDate: string | null) {
+  if (startDate && endDate) {
+    return `${formatDate(startDate)} - ${formatDate(endDate)}`;
+  }
+  if (startDate) {
+    return `From ${formatDate(startDate)}`;
+  }
+  if (endDate) {
+    return `Until ${formatDate(endDate)}`;
+  }
+  return "";
+}
+
 function capitalizeWords(value: string) {
   return value
     .split(/\s+/)
@@ -884,4 +1138,10 @@ function capitalizeWords(value: string) {
       part ? part.slice(0, 1).toUpperCase() + part.slice(1).toLowerCase() : part,
     )
     .join(" ");
+}
+
+function formatLabel(value: string) {
+  return value
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (match) => match.toUpperCase());
 }

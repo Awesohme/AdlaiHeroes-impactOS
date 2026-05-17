@@ -112,7 +112,6 @@ export function ProgrammeNotesPanel({
               <div key={note.id} className="rounded-md border p-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="outline">{formatLabel(note.category)}</Badge>
-                  {note.include_in_report ? <Badge variant="secondary">Default include</Badge> : null}
                   <span className="text-xs text-muted-foreground">
                     {formatDate(note.created_at)}
                     {note.created_by_name || note.created_by_email

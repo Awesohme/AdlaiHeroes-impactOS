@@ -7,7 +7,10 @@ import { SearchableSelect } from "@/components/searchable-select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { updateProgrammeReportStatusAction } from "@/app/(protected)/reports/actions";
+import {
+  exportApprovedProgrammeReportAction,
+  updateProgrammeReportStatusAction,
+} from "@/app/(protected)/reports/actions";
 import type { ProgrammeReportRow } from "@/lib/reports";
 import type { ProgrammeReportStatus, ProgrammeReportType } from "@/lib/reporting-config";
 
@@ -40,6 +43,7 @@ export function ReportsOverview({
   const [typeFilter, setTypeFilter] = useState<ProgrammeReportType | "all">("all");
   const [feedback, setFeedback] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [exportPending, startExportTransition] = useTransition();
 
   const filteredReports = useMemo(
     () =>
@@ -64,6 +68,24 @@ export function ReportsOverview({
       setReports((current) =>
         current.map((row) => (row.id === reportId ? { ...row, status: status as ProgrammeReportStatus } : row)),
       );
+    });
+  }
+
+  function exportReport(reportId: string) {
+    if (!canManageOps) return;
+    setFeedback(null);
+    startExportTransition(async () => {
+      const result = await exportApprovedProgrammeReportAction(reportId);
+      if (!result.ok) {
+        setFeedback(result.error);
+        return;
+      }
+      setReports((current) =>
+        current.map((row) =>
+          row.id === reportId && result.data.report ? result.data.report : row,
+        ),
+      );
+      setFeedback("Branded DOCX exported to the programme Reports folder.");
     });
   }
 
@@ -114,6 +136,8 @@ export function ReportsOverview({
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                     <Badge variant="outline">{formatLabel(report.report_type)}</Badge>
                     <Badge>{formatLabel(report.status)}</Badge>
+                    {report.report_period_label ? <span>{report.report_period_label}</span> : null}
+                    {report.audience_label ? <span>{report.audience_label}</span> : null}
                     {report.programme_name ? <span>{report.programme_name}</span> : null}
                     {report.programme_code ? <span className="font-mono">{report.programme_code}</span> : null}
                     <span>{report.document_format === "docx" ? "DOCX fallback" : "Google Doc"}</span>
@@ -145,6 +169,26 @@ export function ReportsOverview({
                     <Button asChild size="sm" variant="outline">
                       <Link href={report.drive_web_link} rel="noopener noreferrer" target="_blank">
                         Open document
+                        <ExternalLink className="ml-2 h-4 w-4" />
+                      </Link>
+                    </Button>
+                  ) : null}
+                  {canManageOps && report.status === "approved" ? (
+                    <Button
+                      size="sm"
+                      type="button"
+                      onClick={() => exportReport(report.id)}
+                      variant={report.final_export_web_link ? "outline" : "default"}
+                      disabled={exportPending}
+                    >
+                      {exportPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      {report.final_export_web_link ? "Refresh branded DOCX" : "Export branded DOCX"}
+                    </Button>
+                  ) : null}
+                  {report.final_export_web_link ? (
+                    <Button asChild size="sm" variant="outline">
+                      <Link href={report.final_export_web_link} rel="noopener noreferrer" target="_blank">
+                        Open branded DOCX
                         <ExternalLink className="ml-2 h-4 w-4" />
                       </Link>
                     </Button>
