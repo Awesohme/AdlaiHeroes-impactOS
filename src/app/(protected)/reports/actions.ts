@@ -168,132 +168,154 @@ export async function generateProgrammeReportAction(
   ReportActionResult<{
     report: ProgrammeReportRow | null;
     generatedVia: "google_doc" | "docx" | "snapshot_only";
+    driveWebLink: string | null;
+    successMessage: string;
   }>
 > {
-  const reportType = payload.reportType.trim() as ProgrammeReportType;
-  if (!validReportTypes.has(reportType)) {
-    return { ok: false, error: "Choose a valid report type." };
-  }
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return { ok: false, error: "Your session expired. Sign in again." };
-  }
-
-  const context = await buildProgrammeReportContext(programmeId, {
-    reportType,
-    includeBeneficiaryList: Boolean(payload.includeBeneficiaryList),
-    selectedNoteIds: (payload.selectedNoteIds ?? []).filter(Boolean),
-    reportPeriodLabel: payload.reportPeriodLabel,
-    audienceLabel: payload.audienceLabel,
-    includeEvidenceAppendix: Boolean(payload.includeEvidenceAppendix),
-  });
-
-  if (reportType === "final" && !canGenerateFinalReport(context.programme)) {
-    return {
-      ok: false,
-      error: "Final reports are available only after the programme end date passes or the programme is marked completed.",
-    };
-  }
-
-  const rawDraft = renderProgrammeReportDraft(context);
-  const polished = await maybePolishReportDraftWithAi(context, rawDraft);
-  const title = buildReportTitle(context.programme.name, reportType);
-  const programmeDriveRecord: ProgrammeFolderRecord = {
-    id: context.programme.id,
-    programme_code: context.programme.programme_code,
-    name: context.programme.name,
-    drive_folder_id: context.programme.drive_folder_id,
-  };
-
-  let driveFileId: string | null = null;
-  let driveWebLink: string | null = null;
-  let documentFormat: "google_doc" | "docx" = "google_doc";
-  let generationError: string | null = null;
-  let generatedVia: "google_doc" | "docx" | "snapshot_only" = "google_doc";
-
   try {
-    const googleDoc = await createProgrammeReportGoogleDoc({
-      programme: programmeDriveRecord,
-      title,
-      content: polished.content,
+    const reportType = payload.reportType.trim() as ProgrammeReportType;
+    if (!validReportTypes.has(reportType)) {
+      return { ok: false, error: "Choose a valid report type." };
+    }
+
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return { ok: false, error: "Your session expired. Sign in again." };
+    }
+
+    const context = await buildProgrammeReportContext(programmeId, {
+      reportType,
+      includeBeneficiaryList: Boolean(payload.includeBeneficiaryList),
+      selectedNoteIds: (payload.selectedNoteIds ?? []).filter(Boolean),
+      reportPeriodLabel: payload.reportPeriodLabel,
+      audienceLabel: payload.audienceLabel,
+      includeEvidenceAppendix: Boolean(payload.includeEvidenceAppendix),
     });
-    driveFileId = googleDoc.fileId;
-    driveWebLink = googleDoc.webViewLink;
-  } catch (googleError) {
-    generationError =
-      googleError instanceof Error
-        ? googleError.message
-        : "Google Docs generation failed.";
+
+    if (reportType === "final" && !canGenerateFinalReport(context.programme)) {
+      return {
+        ok: false,
+        error: "Final reports are available only after the programme end date passes or the programme is marked completed.",
+      };
+    }
+
+    const rawDraft = renderProgrammeReportDraft(context);
+    const polished = await maybePolishReportDraftWithAi(context, rawDraft);
+    const title = buildReportTitle(context.programme.name, reportType);
+    const programmeDriveRecord: ProgrammeFolderRecord = {
+      id: context.programme.id,
+      programme_code: context.programme.programme_code,
+      name: context.programme.name,
+      drive_folder_id: context.programme.drive_folder_id,
+    };
+
+    let driveFileId: string | null = null;
+    let driveWebLink: string | null = null;
+    let documentFormat: "google_doc" | "docx" = "google_doc";
+    let generationError: string | null = null;
+    let generatedVia: "google_doc" | "docx" | "snapshot_only" = "google_doc";
 
     try {
-      const buffer = await buildProgrammeReportDocxBuffer(title, polished.content, context);
-      const docx = await uploadProgrammeReportDocxToDrive({
+      const googleDoc = await createProgrammeReportGoogleDoc({
         programme: programmeDriveRecord,
-        fileName: `${slugifyFileName(title)}.docx`,
-        buffer: new Uint8Array(buffer),
+        title,
+        content: polished.content,
       });
-      driveFileId = docx.fileId;
-      driveWebLink = docx.webViewLink;
-      documentFormat = "docx";
-      generatedVia = "docx";
-      generationError = null;
-    } catch (docxError) {
+      driveFileId = googleDoc.fileId;
+      driveWebLink = googleDoc.webViewLink;
+    } catch (googleError) {
       generationError =
-        docxError instanceof Error
-          ? docxError.message
-          : generationError || "Report file generation failed.";
-      generatedVia = "snapshot_only";
+        googleError instanceof Error
+          ? googleError.message
+          : "Google Docs generation failed.";
+
+      try {
+        const buffer = await buildProgrammeReportDocxBuffer(title, polished.content, context);
+        const docx = await uploadProgrammeReportDocxToDrive({
+          programme: programmeDriveRecord,
+          fileName: `${slugifyFileName(title)}.docx`,
+          buffer: new Uint8Array(buffer),
+        });
+        driveFileId = docx.fileId;
+        driveWebLink = docx.webViewLink;
+        documentFormat = "docx";
+        generatedVia = "docx";
+        generationError = null;
+      } catch (docxError) {
+        generationError =
+          docxError instanceof Error
+            ? docxError.message
+            : generationError || "Report file generation failed.";
+        generatedVia = "snapshot_only";
+      }
     }
-  }
 
-  const { data: inserted, error: insertError } = await supabase
-    .from("programme_reports")
-    .insert({
-      programme_id: programmeId,
-      report_type: reportType,
-      status: "draft",
-      title,
-      content_snapshot: polished.content,
-      context_snapshot: context,
-      report_period_label: context.report_period_label,
-      audience_label: context.audience_label,
-      include_evidence_appendix: context.include_evidence_appendix,
-      drive_file_id: driveFileId,
-      drive_web_link: driveWebLink,
-      document_format: documentFormat,
-      generated_with_ai: polished.usedAi,
-      generation_error: generationError,
-      generated_by: user.id,
-    })
-    .select("id")
-    .maybeSingle();
+    const { data: inserted, error: insertError } = await supabase
+      .from("programme_reports")
+      .insert({
+        programme_id: programmeId,
+        report_type: reportType,
+        status: "draft",
+        title,
+        content_snapshot: polished.content,
+        context_snapshot: context,
+        report_period_label: context.report_period_label,
+        audience_label: context.audience_label,
+        include_evidence_appendix: context.include_evidence_appendix,
+        drive_file_id: driveFileId,
+        drive_web_link: driveWebLink,
+        document_format: documentFormat,
+        generated_with_ai: polished.usedAi,
+        generation_error: generationError,
+        generated_by: user.id,
+      })
+      .select("id")
+      .maybeSingle();
 
-  if (insertError) {
+    if (insertError) {
+      return {
+        ok: false,
+        error: mapReportError(insertError.message, "The report draft was generated, but it could not be saved in ImpactOps."),
+      };
+    }
+
+    revalidatePath("/reports");
+    revalidatePath("/programmes");
+    revalidatePath(`/programmes/${context.programme.programme_code}/edit`);
+
+    const [report] = await listProgrammeReports({ programmeId }).then((rows) =>
+      rows.filter((row) => row.id === inserted?.id),
+    );
+
+    const successMessage =
+      generatedVia === "snapshot_only"
+        ? "The report draft was saved in ImpactOps, but Drive export failed. Retry after fixing Google Docs setup."
+        : generatedVia === "docx"
+          ? "Report generated with DOCX fallback and saved to Drive."
+          : "Google Doc draft generated successfully.";
+
+    return {
+      ok: true,
+      data: {
+        report: report ?? null,
+        generatedVia,
+        driveWebLink,
+        successMessage,
+      },
+    };
+  } catch (error) {
+    console.error("Programme report generation failed", error);
     return {
       ok: false,
-      error: mapReportError(insertError.message, "The report draft was generated, but it could not be saved in ImpactOps."),
+      error:
+        error instanceof Error
+          ? mapReportError(error.message, "ImpactOps could not generate this report right now.")
+          : "ImpactOps could not generate this report right now.",
     };
   }
-
-  revalidatePath("/reports");
-  revalidatePath("/programmes");
-  revalidatePath(`/programmes/${context.programme.programme_code}/edit`);
-
-  const [report] = await listProgrammeReports({ programmeId }).then((rows) =>
-    rows.filter((row) => row.id === inserted?.id),
-  );
-
-  return {
-    ok: true,
-    data: {
-      report: report ?? null,
-      generatedVia,
-    },
-  };
 }
 
 export async function exportApprovedProgrammeReportAction(

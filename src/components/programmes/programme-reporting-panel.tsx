@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { ExternalLink, FileText, Loader2, Sparkles } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -59,6 +60,7 @@ export function ProgrammeReportingPanel({
   const [reports, setReports] = useState<ProgrammeReportRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [reportFeedback, setReportFeedback] = useState<string | null>(null);
+  const [modalError, setModalError] = useState<string | null>(null);
   const [generationModal, setGenerationModal] = useState<GenerationState | null>(null);
   const [reportPending, startReportTransition] = useTransition();
   const [statusPending, startStatusTransition] = useTransition();
@@ -89,6 +91,7 @@ export function ProgrammeReportingPanel({
 
   function openGenerator(reportType: "interim" | "final") {
     setReportFeedback(null);
+    setModalError(null);
     setGenerationModal({
       reportType,
       includeBeneficiaryList: false,
@@ -112,33 +115,44 @@ export function ProgrammeReportingPanel({
   function generateReport() {
     if (!canManageOps || !generationModal) return;
     setReportFeedback(null);
+    setModalError(null);
     startReportTransition(async () => {
-      const result = await generateProgrammeReportAction(programmeId, {
-        reportType: generationModal.reportType,
-        includeBeneficiaryList: generationModal.includeBeneficiaryList,
-        includeEvidenceAppendix: generationModal.includeEvidenceAppendix,
-        reportPeriodLabel: generationModal.reportPeriodLabel,
-        audienceLabel: generationModal.audienceLabel,
-        selectedNoteIds: generationModal.selectedNoteIds,
-      });
-      if (!result.ok) {
-        setReportFeedback(result.error);
-        return;
+      try {
+        const currentGeneration = generationModal;
+        const result = await generateProgrammeReportAction(programmeId, {
+          reportType: currentGeneration.reportType,
+          includeBeneficiaryList: currentGeneration.includeBeneficiaryList,
+          includeEvidenceAppendix: currentGeneration.includeEvidenceAppendix,
+          reportPeriodLabel: currentGeneration.reportPeriodLabel,
+          audienceLabel: currentGeneration.audienceLabel,
+          selectedNoteIds: currentGeneration.selectedNoteIds,
+        });
+        if (!result.ok) {
+          setModalError(result.error);
+          toast.error(result.error);
+          return;
+        }
+        const [freshNotes, freshReports] = await Promise.all([
+          listProgrammeNotesAction(programmeId),
+          listProgrammeReportsAction({ programmeId }),
+        ]);
+        setNotes(freshNotes);
+        setReports(freshReports);
+        setGenerationModal(null);
+        setModalError(null);
+        setReportFeedback(result.data.successMessage);
+        toast.success(result.data.successMessage);
+        if (result.data.driveWebLink && typeof window !== "undefined") {
+          window.open(result.data.driveWebLink, "_blank", "noopener,noreferrer");
+        }
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "ImpactOps could not finish generating the report. Please try again.";
+        setModalError(message);
+        toast.error(message);
       }
-      const [freshNotes, freshReports] = await Promise.all([
-        listProgrammeNotesAction(programmeId),
-        listProgrammeReportsAction({ programmeId }),
-      ]);
-      setNotes(freshNotes);
-      setReports(freshReports);
-      setGenerationModal(null);
-      setReportFeedback(
-        result.data.generatedVia === "snapshot_only"
-          ? "The report draft was saved in ImpactOps, but Drive export failed. Retry after fixing Google Docs setup."
-          : result.data.generatedVia === "docx"
-            ? "Report generated with DOCX fallback and saved to Drive."
-            : "Google Doc draft generated successfully.",
-      );
     });
   }
 
@@ -146,18 +160,31 @@ export function ProgrammeReportingPanel({
     if (!canManageOps) return;
     setReportFeedback(null);
     startExportTransition(async () => {
-      const result = await exportApprovedProgrammeReportAction(reportId);
-      if (!result.ok) {
-        setReportFeedback(result.error);
-        return;
-      }
-      const freshReports = await listProgrammeReportsAction({ programmeId });
-      setReports(freshReports);
-      setReportFeedback(
-        result.data.driveWebLink
+      try {
+        const result = await exportApprovedProgrammeReportAction(reportId);
+        if (!result.ok) {
+          setReportFeedback(result.error);
+          toast.error(result.error);
+          return;
+        }
+        const freshReports = await listProgrammeReportsAction({ programmeId });
+        setReports(freshReports);
+        const message = result.data.driveWebLink
           ? "Branded DOCX exported to the programme Reports folder."
-          : "Branded DOCX export completed.",
-      );
+          : "Branded DOCX export completed.";
+        setReportFeedback(message);
+        toast.success(message);
+        if (result.data.driveWebLink && typeof window !== "undefined") {
+          window.open(result.data.driveWebLink, "_blank", "noopener,noreferrer");
+        }
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "ImpactOps could not export the branded report. Please try again.";
+        setReportFeedback(message);
+        toast.error(message);
+      }
     });
   }
 
@@ -165,12 +192,23 @@ export function ProgrammeReportingPanel({
     if (!canManageOps) return;
     setReportFeedback(null);
     startStatusTransition(async () => {
-      const result = await updateProgrammeReportStatusAction(reportId, status);
-      if (!result.ok) {
-        setReportFeedback(result.error);
-        return;
+      try {
+        const result = await updateProgrammeReportStatusAction(reportId, status);
+        if (!result.ok) {
+          setReportFeedback(result.error);
+          toast.error(result.error);
+          return;
+        }
+        setReports(result.data);
+        toast.success("Report status updated.");
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "ImpactOps could not update the report status. Please try again.";
+        setReportFeedback(message);
+        toast.error(message);
       }
-      setReports(result.data);
     });
   }
 
@@ -453,6 +491,12 @@ export function ProgrammeReportingPanel({
                 </div>
               </div>
             </div>
+
+            {modalError ? (
+              <div className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                {modalError}
+              </div>
+            ) : null}
 
             <div className="mt-5 flex flex-wrap justify-end gap-2">
               <Button

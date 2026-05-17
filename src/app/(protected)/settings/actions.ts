@@ -40,6 +40,30 @@ export type ReportAiSettingsActionResult =
   | { ok: true; message: string }
   | { ok: false; error: string };
 
+export type IntegrationTestActionResult =
+  | {
+      ok: true;
+      message: string;
+      diagnostics: {
+        mode: string;
+        tokenEmail: string;
+        driveUserEmail: string;
+        driveScope: string;
+        rootLookupStatus: string;
+      };
+    }
+  | {
+      ok: false;
+      error: string;
+      diagnostics?: {
+        mode: string;
+        tokenEmail: string;
+        driveUserEmail: string;
+        driveScope: string;
+        rootLookupStatus: string;
+      };
+    };
+
 function mapDbError(message: string | undefined, fallback: string) {
   if (!message) return fallback;
   if (message.includes("row-level security") || message.includes("permission denied")) {
@@ -234,6 +258,76 @@ export async function testGoogleDocsConnectionAction() {
     redirect(
       `/settings?doc_test=error&doc_error=${encodeURIComponent(message)}&drive_mode=${encodeURIComponent(snapshot?.mode ?? "")}&drive_token_email=${encodeURIComponent(snapshot?.tokenEmail ?? "")}&drive_user_email=${encodeURIComponent(snapshot?.driveUserEmail ?? "")}&drive_scope=${encodeURIComponent(snapshot?.scopes.join(", ") ?? "")}&drive_root_status=${encodeURIComponent(snapshot?.rootLookupMessage ?? "")}`,
     );
+  }
+}
+
+export async function testGoogleDriveConnectionResultAction(): Promise<IntegrationTestActionResult> {
+  try {
+    await testGoogleDriveSetup();
+    const snapshot = await getDriveDebugSnapshot();
+    return {
+      ok: true,
+      message: "Drive root verified successfully.",
+      diagnostics: {
+        mode: snapshot.mode ?? "—",
+        tokenEmail: snapshot.tokenEmail,
+        driveUserEmail: snapshot.driveUserEmail,
+        driveScope: snapshot.scopes.join(", "),
+        rootLookupStatus: snapshot.rootLookupMessage,
+      },
+    };
+  } catch (error) {
+    console.error("Google Drive readiness test failed", error);
+    const snapshot = await getDriveDebugSnapshot().catch(() => null);
+    return {
+      ok: false,
+      error:
+        error instanceof Error ? error.message.slice(0, 220) : "Unknown Google Drive setup error.",
+      diagnostics: snapshot
+        ? {
+            mode: snapshot.mode ?? "—",
+            tokenEmail: snapshot.tokenEmail,
+            driveUserEmail: snapshot.driveUserEmail,
+            driveScope: snapshot.scopes.join(", "),
+            rootLookupStatus: snapshot.rootLookupMessage,
+          }
+        : undefined,
+    };
+  }
+}
+
+export async function testGoogleDocsConnectionResultAction(): Promise<IntegrationTestActionResult> {
+  try {
+    await testGoogleDocsSetup();
+    const snapshot = await getDriveDebugSnapshot();
+    return {
+      ok: true,
+      message: "Google Docs create/write verified successfully.",
+      diagnostics: {
+        mode: snapshot.mode ?? "—",
+        tokenEmail: snapshot.tokenEmail,
+        driveUserEmail: snapshot.driveUserEmail,
+        driveScope: snapshot.scopes.join(", "),
+        rootLookupStatus: snapshot.rootLookupMessage,
+      },
+    };
+  } catch (error) {
+    console.error("Google Docs readiness test failed", error);
+    const snapshot = await getDriveDebugSnapshot().catch(() => null);
+    return {
+      ok: false,
+      error:
+        error instanceof Error ? error.message.slice(0, 220) : "Unknown Google Docs setup error.",
+      diagnostics: snapshot
+        ? {
+            mode: snapshot.mode ?? "—",
+            tokenEmail: snapshot.tokenEmail,
+            driveUserEmail: snapshot.driveUserEmail,
+            driveScope: snapshot.scopes.join(", "),
+            rootLookupStatus: snapshot.rootLookupMessage,
+          }
+        : undefined,
+    };
   }
 }
 
